@@ -140,7 +140,8 @@ public final class FlowEvaluator {
                         policyContext.asOf(),
                         policyContext.it(),
                         new dev.bre.engine.eval.FuelMeter(limit),
-                        new VariableResolver(variableExpressions)))
+                        new VariableResolver(variableExpressions),
+                        policyContext.listCap()))
             .orElseGet(
                 () -> policyContext.withVariables(new VariableResolver(variableExpressions)));
 
@@ -344,7 +345,8 @@ public final class FlowEvaluator {
         context.fuel(),
         // A fresh cache per entity: a MEMBER-scope variable is a different value for each member,
         // so sharing one cache across members would hand the first member's answer to all of them.
-        context.variables().forNewEntity());
+        context.variables().forNewEntity(),
+        context.listCap());
   }
 
   private static List<Value> partiesOf(EvaluationContext context) {

@@ -164,6 +164,12 @@ public final class Evaluator {
    * field that happens to be absent on *every* element currently takes the scalar path.
    */
   private Value project(ListV list, String fieldName) {
+    // §3.10 caps a list "whether it arrives as a fact or is produced at runtime". The service
+    // rejects an oversized facts document up front with `facts-too-large`, but the engine checks
+    // too: it is also reachable from a reference list and from an earlier projection, and an
+    // engine that trusted its caller to have checked would be one configuration change from
+    // unbounded work.
+    context.listCap().check(list.elements().size());
     context.fuel().charge(list.elements().size()); // §3.10: a projection costs 1 + n.
 
     boolean flattening = false;
@@ -185,6 +191,10 @@ public final class Evaluator {
       } else {
         projected.add(fieldValue);
       }
+      // Checked inside the loop, not only at the end. A projection that flattens nested lists
+      // multiplies, so `group.members.bureauReports.tradelines` over bounded inputs can produce an
+      // unbounded result — and the point of the cap is to stop the work, not to measure it after.
+      context.listCap().check(projected.size());
     }
     return new ListV(projected);
   }
@@ -198,6 +208,7 @@ public final class Evaluator {
       throw new EvalException(EvalErrorCode.EVAL_INTERNAL, null, target.typeName());
     }
 
+    context.listCap().check(list.elements().size());
     // §3.10: a filter costs 1 + n before the predicate's own cost, which the recursive
     // evaluation of each element charges as it goes.
     context.fuel().charge(list.elements().size());
@@ -216,7 +227,8 @@ public final class Evaluator {
         kept.add(element);
       }
     }
-    return new ListV(kept);
+    // A filter can only shrink its input, so one check on the result is enough here.
+    return context.listCap().of(kept);
   }
 
   private Value listLiteral(Expr.ListLit literal) {
@@ -224,7 +236,7 @@ public final class Evaluator {
     for (Expr element : literal.elements()) {
       elements.add(eval(element));
     }
-    return new ListV(elements);
+    return context.listCap().of(elements);
   }
 
   private Value arithmetic(Expr.Arithmetic expr) {

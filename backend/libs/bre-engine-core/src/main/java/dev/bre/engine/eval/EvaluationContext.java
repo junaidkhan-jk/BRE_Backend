@@ -21,6 +21,7 @@ import java.util.Objects;
  * @param it the current element inside a filter, or {@link Missing} outside one
  * @param fuel the decision's fuel budget (§3.10), shared by every component
  * @param variables the policy's declared variables, resolved lazily and memoised per entity
+ * @param listCap the list-size cap (§3.10), which bounds the only unbounded work BEL can do
  */
 public record EvaluationContext(
     RecordV facts,
@@ -29,7 +30,8 @@ public record EvaluationContext(
     LocalDate asOf,
     Value it,
     FuelMeter fuel,
-    VariableResolver variables) {
+    VariableResolver variables,
+    ListCap listCap) {
 
   /** Creates a context, copying the maps so the context is genuinely immutable. */
   public EvaluationContext {
@@ -40,6 +42,7 @@ public record EvaluationContext(
     lists = Map.copyOf(lists);
     fuel = fuel == null ? FuelMeter.unlimited() : fuel;
     variables = variables == null ? VariableResolver.none() : variables;
+    listCap = listCap == null ? ListCap.defaults() : listCap;
   }
 
   /**
@@ -73,7 +76,14 @@ public record EvaluationContext(
       LocalDate asOf,
       FuelMeter fuel) {
     return new EvaluationContext(
-        facts, parameters, lists, asOf, Missing.INSTANCE, fuel, VariableResolver.none());
+        facts,
+        parameters,
+        lists,
+        asOf,
+        Missing.INSTANCE,
+        fuel,
+        VariableResolver.none(),
+        ListCap.defaults());
   }
 
   /**
@@ -83,7 +93,7 @@ public record EvaluationContext(
    * @return the derived context
    */
   public EvaluationContext withVariables(VariableResolver resolver) {
-    return new EvaluationContext(facts, parameters, lists, asOf, it, fuel, resolver);
+    return new EvaluationContext(facts, parameters, lists, asOf, it, fuel, resolver, listCap);
   }
 
   /**
@@ -94,7 +104,7 @@ public record EvaluationContext(
    * @return the derived context
    */
   public EvaluationContext withIt(Value element) {
-    return new EvaluationContext(facts, parameters, lists, asOf, element, fuel, variables);
+    return new EvaluationContext(facts, parameters, lists, asOf, element, fuel, variables, listCap);
   }
 
   /** Returns {@code asOf} as a BEL value. */
