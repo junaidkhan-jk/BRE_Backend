@@ -3,13 +3,16 @@
 
 # The engine and the specification-bearing artifacts. Changes here change what
 # the product means, not just how it is built.
-/libs/bre-engine-core/      @AiTdpBugFixer
-/tests/engine-conformance/  @AiTdpBugFixer
+/backend/libs/bre-engine-core/      @AiTdpBugFixer
+/backend/tests/engine-conformance/  @AiTdpBugFixer
 /BRE_PRD/                   @AiTdpBugFixer
 /docs/adr/                  @AiTdpBugFixer
 
 # The build contract, including the D11 / ADR-016 repository boundary.
-/build-logic/               @AiTdpBugFixer
-/gradle/                    @AiTdpBugFixer
-/build.gradle.kts           @AiTdpBugFixer
-/settings.gradle.kts        @AiTdpBugFixer
+/backend/build-logic/               @AiTdpBugFixer
+/backend/gradle/                    @AiTdpBugFixer
+/backend/build.gradle.kts           @AiTdpBugFixer
+/backend/settings.gradle.kts        @AiTdpBugFixer
+
+# The studio front end.
+/ui/                        @AiTdpBugFixer

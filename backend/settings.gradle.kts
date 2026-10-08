@@ -52,4 +52,6 @@ include(":tools:bre-cli")
 include(":tests:engine-conformance")
 include(":tests:perf")
 
-// apps/studio-web is an npm project, not a Gradle module (LLD §1.1).
+// The React + TypeScript studio is an npm project, not a Gradle module. It lives
+// at ../ui/studio-web — see docs/adr/ADR-017 for the backend/ui split, which
+// departs from LLD §1.1's single-root layout.

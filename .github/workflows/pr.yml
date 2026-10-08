@@ -33,12 +33,16 @@ jobs:
             25
 
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          build-root-directory: backend
 
       - name: Build, format, ArchUnit, unit and conformance tests
         run: ./gradlew build --stacktrace
+        working-directory: backend
 
       - name: D11 / ADR-016 repository boundary
         run: ./gradlew checkLibsAreMavenCentralOnly
+        working-directory: backend
 
       - name: Upload test reports
         if: always()
@@ -46,8 +50,8 @@ jobs:
         with:
           name: test-reports
           path: |
-            **/build/reports/tests/
-            **/build/test-results/
+            backend/**/build/reports/tests/
+            backend/**/build/test-results/
           retention-days: 7
 
   # Placeholders, wired as the milestones that produce them land. Each is listed

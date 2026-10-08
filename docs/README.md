@@ -31,13 +31,27 @@ kept for reference. Do not implement from them.
 
 HTML editions with rendered diagrams: [`../BRE_PRD/html/index.html`](../BRE_PRD/html/index.html).
 
+## Repository layout
+
+Two independent projects, split per ADR-017 (which departs from LLD §1.1's single root):
+
+| Path | What |
+|---|---|
+| [`../backend/`](../backend/) | The Gradle root — `libs/` (engine and libraries), `services/`, `tools/bre-cli`, `tests/`. Run `./gradlew` from here. |
+| [`../ui/`](../ui/) | The npm root — `studio-web`, the React + TypeScript Rule Studio. |
+| [`../BRE_PRD/`](../BRE_PRD/) | The specification. |
+| `docs/`, `.github/` | Shared across both. |
+
+There is no build file at the repository root; each project builds from its own directory.
+
 ## Architecture Decision Records
 
 [`adr/`](adr/) holds ADR-001 to ADR-015, carried verbatim from Architecture §14, plus:
 
 - [**ADR-016**](adr/ADR-016-trustt-platform-lib-in-services-only.md) — `trustt-platform-lib` is
-  permitted in `services/*`, not in `libs/*`. The one deliberate deviation from the specification
-  so far, and the reason D11 in `00` carries an amendment note.
+  permitted in `services/*`, not in `libs/*`, and the reason D11 in `00` carries an amendment note.
+- [**ADR-017**](adr/ADR-017-backend-ui-split.md) — the repository is split into `backend/` and
+  `ui/` instead of LLD §1.1's single root.
 
 ## Where the specification is executable
 
@@ -45,10 +59,10 @@ The parts of the specification that are code rather than prose:
 
 | Specification | Lives in |
 |---|---|
-| LLD §13 conformance vectors | [`../tests/engine-conformance/vectors/`](../tests/engine-conformance/vectors/) — 90 vectors, language-neutral JSON. [Format contract](../tests/engine-conformance/vectors/README.md). |
-| LLD §13 property 2 (fail-closed) | `../tests/engine-conformance/src/test/java/dev/bre/conformance/failclosed/` |
-| LLD §1.2 architecture rules | `../libs/bre-engine-core/src/test/java/dev/bre/arch/` |
-| LLD §1.2 rule 2 / §9.6 PII log guard | `../tests/engine-conformance/src/test/java/dev/bre/conformance/PiiLogGuardTest.java` |
+| LLD §13 conformance vectors | [`../backend/tests/engine-conformance/vectors/`](../backend/tests/engine-conformance/vectors/) — 90 vectors, language-neutral JSON. [Format contract](../backend/tests/engine-conformance/vectors/README.md). |
+| LLD §13 property 2 (fail-closed) | `../backend/tests/engine-conformance/src/test/java/dev/bre/conformance/failclosed/` |
+| LLD §1.2 architecture rules | `../backend/libs/bre-engine-core/src/test/java/dev/bre/arch/` |
+| LLD §1.2 rule 2 / §9.6 PII log guard | `../backend/tests/engine-conformance/src/test/java/dev/bre/conformance/PiiLogGuardTest.java` |
 | D11 / ADR-016 repository boundary | the root `checkLibsAreMavenCentralOnly` task |
 
 **Open questions: [`OPEN-QUESTIONS.md`](OPEN-QUESTIONS.md).** Six places where the specification

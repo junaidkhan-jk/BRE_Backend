@@ -29,7 +29,7 @@ From Build Plan §8. All of it, every task.
   `00` §3.10 semantics S1–S13 are a JUnit suite *before* the engine is written. The engine is done
   when that suite is green, not when it looks finished.
 - **A rule with no failing fixture proves nothing.** Every ArchUnit rule in
-  `libs/bre-engine-core/src/test/java/dev/bre/arch/` is asserted twice: it must pass over
+  `backend/libs/bre-engine-core/src/test/java/dev/bre/arch/` is asserted twice: it must pass over
   production code *and* fire over a deliberate violation in `dev.bre.engine.archfixture`. Add a
   rule, add its fixture.
 - **No test may pass by checking nothing.** The conformance suite pins its vector families, the
@@ -39,7 +39,12 @@ From Build Plan §8. All of it, every task.
 
 ## Running it
 
+The repository holds two independent projects (ADR-017): **`backend/`** is the Gradle root and
+**`ui/`** is the npm root. There is no build at the repository root — run each from its own
+directory.
+
 ```bash
+cd backend
 ./gradlew build                          # everything: compile, format, ArchUnit, tests
 ./gradlew spotlessApply                  # fix formatting
 ./gradlew checkLibsAreMavenCentralOnly   # the D11 / ADR-016 repository boundary
@@ -48,7 +53,7 @@ From Build Plan §8. All of it, every task.
 
 ### Two JVMs, on purpose
 
-`gradle/gradle-daemon-jvm.properties` pins the **daemon** to Java 21; the convention plugin
+`backend/gradle/gradle-daemon-jvm.properties` pins the **daemon** to Java 21; the convention plugin
 compiles every module to the **Java 25** toolchain (ADR-012). google-java-format drives javac's
 internal parser and no released version runs on JDK 25 yet, so the formatter needs the older
 daemon. Raise both together once it supports 25. Gradle provisions both JDKs itself through the
