@@ -51,9 +51,11 @@ The parts of the specification that are code rather than prose:
 | LLD §1.2 rule 2 / §9.6 PII log guard | `../tests/engine-conformance/src/test/java/dev/bre/conformance/PiiLogGuardTest.java` |
 | D11 / ADR-016 repository boundary | the root `checkLibsAreMavenCentralOnly` task |
 
-Open questions raised while transcribing the vectors — places where the LLD does not fix something
-a vector needed — are recorded in `NOTES-vectors-*.md` beside them. They are worth reading before
-M1: several need a decision in the LLD itself.
+**Open questions: [`OPEN-QUESTIONS.md`](OPEN-QUESTIONS.md).** Six places where the specification
+does not fix something the code needed, ordered by damage, each with the choice taken so M0 could
+finish. Read it before M1 continues — **Q1 is blocking**: the vector format has no channel for the
+Authority Matrix, so as written a correct engine would fail 24 of its own conformance vectors.
+Per-family detail is in `NOTES-vectors-{missing,tables,decision}.md` beside the vectors.
 
 ## Building
 
