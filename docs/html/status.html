@@ -74,6 +74,10 @@
   ul.plain li{margin:7px 0}
   code{font-family:var(--mono);font-size:12.5px;background:#22262e;color:#e5c07b;
        padding:1px 6px;border-radius:6px}
+  .note-fix{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--amber);
+        border-radius:11px;padding:16px 20px;margin:28px 0 0}
+  .note-fix p{margin:0;font-size:13.5px;color:var(--muted)}
+  .note-fix b{color:var(--ink)}
   .foot{margin-top:52px;padding-top:16px;border-top:1px solid var(--line);
         font-family:var(--mono);font-size:11px;color:var(--faint)}
   @media print{
@@ -87,14 +91,22 @@
 
   <span class="kicker">BRE 2.0 · against the Build Plan's own task IDs</span>
   <h1>Build Status</h1>
-  <p class="sub">Every task in M0–M6, and the state it is actually in.</p>
+  <p class="sub">Every task in M0–M6, and the state it is actually in. Counts are derived from the rows below, not maintained by hand.</p>
   <div class="rule"></div><div class="rule"></div>
 
   <div class="totals">
-    <div class="tot g"><b>14</b><span>done</span></div>
-    <div class="tot a"><b>13</b><span>partial — usable, not finished</span></div>
-    <div class="tot s"><b>33</b><span>not started</span></div>
-    <div class="tot"><b>60</b><span>tasks across all seven milestones</span></div>
+    <div class="tot g"><b>16</b><span>done</span></div>
+    <div class="tot a"><b>7</b><span>partial — usable, not finished</span></div>
+    <div class="tot s"><b>45</b><span>not started</span></div>
+    <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
+  </div>
+
+  <div class="note-fix">
+    <p><b>Correction.</b> The first version of this page said 60 tasks — 14 done, 13 partial, 33
+       not started. Both the total and the breakdown were wrong: the milestones hold 68 tasks
+       (7 + 16 + 8 + 10 + 10 + 10 + 7), and at that point the true state was 8 done, 14 partial and
+       46 not started. The counts above and in every milestone header are now computed from the
+       rows, so a row and its tally cannot disagree again.</p>
   </div>
 
   <h2 class="sec">How to read &ldquo;partial&rdquo;</h2>
@@ -108,16 +120,16 @@
     <div class="ms__head">
       <div><span class="kicker">M0 — Foundations</span>
       <p class="ms__blurb">A repository in which a correct change is easy and an incorrect one fails.</p></div>
-      <div class="ms__counts"><span class="pill g">4 done</span><span class="pill a">3 partial</span></div>
+      <div class="ms__counts"><span class="pill g">6 done</span><span class="pill a">1 partial</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M0-01</td><td class="ti">Repo, Gradle wrapper, every module from LLD §1.1</td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M0-02</td><td class="ti">Convention plugins — Java 25, Spotless, JaCoCo, CycloneDX
-        <div class="no"><b>Error Prone was never added.</b> Everything else is in place.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Error Prone added. It <b>does</b> run on JDK 25, unlike google-java-format — verified before wiring it in. Found nine real defects, all fixed.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M0-03</td><td class="ti">ArchUnit rules from LLD §1.2
         <div class="no">Four rules, each with a deliberately failing fixture proving it fires.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M0-04</td><td class="ti">Conformance vectors and the JUnit runner
-        <div class="no">90 vectors imported and passing. The <b>§3.14 PSF example was not imported</b>.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">90 vectors plus the §3.14 PSF example, imported as a test resource.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M0-05</td><td class="ti">Fail-closed property harness (jqwik)
         <div class="no">Verified against a deliberately fail-open stub, so a green run means something.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M0-06</td><td class="ti">CI pipelines, PR template, CODEOWNERS, ADRs
@@ -130,33 +142,33 @@
     <div class="ms__head">
       <div><span class="kicker">M1 — Rule engine</span>
       <p class="ms__blurb">The critical path, and where nearly all the finished work is. All 90 conformance vectors pass.</p></div>
-      <div class="ms__counts"><span class="pill g">5 done</span><span class="pill a">6 partial</span><span class="pill s">5 pending</span></div>
+      <div class="ms__counts"><span class="pill g">10 done</span><span class="pill a">1 partial</span><span class="pill s">5 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M1-01</td><td class="ti">Value model, exact decimal and date semantics</td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-02</td><td class="ti">BEL lexer, parser, unary tests, positioned errors
-        <div class="no">Written and tested. <b>Jazzer fuzzing (1 h) never run</b> — an M1-02 exit criterion.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Fuzzed. Jazzer found a <b>parser stack overflow in 54 seconds</b>; fixed with a nesting limit, and the crash is a committed regression case. ~18M executions clean since.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-03</td><td class="ti">Binder and type checker
-        <div class="no">Namespaces resolve at runtime. <b>No type checker, no protected-field detection.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Binder and type checker over 16 BEL error codes, including BEL-017 protected fields and BEL-026 Aadhaar.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-04</td><td class="ti">Variable DAG, cycle detection, topological order
-        <div class="no">Lazy memoised resolution with cycle detection. No explicit topological pass — same answers, different mechanism.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Dependency graph with compile-time BEL-015 cycle detection and a deterministic topological order.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-05</td><td class="ti">Closure-tree lowering, fuel, list cap, function registry
-        <div class="no">Fuel and the closed registry are done. <b>Tree-walking, not closure-lowered; no list-size cap.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">List cap and fuel done. <b>Still tree-walking rather than closure-lowered</b> — right answers, not the designed speed.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
       <tr><td class="id">M1-06</td><td class="ti">Three-valued logic and missing-value semantics</td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-07</td><td class="ti">Rules, decision tables with every hit policy, scorecards</td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-08</td><td class="ti">Flow, per-entity iteration, aggregation, knockout</td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-09</td><td class="ti">Precedence, coverage, authority, champion/challenger
-        <div class="no"><b>Customer-reason selection (§4.10) and EACH routing are missing.</b> The fail-closed property runs 2,000 cases, not the required 10&#8310;.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Customer-reason selection, EACH and HIGHEST_ONLY routing, and the fail-closed property against the real engine at 10⁶ cases.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M1-10</td><td class="ti">Static checks — table gaps, overlaps, unreachable rows
         <div class="no">Bad policies are caught at runtime instead of at authoring time.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M1-11</td><td class="ti">Explanation trace recorder
         <div class="no">Blocks M2-05, the replay endpoint.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr><td class="id">M1-12</td><td class="ti">IR codec, PSF YAML, BRE-JCS, schema validation
-        <div class="no">IR codec done, fragments included. <b>PSF YAML, canonical JSON and schema validation are missing.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">IR codec, PSF v1 YAML, BRE-JCS canonical JSON and §2.2 schema validation.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M1-13</td><td class="ti">Bundle format, SHA-256, Ed25519 signing, trust store
         <div class="no">Without it there is no signed, content-addressed policy — so no registry.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M1-14</td><td class="ti">Fact model, canonical schema, Aadhaar/PAN detector
-        <div class="no">Blocks M2-05 and the §9.2 encryption work.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M1-14</td><td class="ti">Fact model, canonical schema, Aadhaar/PAN detector
+        <div class="no">Fact model, canonical lending schema, Verhoeff Aadhaar detector. Pulled in as M1-03's prerequisite.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M1-15</td><td class="ti">bre-cli — psf lint / compile / test / bundle / verify
         <div class="no">An analyst cannot test a policy locally.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M1-16</td><td class="ti">JMH benchmarks and latency budgets
@@ -172,7 +184,7 @@
     </div>
     <table><tbody>
       <tr><td class="id">M2-01</td><td class="ti">bre-platform-common
-        <div class="no">UUIDv7 done (without locator bits). <b>Tenant context and OTel helpers missing.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">UUIDv7, scoped tenant context and problem+json done. <b>OpenTelemetry helpers missing.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
       <tr><td class="id">M2-02</td><td class="ti">Flyway migrations for bre_ctl and bre_dec
         <div class="no">The bre_dec subset is written. <b>bre_ctl missing, and the SQL has never been executed.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
       <tr class="pend"><td class="id">M2-03</td><td class="ti">policy-registry — compile, sign, deploy, active pointer</td><td class="st"><span class="pill s">pending</span></td></tr>
@@ -281,18 +293,26 @@
           machine — verified, about four minutes — if you want them proven.</li>
       <li><b>CI has never run.</b> The workflows are written and lint-clean, but there is no git
           remote, so no pipeline has ever executed them.</li>
-      <li><b>The engine has not been fuzzed or benchmarked.</b> All 90 conformance vectors pass,
-          which is M1's headline exit criterion. Jazzer and the JMH latency budgets — four of the
-          other five — have not been run.</li>
-      <li><b>The front end was not opened in a browser this session.</b> The blank-page fix is
-          verified by mechanism (classic script tag, IIFE bundle, nothing fetched at load) but not
-          by sight: the Playwright server failed to connect.</li>
+      <li><b>The engine has not been benchmarked.</b> All 90 conformance vectors pass, and the
+          fail-closed property now runs against the real engine at 10⁶ cases. Fuzzing has been
+          done and found a real parser crash, since fixed, with roughly 18 million executions clean
+          after it — though no single campaign ran its full 30-minute budget to a clean exit in one
+          go. The JMH latency budgets (M1-16) have not been run at all, so <b>no performance figure
+          for this engine exists</b>.</li>
+      <li><b>The front end was not opened in a browser.</b> The blank-page fix is verified by
+          mechanism (classic script tag, IIFE bundle, nothing fetched at load) but not by sight:
+          the Playwright server failed to connect.</li>
+      <li><b>Two green signals turned out to be hiding nothing-happened.</b> A Jupiter
+          <code>@Tag</code> on a jqwik property made the platform filter skip it while the build
+          stayed green, and a <code>grep</code> in a pipeline swallowed a failing build's exit
+          status. Both were caught by reading the test XML rather than the summary line, and both
+          are worth distrusting a BUILD SUCCESSFUL for.</li>
     </ul>
   </div>
 
   <h2 class="sec">What does work</h2>
   <p class="lead">All <b>90 conformance vectors from LLD §13 pass</b>, across all twenty families —
-     211 tests, none failing. That covers BEL, three-valued logic, exact decimals and dates,
+     363 tests, none failing. That covers BEL, three-valued logic, exact decimals and dates,
      decision tables with every hit policy, scorecards with adverse reasons, per-entity iteration,
      the four aggregation modes, deviation coverage with authority resolution, knockout, fuel, and
      champion/challenger bucketing.</p>
@@ -313,7 +333,7 @@
         encryption that would let facts be stored at all.</li>
   </ul>
 
-  <div class="foot">Generated from the repository · 14 commits · 211 tests passing · 8 October 2026</div>
+  <div class="foot">Generated from the repository · 22 commits · 363 tests passing · 8 October 2026</div>
 </div>
 </body>
 </html>
