@@ -69,10 +69,19 @@ public final class FlowEvaluator {
    * @param steps one entry per flow step, in flow order
    */
   public record DecisionResult(
-      Outcomes.Decision decision, boolean stpEligible, List<StepResult> steps) {
-    /** Creates a decision, copying the step list. */
+      Outcomes.Decision decision,
+      boolean stpEligible,
+      List<StepResult> steps,
+      List<RequiredApprovals.Item> requiredApprovals,
+      List<Reasons.CustomerReason> customerReasons,
+      List<String> internalReasons) {
+
+    /** Creates a decision, copying every list. */
     public DecisionResult {
       steps = List.copyOf(steps);
+      requiredApprovals = List.copyOf(requiredApprovals);
+      customerReasons = List.copyOf(customerReasons);
+      internalReasons = List.copyOf(internalReasons);
     }
 
     /**
@@ -87,13 +96,31 @@ public final class FlowEvaluator {
   }
 
   /**
-   * Evaluates a policy.
+   * Evaluates a policy with no reason catalogue, so no customer reasons are produced.
+   *
+   * <p>Correct for a conformance fragment and for any caller that does not disclose reasons to an
+   * applicant. It is not a shortcut for a real decline: without a catalogue nothing is marked
+   * {@code adverse}, and §4.10 discloses nothing — see {@link ReasonCatalogue}.
    *
    * @param policy the policy IR
-   * @param context the evaluation context at application scope
+   * @param policyContext the evaluation context at application scope
    * @return the decision
    */
   public static DecisionResult evaluate(PolicyIr policy, EvaluationContext policyContext) {
+    return evaluate(policy, policyContext, ReasonCatalogue.EMPTY, ReasonCatalogue.FALLBACK_LOCALE);
+  }
+
+  /**
+   * Evaluates a policy.
+   *
+   * @param policy the policy IR
+   * @param policyContext the evaluation context at application scope
+   * @param catalogue the reason catalogue customer reasons are selected and rendered through
+   * @param locale the requested BCP 47 language tag for customer wording
+   * @return the decision
+   */
+  public static DecisionResult evaluate(
+      PolicyIr policy, EvaluationContext policyContext, ReasonCatalogue catalogue, String locale) {
     // The fuel budget belongs to the policy, so it is installed here rather than left to every
     // caller to remember (§3.10). One meter per decision, shared by every component.
     Map<String, String> variableExpressions = new LinkedHashMap<>();
@@ -150,7 +177,47 @@ public final class FlowEvaluator {
       }
     }
 
-    return new DecisionResult(decide(steps), isStpEligible(steps), steps);
+    Outcomes.Decision decision = decide(steps);
+    List<Reasons.Ordered> ordered = inFlowOrder(policy, components, steps);
+
+    return new DecisionResult(
+        decision,
+        isStpEligible(steps),
+        steps,
+        RequiredApprovals.resolve(
+            ordered.stream().map(Reasons.Ordered::result).toList(), policy.authorityMatrix()),
+        Reasons.customerReasons(decision, ordered, catalogue, policy.customerReasonLimit(), locale),
+        Reasons.internalReasons(ordered));
+  }
+
+  /**
+   * Every entity result tagged with its stage and step position, in flow order.
+   *
+   * <p>Both §4.9's approval order ("flow order, then entity order") and §4.10's reason order are
+   * defined over these positions, so they are recovered once here rather than guessed from the flat
+   * step list. {@code steps} is in flow order already — including the steps a knockout skipped,
+   * which is why the walk follows the flow rather than re-deriving it.
+   */
+  private static List<Reasons.Ordered> inFlowOrder(
+      PolicyIr policy, Components components, List<StepResult> steps) {
+
+    List<Reasons.Ordered> out = new ArrayList<>();
+    int flat = 0;
+    List<StageDef> stages = policy.flow().stages();
+    for (int stageIndex = 0; stageIndex < stages.size(); stageIndex++) {
+      List<StepDef> stageSteps = stages.get(stageIndex).steps();
+      for (int stepIndex = 0; stepIndex < stageSteps.size(); stepIndex++) {
+        if (flat >= steps.size()) {
+          break;
+        }
+        StepResult step = steps.get(flat++);
+        Optional<Integer> priority = components.priorityOf(step.ref());
+        for (ComponentResult entity : step.entities()) {
+          out.add(new Reasons.Ordered(entity, priority, stageIndex, stepIndex));
+        }
+      }
+    }
+    return List.copyOf(out);
   }
 
   private static StepResult skipped(StepDef step) {
@@ -412,6 +479,22 @@ public final class FlowEvaluator {
       Map<String, Ir.ScorecardDef> scorecards = new LinkedHashMap<>();
       policy.scorecards().forEach(scorecard -> scorecards.put(scorecard.code(), scorecard));
       return new Components(rules, tables, scorecards);
+    }
+
+    /**
+     * The component's declared priority, for §4.10's reason ordering.
+     *
+     * <p>A scorecard has none — the schema gives {@code priority} only to rules and tables — and an
+     * absent priority sorts last, which is §4.10's {@code rule.priority ?: infinity}.
+     */
+    Optional<Integer> priorityOf(String ref) {
+      if (rules.containsKey(ref)) {
+        return rules.get(ref).priority();
+      }
+      if (tables.containsKey(ref)) {
+        return tables.get(ref).priority();
+      }
+      return Optional.empty();
     }
 
     Scope scopeOf(String ref) {

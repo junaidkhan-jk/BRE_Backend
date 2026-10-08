@@ -624,6 +624,8 @@ public final class Ir {
    * @param authorityAmount the BEL expression giving the amount authority bands are read against
    *     (§2.2 {@code settings.authorityAmount})
    * @param authorityMatrix the Authority Matrix, when the policy declares one
+   * @param customerReasonLimit how many customer-facing reasons a decline discloses (§2.2 {@code
+   *     settings.customerReasonLimit}, default 4)
    */
   public record PolicyIr(
       int irVersion,
@@ -634,7 +636,11 @@ public final class Ir {
       FlowDef flow,
       Optional<Integer> fuelLimit,
       Optional<String> authorityAmount,
-      Optional<AuthorityMatrix> authorityMatrix) {
+      Optional<AuthorityMatrix> authorityMatrix,
+      int customerReasonLimit) {
+
+    /** §2.2 M8: the default when {@code settings.customerReasonLimit} is absent. */
+    public static final int DEFAULT_CUSTOMER_REASON_LIMIT = 4;
 
     /** Creates a policy, copying every list. */
     public PolicyIr {

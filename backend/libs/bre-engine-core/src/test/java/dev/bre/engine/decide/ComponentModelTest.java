@@ -559,7 +559,8 @@ class ComponentModelTest {
           new Ir.FlowDef(List.of(new Ir.StageDef("S1", knockout, steps))),
           Optional.empty(),
           Optional.empty(),
-          Optional.empty());
+          Optional.empty(),
+          Ir.PolicyIr.DEFAULT_CUSTOMER_REASON_LIMIT);
     }
 
     private static Ir.RuleDef rule(String code, String check) {
@@ -631,7 +632,8 @@ class ComponentModelTest {
                               Ir.StepDef.of("LATER", AggregateSpec.of(AggregateSpec.Kind.NONE)))))),
               Optional.empty(),
               Optional.empty(),
-              Optional.empty());
+              Optional.empty(),
+              Ir.PolicyIr.DEFAULT_CUSTOMER_REASON_LIMIT);
 
       FlowEvaluator.DecisionResult result =
           FlowEvaluator.evaluate(policy, context(Map.of("x", new IntV(-1))));
@@ -673,7 +675,8 @@ class ComponentModelTest {
                               Ir.StepDef.of("MEM", AggregateSpec.of(AggregateSpec.Kind.WORST)))))),
               Optional.empty(),
               Optional.empty(),
-              Optional.empty());
+              Optional.empty(),
+              Ir.PolicyIr.DEFAULT_CUSTOMER_REASON_LIMIT);
 
       Value parties =
           new ListV(

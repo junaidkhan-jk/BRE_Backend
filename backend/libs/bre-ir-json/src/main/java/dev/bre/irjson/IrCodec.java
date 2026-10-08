@@ -111,6 +111,11 @@ public final class IrCodec {
     Optional<String> authorityAmount =
         settings != null ? optionalText(settings, "authorityAmount") : Optional.empty();
 
+    int customerReasonLimit =
+        settings != null && settings.hasNonNull("customerReasonLimit")
+            ? settings.get("customerReasonLimit").asInt()
+            : PolicyIr.DEFAULT_CUSTOMER_REASON_LIMIT;
+
     return new PolicyIr(
         node.hasNonNull("irVersion") ? node.get("irVersion").asInt() : 1,
         variables,
@@ -120,7 +125,8 @@ public final class IrCodec {
         flow,
         fuelLimit,
         authorityAmount,
-        authorityMatrix);
+        authorityMatrix,
+        customerReasonLimit);
   }
 
   /**
