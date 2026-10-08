@@ -26,7 +26,7 @@ import org.junit.jupiter.api.TestFactory;
  */
 class EngineConformanceTest {
 
-  private final EngineUnderTest engine = EngineUnderTest.notImplemented();
+  private final EngineUnderTest engine = new BelExpressionEngine();
 
   @TestFactory
   @DisplayName("LLD §13 conformance vectors")
@@ -51,12 +51,24 @@ class EngineConformanceTest {
                         Assumptions.abort(
                             "pending: " + pending.getMessage() + " [" + vector.source() + "]");
                         return;
+                      } catch (dev.bre.engine.eval.EvalException runtimeError) {
+                        // §3.11: a runtime error is reported ON the result, not thrown out of the
+                        // API, so a vector expecting one compares against its code.
+                        actual =
+                            new ActualOutcome(
+                                new com.fasterxml.jackson.databind.ObjectMapper()
+                                    .valueToTree(
+                                        java.util.Map.of("error", runtimeError.code().name())));
                       }
-                      assertThat(actual.expect())
+                      assertThat(JsonCanonical.normalize(actual.expect()))
                           .as(
-                              "vector %s (%s) from %s",
-                              vector.id(), vector.description(), vector.source())
-                          .isEqualTo(vector.expect());
+                              "vector %s (%s) from %s%nexpected %s%nactual   %s",
+                              vector.id(),
+                              vector.description(),
+                              vector.source(),
+                              vector.expect(),
+                              actual.expect())
+                          .isEqualTo(JsonCanonical.normalize(vector.expect()));
                     }))
         .toList();
   }
