@@ -1,0 +1,63 @@
+[
+  {
+    "id": "S4-01",
+    "description": "a list-valued projected field is concatenated, flattened by one level, so member.bureauReports.tradelines over two reports holding 1 and 2 tradelines is a single list of 3",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {
+        "bureauReports": [
+          {
+            "tradelines": [
+              {
+                "currentBalance": "10"
+              }
+            ]
+          },
+          {
+            "tradelines": [
+              {
+                "currentBalance": "20"
+              },
+              {
+                "currentBalance": "30"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expr": "count(member.bureauReports.tradelines)",
+    "expect": {
+      "value": {
+        "int": 3
+      }
+    }
+  },
+  {
+    "id": "S4-02",
+    "description": "an element whose list-valued field is missing makes the whole projection missing: absence is not emptiness, so the second report having no tradelines field does not count as zero tradelines",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {
+        "bureauReports": [
+          {
+            "tradelines": [
+              {
+                "currentBalance": "10"
+              }
+            ]
+          },
+          {}
+        ]
+      }
+    },
+    "expr": "count(member.bureauReports.tradelines)",
+    "expect": {
+      "value": {
+        "missing": true
+      }
+    }
+  }
+]

@@ -1,0 +1,65 @@
+[
+  {
+    "id": "S3-01",
+    "description": "Filter predicate unknown for one element makes the filtered list missing; the list is missing and nothing is excluded",
+    "asOf": "2026-10-01",
+    "params": {},
+    "lists": {},
+    "scope": "MEMBER",
+    "facts": {
+      "member": {
+        "tradelines": [
+          {
+            "status": "ACTIVE",
+            "currentBalance": "10"
+          },
+          {
+            "currentBalance": "20"
+          }
+        ]
+      }
+    },
+    "expr": "sum(member.tradelines[it.status = \"ACTIVE\"].currentBalance)",
+    "expect": {
+      "value": {
+        "missing": true
+      }
+    }
+  },
+  {
+    "id": "S3-02",
+    "description": "a total predicate such as isMissing(it.status) or it.status = \"ACTIVE\" is never unknown, so the filter yields both elements and the sum is 30; this is how an author handles elements with missing values explicitly (CHK-019)",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {
+        "tradelines": [
+          {
+            "status": "ACTIVE",
+            "currentBalance": "10"
+          },
+          {
+            "currentBalance": "20"
+          }
+        ]
+      }
+    },
+    "expr": "sum(member.tradelines[isMissing(it.status) or it.status = \"ACTIVE\"].currentBalance)",
+    "expect": {
+      "value": {
+        "decimal": "30"
+      }
+    }
+  },
+  {
+    "id": "S3-03",
+    "description": "a filter over [] gives [], so count([][it > 0]) is 0: the fail-closed rule is about unknown predicates, not about emptiness",
+    "asOf": "2026-10-01",
+    "expr": "count([][it > 0])",
+    "expect": {
+      "value": {
+        "int": 0
+      }
+    }
+  }
+]

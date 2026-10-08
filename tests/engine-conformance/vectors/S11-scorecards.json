@@ -1,0 +1,278 @@
+[
+  {
+    "id": "S11-01",
+    "description": "Adverse reason selection with adverseReasons 2 over characteristics A (max 70, got 45, reason RA), B (max 40, got 15, reason RB) and C (max 30, got 30): reasons are ranked by gap descending then declaration order, C is excluded because its shortfall is 0, and the equal gaps of 25 tie to declaration order, giving [RA, RB] (S11, 4.6)",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW"
+      },
+      "group": {
+        "groupRef": "G-88412",
+        "memberPartyRefs": [
+          "P-0003"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "a": 1,
+          "b": 1,
+          "c": 1
+        }
+      ]
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "S11_SCORECARD",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "scorecards": [
+        {
+          "code": "S11_SCORE",
+          "name": "S11 adverse reason scorecard",
+          "scope": "MEMBER",
+          "baseScore": 300,
+          "characteristics": [
+            {
+              "name": "a",
+              "expr": "member.a",
+              "reasonCode": "RA",
+              "bins": [
+                {
+                  "when": "= 1",
+                  "points": 45
+                },
+                {
+                  "when": "= 2",
+                  "points": 70
+                }
+              ]
+            },
+            {
+              "name": "b",
+              "expr": "member.b",
+              "reasonCode": "RB",
+              "bins": [
+                {
+                  "when": "= 1",
+                  "points": 15
+                },
+                {
+                  "when": "= 2",
+                  "points": 40
+                }
+              ]
+            },
+            {
+              "name": "c",
+              "expr": "member.c",
+              "reasonCode": "RC",
+              "bins": [
+                {
+                  "when": "= 1",
+                  "points": 30
+                },
+                {
+                  "when": "= 2",
+                  "points": 10
+                }
+              ]
+            }
+          ],
+          "adverseReasons": 2,
+          "scaling": {
+            "multiplier": "1",
+            "offset": "0",
+            "scale": 0,
+            "roundingMode": "HALF_UP"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "SCORING",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "S11_SCORE",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "PASS",
+          "entities": [
+            {
+              "entityType": "MEMBER",
+              "entityRef": "P-0003",
+              "status": "PASS",
+              "outputs": {
+                "reasons": {
+                  "list": [
+                    {
+                      "text": "RA"
+                    },
+                    {
+                      "text": "RB"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "ref": "S11_SCORE"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S11-02",
+    "description": "A characteristic value that is present but matches no bin is ERROR EVAL_SCORECARD_NO_BIN, not onMissing: only a missing value goes to onMissing, and a present value with no bin is a gap CHK-012 should already have rejected (S11, 3.11, 4.4)",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW"
+      },
+      "group": {
+        "groupRef": "G-88412",
+        "memberPartyRefs": [
+          "P-0003"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "a": 3,
+          "b": 1,
+          "c": 1
+        }
+      ]
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "S11_SCORECARD",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "scorecards": [
+        {
+          "code": "S11_SCORE",
+          "name": "S11 adverse reason scorecard",
+          "scope": "MEMBER",
+          "baseScore": 300,
+          "characteristics": [
+            {
+              "name": "a",
+              "expr": "member.a",
+              "reasonCode": "RA",
+              "bins": [
+                {
+                  "when": "= 1",
+                  "points": 45
+                },
+                {
+                  "when": "= 2",
+                  "points": 70
+                }
+              ]
+            },
+            {
+              "name": "b",
+              "expr": "member.b",
+              "reasonCode": "RB",
+              "bins": [
+                {
+                  "when": "= 1",
+                  "points": 15
+                },
+                {
+                  "when": "= 2",
+                  "points": 40
+                }
+              ]
+            },
+            {
+              "name": "c",
+              "expr": "member.c",
+              "reasonCode": "RC",
+              "bins": [
+                {
+                  "when": "= 1",
+                  "points": 30
+                },
+                {
+                  "when": "= 2",
+                  "points": 10
+                }
+              ]
+            }
+          ],
+          "adverseReasons": 2,
+          "scaling": {
+            "multiplier": "1",
+            "offset": "0",
+            "scale": 0,
+            "roundingMode": "HALF_UP"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "SCORING",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "S11_SCORE",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "status": "ERROR",
+      "error": "EVAL_SCORECARD_NO_BIN",
+      "decision": "REFER"
+    }
+  }
+]

@@ -1,0 +1,124 @@
+[
+  {
+    "id": "L-01",
+    "description": "false and x is FALSE when x is missing (and-table: F and U = F)",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {}
+    },
+    "expr": "false and member.x",
+    "expect": {
+      "value": {
+        "bool": false
+      }
+    }
+  },
+  {
+    "id": "L-02",
+    "description": "true or x is TRUE when x is missing (or-table: T or U = T)",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {}
+    },
+    "expr": "true or member.x",
+    "expect": {
+      "value": {
+        "bool": true
+      }
+    }
+  },
+  {
+    "id": "L-03",
+    "description": "not x is unknown when x is missing; as a rule check with the default onMissing it yields status DATA_MISSING with reason DATA_MISSING_X",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {}
+    },
+    "policy": {
+      "rules": [
+        {
+          "scope": "MEMBER",
+          "check": "not member.x",
+          "reasonCode": "DATA_MISSING_X",
+          "code": "L-03-RULE"
+        }
+      ]
+    },
+    "expect": {
+      "status": "DATA_MISSING",
+      "reasonCode": "DATA_MISSING_X"
+    }
+  },
+  {
+    "id": "L-04",
+    "description": "x > 0 and y / x <= 1 is FALSE with x = 0 and no division error, because and short-circuits before evaluating the right operand",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {
+        "x": "0",
+        "y": "5"
+      }
+    },
+    "expr": "member.x > 0 and member.y / member.x <= 1",
+    "expect": {
+      "value": {
+        "bool": false
+      }
+    }
+  },
+  {
+    "id": "L-05a",
+    "description": "in is TRUE when the present value equals a present element, even though another element is missing",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {
+        "code": "A",
+        "known": "A"
+      }
+    },
+    "expr": "member.code in [member.known, member.absent]",
+    "expect": {
+      "value": {
+        "bool": true
+      }
+    }
+  },
+  {
+    "id": "L-05b",
+    "description": "in is unknown when the present value equals no present element and some element is missing",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {
+        "code": "B",
+        "known": "A"
+      }
+    },
+    "expr": "member.code in [member.known, member.absent]",
+    "expect": {
+      "value": {
+        "missing": true
+      }
+    }
+  },
+  {
+    "id": "L-06",
+    "description": "if c then a else b is missing when c is unknown; it never falls through to else, which is the fail-closed choice",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {}
+    },
+    "expr": "if member.c then 1 else 2",
+    "expect": {
+      "value": {
+        "missing": true
+      }
+    }
+  }
+]

@@ -1,0 +1,153 @@
+[
+  {
+    "id": "S2-01a",
+    "description": "sum([]) is 0: an empty list is empty, not missing (S2 empty-list column of the function registry)",
+    "asOf": "2026-10-01",
+    "expr": "sum([])",
+    "expect": {
+      "value": {
+        "int": 0
+      }
+    }
+  },
+  {
+    "id": "S2-01b",
+    "description": "count([]) is 0",
+    "asOf": "2026-10-01",
+    "expr": "count([])",
+    "expect": {
+      "value": {
+        "int": 0
+      }
+    }
+  },
+  {
+    "id": "S2-01c",
+    "description": "distinctCount([]) is 0",
+    "asOf": "2026-10-01",
+    "expr": "distinctCount([])",
+    "expect": {
+      "value": {
+        "int": 0
+      }
+    }
+  },
+  {
+    "id": "S2-01d",
+    "description": "any([], it > 0) is FALSE: no element is TRUE, so the Kleene any over an empty list is FALSE, not unknown",
+    "asOf": "2026-10-01",
+    "expr": "any([], it > 0)",
+    "expect": {
+      "value": {
+        "bool": false
+      }
+    }
+  },
+  {
+    "id": "S2-01e",
+    "description": "all([], it > 0) is TRUE: vacuous truth over an empty list (CHK-010 lints this because authors rarely mean it)",
+    "asOf": "2026-10-01",
+    "expr": "all([], it > 0)",
+    "expect": {
+      "value": {
+        "bool": true
+      }
+    }
+  },
+  {
+    "id": "S2-02a",
+    "description": "max([]) is missing: there is no largest element of an empty list, and the engine does not substitute 0",
+    "asOf": "2026-10-01",
+    "expr": "max([])",
+    "expect": {
+      "value": {
+        "missing": true
+      }
+    }
+  },
+  {
+    "id": "S2-02b",
+    "description": "min([]) is missing",
+    "asOf": "2026-10-01",
+    "expr": "min([])",
+    "expect": {
+      "value": {
+        "missing": true
+      }
+    }
+  },
+  {
+    "id": "S2-02c",
+    "description": "avg([]) is missing: sum / count would divide by zero, so the empty case is defined as missing rather than an error",
+    "asOf": "2026-10-01",
+    "expr": "avg([])",
+    "expect": {
+      "value": {
+        "missing": true
+      }
+    }
+  },
+  {
+    "id": "S2-02d",
+    "description": "first([]) is missing",
+    "asOf": "2026-10-01",
+    "expr": "first([])",
+    "expect": {
+      "value": {
+        "missing": true
+      }
+    }
+  },
+  {
+    "id": "S2-03a",
+    "description": "sum([100, missing, 50]) is missing: sum is strict, so any missing element makes the total missing - it never skips the element and under-counts",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {}
+    },
+    "expr": "sum([100, member.absent, 50])",
+    "expect": {
+      "value": {
+        "missing": true
+      }
+    }
+  },
+  {
+    "id": "S2-03b",
+    "description": "count([100, missing, 50]) is 3: count is the number of elements, including missing ones",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {}
+    },
+    "expr": "count([100, member.absent, 50])",
+    "expect": {
+      "value": {
+        "int": 3
+      }
+    }
+  },
+  {
+    "id": "S2-04",
+    "description": "an element whose scalar projected field is missing contributes a missing element, and the strict aggregate then returns missing (S4 projection into S2)",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {
+        "tradelines": [
+          {
+            "currentBalance": "10"
+          },
+          {}
+        ]
+      }
+    },
+    "expr": "sum(member.tradelines.currentBalance)",
+    "expect": {
+      "value": {
+        "missing": true
+      }
+    }
+  }
+]

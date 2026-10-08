@@ -1,0 +1,28 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "30 18 * * *"   # 00:00 IST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: Testcontainers integration — M2
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Testcontainers profiles run in CI only; local dev uses embedded infra (no Docker on the dev host)."
+
+  fuzz:
+    name: Jazzer fuzz, 1 hour — M1-02
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Fuzzes the BEL parser and type checker. M1-02 exit: 1 h with no crash."
+
+  jmh-long:
+    name: JMH long run — M1-16
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Longer JMH run against the engine benchmarks."

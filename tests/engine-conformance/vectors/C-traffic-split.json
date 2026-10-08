@@ -1,0 +1,86 @@
+[
+  {
+    "id": "C-01a",
+    "description": "The champion/challenger bucket function over UTF8(tenantId) 0x00 UTF8(applicationRef) 0x00 UTF8(experimentId): SHA-256 of t_acme / APP-2026-000123 / MFI_JLG_CREDIT_UW:EXP-1 starts 9b3f7a3b92430c81, and Long.remainderUnsigned(bigEndianLong(first 8 bytes), 10000) is 8193 (4.11, D8)",
+    "asOf": "2026-10-01",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123"
+      }
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "MFI_JLG_CREDIT_UW",
+        "version": 3
+      },
+      "challengers": [
+        {
+          "experimentId": "MFI_JLG_CREDIT_UW:EXP-1",
+          "bucketFrom": 0,
+          "bucketTo": 10000
+        }
+      ]
+    },
+    "expect": {
+      "bucket": 8193
+    }
+  },
+  {
+    "id": "C-01b",
+    "description": "C-01a with applicationRef APP-2026-000124, one digit apart: SHA-256 starts f212be344116ef45 and the bucket is 1237, so neighbouring application references do not land in neighbouring buckets (4.11, D8)",
+    "asOf": "2026-10-01",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000124"
+      }
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "MFI_JLG_CREDIT_UW",
+        "version": 3
+      },
+      "challengers": [
+        {
+          "experimentId": "MFI_JLG_CREDIT_UW:EXP-1",
+          "bucketFrom": 0,
+          "bucketTo": 10000
+        }
+      ]
+    },
+    "expect": {
+      "bucket": 1237
+    }
+  },
+  {
+    "id": "C-01c",
+    "description": "C-01a with experimentId MFI_JLG_CREDIT_UW:EXP-2: SHA-256 starts 80a4421df2b219ca and the bucket is 6474, so the same application is assigned independently in each experiment (4.11, D8)",
+    "asOf": "2026-10-01",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123"
+      }
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "MFI_JLG_CREDIT_UW",
+        "version": 3
+      },
+      "challengers": [
+        {
+          "experimentId": "MFI_JLG_CREDIT_UW:EXP-2",
+          "bucketFrom": 0,
+          "bucketTo": 10000
+        }
+      ]
+    },
+    "expect": {
+      "bucket": 6474
+    }
+  }
+]

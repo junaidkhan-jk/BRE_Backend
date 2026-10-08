@@ -1,0 +1,71 @@
+name: PR
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build, conformance and architecture
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Two JDKs on purpose: the Gradle daemon runs on 21 because
+      # google-java-format cannot run on 25 yet, while the build compiles every
+      # module to the Java 25 toolchain (ADR-012). See CONTRIBUTING.md.
+      - name: Set up JDK 21 and 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build, format, ArchUnit, unit and conformance tests
+        run: ./gradlew build --stacktrace
+
+      - name: D11 / ADR-016 repository boundary
+        run: ./gradlew checkLibsAreMavenCentralOnly
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
+          retention-days: 7
+
+  # Placeholders, wired as the milestones that produce them land. Each is listed
+  # here rather than added later so the gap is visible in every PR run.
+  contracts:
+    name: Contracts (buf breaking, OpenAPI, AsyncAPI) — M2
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Lands with libs/bre-contracts in M2 (Build Plan §4)."
+
+  sbom:
+    name: SBOM and licence scan — M2
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "CycloneDX per artifact; wired when services/* apply bre.spring-service in M2."
+
+  jmh-smoke:
+    name: JMH smoke with thresholds — M1-16
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Engine benchmarks land in M1-16: p99 <= 0.5 ms (100 rules), <= 50 ms (G40)."

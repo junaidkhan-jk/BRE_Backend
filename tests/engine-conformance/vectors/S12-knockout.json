@@ -1,0 +1,152 @@
+[
+  {
+    "id": "S12-01",
+    "description": "A FAIL in a stage with knockout true stops the flow: every remaining step is reported NOT_APPLICABLE with reason SYS_SKIPPED_KNOCKOUT, and the decision is DECLINE (S12, 4.8)",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW"
+      },
+      "group": {
+        "groupRef": "G-88412",
+        "memberPartyRefs": [
+          "P-0003"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "screening": {
+            "sanctionsHit": true,
+            "pepHit": false,
+            "negativeListHit": false
+          },
+          "cycleNumber": 2
+        }
+      ]
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "S12_KNOCKOUT",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "rules": [
+        {
+          "code": "S12_SCREENING_HIT",
+          "name": "No sanctions, PEP or negative-list hit",
+          "scope": "MEMBER",
+          "check": "not (member.screening.sanctionsHit or member.screening.pepHit or member.screening.negativeListHit)",
+          "onFail": {
+            "status": "FAIL",
+            "reasonCode": "KO_SCREENING_HIT"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        },
+        {
+          "code": "S12_LATER_RULE",
+          "name": "A rule in the stage after the knockout stage",
+          "scope": "MEMBER",
+          "check": "member.cycleNumber >= 1",
+          "onFail": {
+            "status": "FAIL",
+            "reasonCode": "POL_CYCLE_LOW"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {
+            "cycle": "member.cycleNumber"
+          }
+        },
+        {
+          "code": "S12_LAST_RULE",
+          "name": "A rule in the last stage",
+          "scope": "MEMBER",
+          "check": "member.cycleNumber >= 1",
+          "onFail": {
+            "status": "FAIL",
+            "reasonCode": "POL_CYCLE_LOW"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "KNOCKOUT",
+            "knockout": true,
+            "steps": [
+              {
+                "ref": "S12_SCREENING_HIT",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          },
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "S12_LATER_RULE",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          },
+          {
+            "name": "SCORING",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "S12_LAST_RULE",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "decision": "DECLINE",
+      "steps": [
+        {
+          "status": "FAIL",
+          "reasonCode": "KO_SCREENING_HIT",
+          "ref": "S12_SCREENING_HIT"
+        },
+        {
+          "status": "NOT_APPLICABLE",
+          "reasonCode": "SYS_SKIPPED_KNOCKOUT",
+          "ref": "S12_LATER_RULE"
+        },
+        {
+          "status": "NOT_APPLICABLE",
+          "reasonCode": "SYS_SKIPPED_KNOCKOUT",
+          "ref": "S12_LAST_RULE"
+        }
+      ]
+    }
+  }
+]

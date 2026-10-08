@@ -1,0 +1,268 @@
+[
+  {
+    "id": "T-01",
+    "description": "UNIQUE with two matching rows is ERROR EVAL_TABLE_UNIQUE_VIOLATION (and CHK-001 at compile time): input \"A\" matches both [in [\"A\",\"B\"]] and [= \"A\"]",
+    "asOf": "2026-10-01",
+    "scope": "GROUP",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "villageRiskCategory": "A"
+      }
+    },
+    "policy": {
+      "decisionTables": [
+        {
+          "code": "GRP_VRM_CATEGORY",
+          "name": "Village risk category",
+          "scope": "GROUP",
+          "hitPolicy": {
+            "kind": "UNIQUE"
+          },
+          "inputs": [
+            {
+              "name": "vrm",
+              "expr": "group.villageRiskCategory"
+            }
+          ],
+          "outputs": [],
+          "rows": [
+            {
+              "when": [
+                "in [\"A\",\"B\"]"
+              ],
+              "then": {
+                "status": "PASS"
+              }
+            },
+            {
+              "when": [
+                "= \"A\""
+              ],
+              "then": {
+                "status": "REFER",
+                "reasonCode": "POL_VRM_UNKNOWN"
+              }
+            }
+          ],
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "status": "ERROR",
+      "error": "EVAL_TABLE_UNIQUE_VIOLATION"
+    }
+  },
+  {
+    "id": "T-02",
+    "description": "PRIORITY picks the matched row of highest severity: input \"A\" matches rows outputting PASS, DEVIATION and REFER, and the chosen row is the REFER one (severity REFER 3 > DEVIATION 2 > PASS 1)",
+    "asOf": "2026-10-01",
+    "scope": "GROUP",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "villageRiskCategory": "A"
+      }
+    },
+    "policy": {
+      "decisionTables": [
+        {
+          "code": "GRP_VRM_CATEGORY",
+          "name": "Village risk category",
+          "scope": "GROUP",
+          "hitPolicy": {
+            "kind": "PRIORITY"
+          },
+          "inputs": [
+            {
+              "name": "vrm",
+              "expr": "group.villageRiskCategory"
+            }
+          ],
+          "outputs": [],
+          "rows": [
+            {
+              "when": [
+                "-"
+              ],
+              "then": {
+                "status": "PASS"
+              }
+            },
+            {
+              "when": [
+                "in [\"A\",\"B\"]"
+              ],
+              "then": {
+                "status": "DEVIATION",
+                "deviationType": "VRM_CATEGORY_C",
+                "reasonCode": "POL_VRM_C"
+              }
+            },
+            {
+              "when": [
+                "= \"A\""
+              ],
+              "then": {
+                "status": "REFER",
+                "reasonCode": "POL_VRM_UNKNOWN"
+              }
+            }
+          ],
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "status": "REFER",
+      "reasonCode": "POL_VRM_UNKNOWN"
+    }
+  },
+  {
+    "id": "T-03a",
+    "description": "COLLECT(SUM) sums the collectOutput of every matching row: cycleNumber 3 matches both the >= 1 row (points 10) and the >= 2 row (points 20), so points is 30, and the step status is PASS because no matched row declares a status",
+    "asOf": "2026-10-01",
+    "scope": "GROUP",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "cycleNumber": 3
+      }
+    },
+    "policy": {
+      "decisionTables": [
+        {
+          "code": "GRP_CYCLE_POINTS",
+          "name": "Group cycle points",
+          "scope": "GROUP",
+          "hitPolicy": {
+            "kind": "COLLECT",
+            "op": "SUM",
+            "collectOutput": "points"
+          },
+          "inputs": [
+            {
+              "name": "cycle",
+              "expr": "group.cycleNumber"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "points",
+              "type": "Integer"
+            }
+          ],
+          "rows": [
+            {
+              "when": [
+                ">= 1"
+              ],
+              "then": {
+                "outputs": {
+                  "points": "10"
+                }
+              }
+            },
+            {
+              "when": [
+                ">= 2"
+              ],
+              "then": {
+                "outputs": {
+                  "points": "20"
+                }
+              }
+            }
+          ],
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "status": "PASS",
+      "outputs": {
+        "points": {
+          "int": 30
+        }
+      }
+    }
+  },
+  {
+    "id": "T-03b",
+    "description": "COLLECT(SUM) over an empty match set is 0, PASS, and never EVAL_TABLE_NO_MATCH: the empty-match gap rule is non-COLLECT only, so cycleNumber 0 matching no row yields points 0 with status PASS",
+    "asOf": "2026-10-01",
+    "scope": "GROUP",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "cycleNumber": 0
+      }
+    },
+    "policy": {
+      "decisionTables": [
+        {
+          "code": "GRP_CYCLE_POINTS",
+          "name": "Group cycle points",
+          "scope": "GROUP",
+          "hitPolicy": {
+            "kind": "COLLECT",
+            "op": "SUM",
+            "collectOutput": "points"
+          },
+          "inputs": [
+            {
+              "name": "cycle",
+              "expr": "group.cycleNumber"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "points",
+              "type": "Integer"
+            }
+          ],
+          "rows": [
+            {
+              "when": [
+                ">= 1"
+              ],
+              "then": {
+                "outputs": {
+                  "points": "10"
+                }
+              }
+            },
+            {
+              "when": [
+                ">= 2"
+              ],
+              "then": {
+                "outputs": {
+                  "points": "20"
+                }
+              }
+            }
+          ],
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "status": "PASS",
+      "outputs": {
+        "points": {
+          "int": 0
+        }
+      }
+    }
+  }
+]

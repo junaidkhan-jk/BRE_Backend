@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BRE 2.0 Workspace · Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#E9E9E6;--chrome:#FFFFFF;--chrome-ink:#1E1E1E;--chrome-muted:#5E5E5A;--chrome-line:#D2D2CD;
+  --anno:#2563EB;
+  /* wireframe paper: always light, it is a drawing */
+  --wf-bg:#F2F3F5;--wf-paper:#FFFFFF;--wf-ink:#111827;--wf-muted:#6B7280;--wf-line:#E5E7EB;--wf-soft:#F5F6F8;--wf-fill:#E5E7EB;--wf-primary:#3DD263;--wf-side:#1B1E30;--pass:#16A34A;--pass-bg:#DCFCE7;--dev:#D97706;--dev-bg:#FEF3C7;--fail:#DC2626;--fail-bg:#FEE2E2;--ai:#8B5CF6;--ai-tint:#F5F3FF;--code-bg:#F8F9FA;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#151515;--chrome:#1F1F1F;--chrome-ink:#EDEDEA;--chrome-muted:#A5A5A0;--chrome-line:#34342F;--anno:#60A5FA}}
+:root[data-theme="dark"]{--page:#151515;--chrome:#1F1F1F;--chrome-ink:#EDEDEA;--chrome-muted:#A5A5A0;--chrome-line:#34342F;--anno:#60A5FA}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--chrome-ink);font:14px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace}
+
+/* ---------- viewer chrome ---------- */
+.top{background:var(--chrome);border-bottom:1px solid var(--chrome-line);padding:18px 24px 0}
+.top-row{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+.top h1{font-size:22px;margin:0;letter-spacing:-.2px}
+.top p{margin:4px 0 0;color:var(--chrome-muted)}
+.toggles{display:flex;gap:16px;align-items:center;color:var(--chrome-muted);font-size:13px}
+.toggles label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.tabs{display:flex;gap:4px;margin-top:16px;overflow-x:auto}
+.tabs button{border:0;background:none;padding:10px 14px;border-bottom:2px solid transparent;color:var(--chrome-muted);cursor:pointer;white-space:nowrap}
+.tabs button b{font-family:"JetBrains Mono",monospace;font-weight:500;margin-right:6px;opacity:.7}
+.tabs button[aria-selected="true"]{color:var(--chrome-ink);border-bottom-color:var(--chrome-ink);font-weight:600}
+.stage{display:flex;gap:20px;padding:20px 24px 32px;align-items:flex-start}
+.frame-wrap{flex:1;min-width:0;overflow-x:auto;border-radius:10px}
+.notes{width:320px;flex:none;background:var(--chrome);border:1px solid var(--chrome-line);border-radius:10px;padding:18px 18px 8px;position:sticky;top:12px}
+.notes h2{font-size:16px;margin:0 0 4px}
+.notes .purpose{color:var(--chrome-muted);margin:0 0 14px}
+.notes ol{list-style:none;margin:0;padding:0}
+.notes li{display:flex;gap:10px;margin:0 0 12px}
+.notes li b{display:block}
+.notes li span.d{color:var(--chrome-muted)}
+.notes h3{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--chrome-muted);margin:16px 0 8px}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+@media (max-width:1100px){.stage{flex-direction:column}.notes{width:100%;position:static}}
+
+/* ---------- wireframe ---------- */
+.wf{width:1240px;height:780px;display:flex;background:var(--wf-bg);color:var(--wf-ink);border:1px solid #D1D5DB;box-shadow:0 8px 30px rgba(17,24,39,.12);border-radius:10px;overflow:hidden;font-size:13px}
+.wf *{border-color:var(--wf-line)}
+.side{width:200px;flex:none;background:var(--wf-side);color:#FFFFFF;display:flex;flex-direction:column}
+.side .logo{padding:16px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;gap:8px;align-items:center}
+.side .mark{width:26px;height:26px;background:var(--wf-primary);color:#fff;border-radius:6px;display:grid;place-items:center;font-weight:700;font-size:12px}
+.side small{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.45)}
+.side nav{padding:10px 8px;flex:1}
+.side .cap{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.45);padding:4px 10px 8px}
+.side nav button{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border:0;border-radius:6px;background:none;color:rgba(255,255,255,.6);cursor:pointer;text-align:left}
+.side nav button.on{background:rgba(255,255,255,.10);color:#fff;font-weight:600}
+.side nav i{width:14px;height:14px;border:1.5px solid currentColor;border-radius:3px;flex:none}
+.side .badge{margin-left:auto;font-size:10px;font-weight:700;background:#EF4444;color:#fff;border-radius:99px;padding:1px 6px}
+.side .user{padding:12px;border-top:1px solid rgba(255,255,255,.08);display:flex;gap:8px;align-items:center;font-size:12px}
+.side .av{width:28px;height:28px;border-radius:50%;background:var(--wf-primary);color:#fff;display:grid;place-items:center;font-weight:700}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.hd{background:var(--wf-paper);border-bottom:1.5px solid var(--wf-line);padding:12px 20px;display:flex;align-items:center;gap:10px}
+.crumb{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--wf-muted);font-weight:600}
+.ttl{font-size:19px;font-weight:700}
+.sp{flex:1}
+.btn{border:1.5px solid var(--wf-line);background:var(--wf-paper);border-radius:6px;padding:6px 12px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.btn.pri{background:var(--wf-primary);border-color:var(--wf-primary);color:#fff;font-weight:600}
+.btn.sm{padding:3px 9px;font-size:11.5px}
+.inp{border:1.5px solid var(--wf-line);background:var(--wf-bg);border-radius:6px;padding:6px 10px;font-size:12.5px;color:var(--wf-muted)}
+.body{flex:1;min-height:0;padding:16px 20px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.card{background:var(--wf-paper);border:1.5px solid var(--wf-line);border-radius:8px}
+.lbl{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--wf-muted);font-weight:600}
+.kpis{display:flex;gap:10px}
+.kpi{padding:10px 16px;min-width:110px}
+.kpi .v{font-family:"JetBrains Mono",monospace;font-size:20px;font-weight:600}
+.kpi .k{font-size:11.5px;color:var(--wf-muted)}
+table.t{width:100%;border-collapse:collapse}
+.t th{text-align:left;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--wf-muted);padding:8px 10px;background:var(--wf-soft);border-bottom:1.5px solid var(--wf-line);white-space:nowrap}
+.t td{padding:8px 10px;border-bottom:1px solid var(--wf-soft);vertical-align:middle}
+.t tr.click{cursor:pointer}
+.t tr.click:hover td{background:var(--wf-soft)}
+.sub{font-size:11.5px;color:var(--wf-muted)}
+.tag{font-size:11px;border:1.2px solid var(--wf-line);border-radius:4px;padding:0 6px;display:inline-block;font-family:"JetBrains Mono",monospace;color:var(--wf-muted)}
+.chip{font-size:11px;background:var(--wf-soft);border-radius:4px;padding:2px 8px;display:inline-block}
+/* outcome & status marks: shape, not colour */
+.o{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.03em;border-radius:99px;padding:2px 9px;white-space:nowrap}
+.o.pass{background:var(--pass-bg);color:var(--pass)}
+.o.dev{background:var(--dev-bg);color:var(--dev)}
+.o.fail{background:var(--fail-bg);color:var(--fail)}
+.o.draft{background:#F3F4F6;color:#6B7280}.o.sup{background:#FFFFFF;color:#9CA3AF;border:1px solid #E5E7EB}.o.edit{background:#EDFBF2;color:#15803D;border:1px solid #3DD263}.vbtn{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;border:1px solid var(--wf-line);background:var(--wf-paper);border-radius:5px;padding:2px 8px;cursor:pointer}.vbtn.on{border-color:var(--wf-primary);background:#EDFBF2}.vtl{display:flex;gap:0;align-items:stretch;overflow-x:auto}.vtl .step{min-width:170px;padding:0 14px 0 0;position:relative}.vtl .dot{width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1.5px var(--wf-line);background:#D1D5DB;margin-bottom:6px}.vtl .line{position:absolute;left:12px;right:0;top:6px;height:1.5px;background:var(--wf-line)}
+.ftabs{display:flex;border-bottom:1.5px solid var(--wf-line);padding:0 12px;align-items:center}
+.ftabs button{border:0;background:none;padding:9px 12px;border-bottom:2px solid transparent;margin-bottom:-1.5px;cursor:pointer;color:var(--wf-muted)}
+.ftabs button.on{color:var(--wf-ink);font-weight:600;border-bottom-color:var(--wf-primary)}
+.ftabs .n{font-size:10.5px;font-weight:600;background:var(--wf-soft);color:var(--wf-muted);border-radius:99px;padding:1px 6px;margin-left:4px}.ftabs button.on .n{background:var(--wf-primary);color:#fff}
+.code{font-family:"JetBrains Mono",monospace;font-size:11.5px;line-height:1.6;white-space:pre;color:var(--wf-ink);margin:0}
+.bar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--wf-soft)}
+.bar .p{background:#22C55E}.bar .d{background:#F59E0B}.bar .f{background:#EF4444}
+.skel{height:9px;border-radius:5px;background:var(--wf-fill)}
+.anno{display:none;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font:700 11px/20px Inter,sans-serif;text-align:center;flex:none;vertical-align:middle;margin:0 4px}
+.show-anno .anno{display:inline-block}
+.notes .anno{display:inline-block}
+.state-note{font-size:11px;color:var(--wf-muted);font-style:italic}
+</style>
+</head>
+<body class="show-anno">
+<header class="top">
+  <div class="top-row">
+    <div>
+      <h1>BRE 2.0 Workspace · Wireframes</h1>
+      <p>Wireframe conversion of the Figma Make file “Create BRE Workspace Screens”, in its original colours. Five screens, clickable.</p>
+    </div>
+    <div class="toggles">
+      <label><input type="checkbox" id="annoToggle" checked> Annotations</label>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+</header>
+
+<div class="stage">
+  <div class="frame-wrap"><div class="wf" id="wf">
+    <aside class="side">
+      <div class="logo"><div class="mark">T</div><div><b>Trustt</b><small>BRE 2.0</small></div></div>
+      <nav id="sidenav"><div class="cap">Workspace</div></nav>
+      <div class="user"><div class="av">P</div><div><b style="font-weight:600">Priya Nair</b><small style="text-transform:none;letter-spacing:0">Credit Policy</small></div></div>
+    </aside>
+    <main class="main" id="screen"></main>
+  </div></div>
+  <aside class="notes" id="notes"></aside>
+</div>
+
+<script>
+const SCREENS=[
+ {id:'repository',label:'Rule Repository',badge:null},
+ {id:'editor',label:'Rule Editor',badge:null},
+ {id:'simulator',label:'Simulator',badge:null},
+ {id:'approvals',label:'Approval Queue',badge:3},
+ {id:'trace',label:'Decision Trace',badge:null},
+];
+const state={vhOpen:null,rightTab:'versions',screen:'repository',filter:'All',editingId:'JLG-001',edTab:'trl',sim:'idle',apSel:0,apDec:{},traced:false,expanded:'JLG-001'};
+
+const NOTES={
+ repository:{purpose:'Browse every rule in the repository, filter by status, and open a rule for editing.',
+  items:[['Header actions','Search by name or ID, export the list, and create a new rule.'],
+   ['Status summary','Counts of total, live, in-review and draft rules (retired rules are hidden).'],
+   ['Status filter tabs','All / Live / In Review / Draft, each with a count. Sort and view toggles on the right.'],
+   ['Rule table','ID, name with plain-language intent, category, products, status, last modified, author. Edit opens the Rule Editor.'],
+   ['Pagination','Result count with previous / next paging.'],
+   ['Version','Current version of each rule and how many earlier versions exist. Click it to expand the version history: every version with status (Live, In review, Draft, Superseded), author, date and change note.']],
+  flow:'Click a version (e.g. v4 ▾) to see its history. Edit, “Open in editor” or “+ New Rule” go to the Rule Editor.'},
+ editor:{purpose:'Turn a banker’s plain-language intent into a structured rule with AI help, then test it.',
+  items:[['Banker intent','Policy written in plain language, stamped with author and time. “Compile with AI” drafts the rule.'],
+   ['AI assistant','Explains the draft, proposes test cases, and refines the rule through chat.'],
+   ['Rule views','TRL (readable rule language), Rule JSON (machine form) and Tests (expected vs actual outcomes).'],
+   ['Versions and variables','Versions: full history of the rule with status, author, date and note; view, compare or restore an older version as a draft. Variables: searchable data catalog.'],
+   ['Save and submit','Header shows the draft version being edited and the live version it replaces. Save as draft, or submit for review.'],
+   ['Version bar','Editing a live rule creates a new draft version; the live version keeps running until the draft is approved. “Compare” shows the changes against live.']],
+  flow:'The right panel opens on Versions (switch to Variables for the data catalog). Compare opens the “Changes vs live” tab. Submit for Review leads to the Approval Queue.'},
+ simulator:{purpose:'Run a rule set against sample or historical applications before it goes live.',
+  items:[['Policy / rule set','Choose the version to test; shows rule count and release date.'],
+   ['Data and sample size','Synthetic, historical or uploaded CSV data, and how many applications to run.'],
+   ['Champion / challenger','Optionally compare against another version.'],
+   ['Outcome summary','Pass, deviation and fail counts with share, average evaluation time and a stacked bar.'],
+   ['Application results','Per-application inputs, each rule’s outcome, the overall outcome and timing.']],
+  flow:'Press “Run Simulation” to switch from the empty state to results.'},
+ approvals:{purpose:'Checkers review submitted rule changes with evidence, then approve or reject.',
+  items:[['Review queue','Pending submissions with author, date, simulator status and test pass count.'],
+   ['Submission header','Rule, version change, category, author and evidence badges.'],
+   ['Change summary','The author’s plain-language description of what changed.'],
+   ['Rule diff','Line-by-line comparison of the previous and new rule versions.'],
+   ['Decision','Comment for the author, then Approve (queued for release) or Reject (author notified).']],
+  flow:'Select a queue item, then Approve or Reject to see the resulting state.'},
+ trace:{purpose:'Monitor today’s decisions and explain any single decision rule by rule.',
+  items:[['Search','Find a decision by application ID, borrower or loan ID.'],
+   ['Decision KPIs','Decisions today with pass, deviation and fail rates.'],
+   ['Recent decisions and rule hit rates','Latest decisions (click to trace) and the outcome mix per rule.'],
+   ['Evaluation time','Average evaluation time by rule and in total.'],
+   ['Decision trace','Summary with policy version and bundle hash, then a timeline of each rule’s outcome, fired condition, reason and inputs.']],
+  flow:'Click a recent decision or search to open its trace; “Clear” returns to the dashboard.'}
+};
+
+const RULES=[
+ ['JLG-001','Minimum Borrower Age','Age + tenure must not exceed 60 years','Eligibility',['LOS','DL'],'live','Priya N.','14 Sep 2026','v4'],
+ ['JLG-028','Borrower Age + Tenure','Age-at-maturity check with CU_L3 deviation','Eligibility',['LOS'],'live','Priya N.','10 Sep 2026','v2'],
+ ['JLG-049','Household FOIR','Fixed obligation to income ratio check across flags','Affordability',['LOS','DDP'],'in_review','Rahul M.','15 Sep 2026','v3'],
+ ['IND-012','Bureau Score Cut-off','CIBIL ≥ 650 required; delinquency flag must be false','Credit',['LOS','DI'],'in_review','Priya N.','15 Sep 2026','v5'],
+ ['IND-031','Exposure Limit','Total outstanding must not exceed ₹3 lakh','Credit',['LOS'],'draft','Anita S.','13 Sep 2026','v1'],
+ ['LCS-001','DPD Bucket Assignment','Assign collection bucket based on days-past-due','Collections',['LCS'],'live','Karan P.','8 Sep 2026','v6'],
+ ['LCS-008','OTS Eligibility','One-time settlement offer: DPD > 180 and balance < ₹50k','Collections',['LCS'],'live','Karan P.','5 Sep 2026','v3'],
+ ['GRP-002','JLG Group Formation','Min 5, max 10 members from same village','Group Policy',['LOS'],'draft','Priya N.','12 Sep 2026','v1'],
+];
+const ST={live:['Live','pass'],in_review:['In Review','dev'],draft:['Draft','draft']};
+const PEOPLE=['Priya N.','Rahul M.','Anita S.','Karan P.'];
+const NOTE_BY={'JLG-049':{3:'FOIR threshold 40% → 45% for MFI-cycle borrowers; RTR sub-rule added'},'IND-012':{5:'Minimum CIBIL 675 → 650 for micro-enterprise segment'},'JLG-001':{4:'Deviation band above 58 years routed to CU_L3'},'GRP-002':{1:'New rule: 5–10 members from same village'}};
+const DATES=['14 Sep 2026','22 Aug 2026','30 Jul 2026','2 Jul 2026','11 Jun 2026','20 May 2026'];
+function history(r){ // r = rule row
+ const n=+r[8].slice(1),out=[];
+ for(let k=n;k>=1;k--){
+  let st='superseded';
+  if(k===n) st=r[5];
+  else if(k===n-1&&r[5]!=='live') st='live';
+  const note=(NOTE_BY[r[0]]||{})[k]||(k===1?'Initial version':'Policy update');
+  out.push({v:'v'+k,st,by:k===n?r[6]:PEOPLE[(k+r[0].length)%4],at:k===n?r[7]:DATES[Math.min(n-k,DATES.length-1)],note});
+ }
+ return out;
+}
+const VST={live:['Live','pass'],in_review:['In Review','dev'],draft:['Draft','draft'],superseded:['Superseded','sup'],editing:['Editing','edit']};
+const vpill=st=>`<span class="o ${VST[st][1]}">${VST[st][0]}</span>`;
+const O=v=>`<span class="o ${v==='PASS'?'pass':v==='DEVIATION'?'dev':'fail'}">${v}</span>`;
+const A=n=>`<span class="anno">${n}</span>`;
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function header(crumb,title,right=''){return `<div class="hd"><div><div class="crumb">${crumb}</div><div class="ttl">${title}</div></div><div class="sp"></div>${right}</div>`}
+
+/* ---------- 1 Repository ---------- */
+function repository(){
+ const c={All:RULES.length,Live:RULES.filter(r=>r[5]==='live').length,'In Review':RULES.filter(r=>r[5]==='in_review').length,Draft:RULES.filter(r=>r[5]==='draft').length};
+ const rows=RULES.filter(r=>state.filter==='All'||(state.filter==='In Review'?r[5]==='in_review':r[5]===state.filter.toLowerCase()));
+ return header('Trustt · BRE 2.0','Rule Repository',`${A(1)}<span class="inp" style="width:190px">⌕ Search</span><button class="btn">↓ Export</button><button class="btn pri" data-go="editor" data-rule="">+ New Rule</button>`)+
+ `<div class="body">
+  <div class="kpis">${A(2)}${[['Total Rules',c.All,'var(--wf-ink)'],['Live',c.Live,'var(--pass)'],['In Review',c['In Review'],'var(--dev)'],['Draft',c.Draft,'var(--wf-muted)']].map(([k,v,col])=>`<div class="card kpi"><div class="v" style="color:${col}">${v}</div><div class="k">${k}</div></div>`).join('')}</div>
+  <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+   <div class="ftabs">${A(3)}${Object.keys(c).map(f=>`<button data-filter="${f}" class="${state.filter===f?'on':''}">${f}<span class="n">${c[f]}</span></button>`).join('')}<div class="sp"></div><button class="btn sm">↕ Sort</button>&nbsp;<button class="btn sm">⊞</button></div>
+   <div style="flex:1;overflow:auto">
+   <table class="t"><tr><th>☐</th><th>Rule ID ${A(4)}</th><th>Name</th><th>Category</th><th>Products</th><th>Status</th><th>Version ${A(6)}</th><th>Last modified</th><th>Author</th><th></th></tr>
+   ${rows.map(r=>`<tr><td>☐</td><td class="mono sub">${r[0]}</td><td><b>${r[1]}</b><div class="sub">${esc(r[2])}</div></td><td><span class="chip">${r[3]}</span></td><td>${r[4].map(p=>`<span class="tag">${p}</span>`).join(' ')}</td><td><span class="o ${ST[r[5]][1]}">${ST[r[5]][0]}</span></td><td><button class="vbtn ${state.vhOpen===r[0]?'on':''}" data-vh="${r[0]}">${r[8]} ▾</button><div class="sub" style="font-size:10.5px">${(+r[8].slice(1))-1?(+r[8].slice(1))-1+' earlier':'first version'}</div></td><td class="mono sub">${r[7]}</td><td class="sub">${r[6]}</td><td style="text-align:right;white-space:nowrap"><button class="btn sm" data-go="editor" data-rule="${r[0]}">Edit</button> <button class="btn sm">⋯</button></td></tr>${state.vhOpen===r[0]?vhRow(r):''}`).join('')}
+   </table></div>
+   <div style="border-top:1.5px solid var(--wf-line);padding:8px 14px;display:flex;align-items:center;gap:6px" class="sub">Showing ${rows.length} of ${RULES.length} results ${A(5)}<div class="sp"></div><button class="btn sm">← Prev</button><button class="btn sm pri">1</button><button class="btn sm">Next →</button></div>
+  </div></div>`;
+}
+
+function vhRow(r){
+ const h=history(r);
+ return `<tr><td></td><td colspan="9" style="background:#FAFBFC;padding:12px 14px 14px">
+  <div style="display:flex;align-items:center;margin-bottom:10px"><div class="lbl">Version history · ${r[0]}</div><div class="sp"></div><button class="btn sm">Compare versions</button>&nbsp;<button class="btn sm" data-go="editor" data-rule="${r[0]}">Open in editor</button></div>
+  <div class="vtl">${h.map((x,i)=>`<div class="step">${i<h.length-1?'<div class="line"></div>':''}<div class="dot" style="position:relative;background:${x.st==='live'?'#22C55E':x.st==='in_review'?'#F59E0B':x.st==='draft'?'#9CA3AF':'#E5E7EB'}"></div>
+   <div style="display:flex;gap:6px;align-items:center"><b class="mono">${x.v}</b>${vpill(x.st)}</div><div class="sub">${x.by} · ${x.at}</div><div style="font-size:12px;margin-top:3px;max-width:200px">${x.note}</div></div>`).join('')}</div></td></tr>`;
+}
+
+/* ---------- 2 Editor ---------- */
+const TRL=`RULE "JLG-001 · Minimum Borrower Age at Maturity"
+  DESCRIPTION "Borrower age plus loan tenure must not exceed 60 years"
+  CATEGORY   Eligibility
+  APPLIES TO LOS, DL
+  ENTITY     BORROWER
+
+  LET age_at_maturity = borrower.age_years + loan.tenure_years
+
+  IF age_at_maturity > 60 THEN
+    FAIL
+    REASON "Age at maturity exceeds 60 years ({{age_at_maturity}} years)"
+  ELSE IF age_at_maturity > 58 THEN
+    DEVIATION TO CU_L3
+    REASON "Age at maturity is {{age_at_maturity}} years — above 58, deviates to L3"
+  ELSE
+    PASS
+  END`;
+const JSONR=`{
+  "id": "JLG-001",
+  "version": "v4",
+  "name": "Minimum Borrower Age at Maturity",
+  "category": "Eligibility",
+  "applies_to": ["LOS", "DL"],
+  "entity": "BORROWER",
+  "nodes": [
+    { "id": "age_maturity_calc", "type": "expression",
+      "expression": "borrower.age_years + loan.tenure_years",
+      "output": "age_at_maturity" },
+    { "id": "reject_check", "type": "condition",
+      "condition": "age_at_maturity > 60",
+      "true": { "outcome": "FAIL", "reason": "Age at maturity exceeds 60 years" },
+      "false": "deviation_check" },
+    { "id": "deviation_check", "type": "condition",
+      "condition": "age_at_maturity > 58",
+      "true": { "outcome": "DEVIATION", "route_to": "CU_L3" },
+      "false": { "outcome": "PASS" } }
+  ]
+}`;
+const VARS=[['Borrower',[['borrower.age_years','integer','Age in completed years'],['borrower.cibil_score','integer','CIBIL TransUnion score'],['borrower.delinquent_flag','boolean','Any 90+ DPD in 24m'],['borrower.monthly_income','currency','Net monthly income']]],
+ ['Loan',[['loan.tenure_years','integer','Tenure in years'],['loan.amount','currency','Sanctioned amount'],['loan.product_code','string','JLG / SHG / IND / DDP']]],
+ ['Obligations',[['obligation.total_emi','currency','Sum of all active EMIs'],['obligation.foir','decimal','Calculated FOIR ratio']]]];
+const TESTS=[['TC-01','Age 45, tenure 10yr',45,10,'PASS'],['TC-02','Age 50, tenure 9yr (59yr)',50,9,'DEVIATION'],['TC-03','Age 52, tenure 10yr (62yr)',52,10,'FAIL'],['TC-04','Age 58, tenure 2yr (60yr)',58,2,'DEVIATION']];
+function editor(){
+ const id=state.editingId;
+ const rule=RULES.find(r=>r[0]===id);
+ const cur=rule?+rule[8].slice(1):0;
+ // editing a live rule opens a new draft on top of it
+ const draftV=rule?(rule[5]==='live'?cur+1:cur):1;
+ const baseLive=rule?(rule[5]==='live'?cur:(cur>1?cur-1:null)):null;
+ let hist=rule?history(rule):[];
+ if(rule&&rule[5]==='live')hist=[{v:'v'+draftV,st:'editing',by:'Priya N.',at:'Now',note:'Unsaved changes'},...hist];
+ else if(rule)hist[0]={...hist[0],st:'editing',note:hist[0].note};
+ if(!rule)hist=[{v:'v1',st:'editing',by:'Priya N.',at:'Now',note:'New rule'}];
+ const verBar=`<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:#EDFBF2;border-bottom:1px solid #BBF7D0;font-size:12.5px">${A(6)}<b class="mono" style="white-space:nowrap">Editing v${draftV}</b>${baseLive?`<span class="sub" style="color:#166534">from live <b class="mono">v${baseLive}</b>; v${baseLive} stays live until approval</span>`:`<span class="sub" style="color:#166534">first version — goes live after approval</span>`}<div class="sp"></div>${baseLive?`<button class="btn sm" data-edtab="diff">Compare</button>`:''}</div>`;
+ const tabs=[['trl','TRL'],['json','Rule JSON'],['tests','Tests']].concat(baseLive?[['diff','Changes vs v'+baseLive]]:[]);
+ let center='';
+ if(state.edTab==='trl')center=`<pre class="code" style="padding:14px 16px">${esc(TRL)}</pre>`;
+ else if(state.edTab==='json')center=`<pre class="code" style="padding:14px 16px">${esc(JSONR)}</pre>`;
+ else if(state.edTab==='diff')center=`<div style="padding:12px 0"><div class="lbl" style="padding:0 16px 8px">Draft v${draftV} vs live v${baseLive}</div>${[['ctx',70],['ctx',55],['del',62],['add',74],['ctx',48],['ctx',60],['add',66],['add',40],['ctx',52]].map(([t,w])=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 16px;background:${t==='add'?'#DCFCE7':t==='del'?'#FEE2E2':'transparent'}"><span class="mono" style="width:10px;color:${t==='add'?'#166534':t==='del'?'#991B1B':'#9CA3AF'}">${t==='add'?'+':t==='del'?'-':' '}</span><div class="skel" style="width:${w}%;background:${t==='add'?'#86EFAC':t==='del'?'#FCA5A5':'#E5E7EB'}"></div></div>`).join('')}<div class="state-note" style="padding:8px 16px">Line-by-line diff of the draft against the live version</div></div>`;
+ else center=`<div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center"><div class="lbl">Test cases</div><div class="sp"></div><button class="btn sm">▶ Run all</button></div>
+  ${TESTS.map(t=>`<div class="card" style="padding:9px 12px"><div style="display:flex;gap:8px;align-items:center"><span class="mono sub">${t[0]}</span><span>${t[1]}</span><div class="sp"></div><b>✓</b></div><div style="display:flex;align-items:center;margin-top:4px"><span class="mono sub">age=${t[2]} · tenure=${t[3]} → ${t[2]+t[3]}yr</span><div class="sp"></div>${O(t[4])}</div></div>`).join('')}</div>`;
+ return header(`Rule Repository › ${id||'New Rule'}`, rule?rule[1]:'Untitled Rule',
+  `<span class="o draft mono">Draft v${draftV}</span>${baseLive?`<span class="o pass mono">Live v${baseLive}</span>`:''}<span class="sub">${rule?rule[3]+' · '+rule[4].join(', '):'Eligibility · LOS, DL'}</span>${A(5)}<button class="btn">Save Draft</button><button class="btn pri" data-go="approvals">Submit for Review</button>`)+
+ `<div style="flex:1;min-height:0;display:flex">
+  <div style="width:300px;flex:none;border-right:1.5px solid var(--wf-line);background:var(--wf-paper);display:flex;flex-direction:column">
+   <div style="padding:14px;border-bottom:1.5px solid var(--wf-line);display:flex;flex-direction:column;gap:8px">
+    <div class="lbl">${A(1)}Banker intent</div><div class="sub">Priya Nair · 15 Sep 2026 10:42</div>
+    <div class="inp" style="color:var(--wf-ink);line-height:1.5;background:var(--wf-bg)">Borrower age at loan maturity (age + tenure in years) must not exceed 60. If it exceeds 58 but is below or equal to 60, route to CU_L3 as a deviation. Reject if it exceeds 60.</div>
+    <button class="btn" style="background:var(--ai-tint);border-color:#DDD6FE;color:var(--ai);font-weight:600">✦ Compile with AI</button></div>
+   <div style="padding:14px;flex:1;overflow:auto;display:flex;flex-direction:column;gap:10px">
+    <div class="lbl">${A(2)}AI assistant</div>
+    <div class="card" style="padding:10px;background:var(--ai-tint);border-color:#DDD6FE"><div class="lbl" style="color:var(--ai)">✦ AI</div>Drafted from your intent. Key threshold: <b>age + tenure ≤ 60 years</b>, with a deviation track above 58 routing to CU_L3, matching JLG-028.</div>
+    <div class="card" style="padding:10px;background:var(--ai-tint);border-color:#DDD6FE"><div class="lbl" style="color:var(--ai)">✦ AI</div>Generated <b>3 test cases</b>: 45+10 → Pass · 50+9 → Deviation · 52+10 → Fail. Add edge cases near the 58/60 boundaries?</div>
+   </div>
+   <div style="padding:10px;border-top:1.5px solid var(--wf-line);display:flex;gap:6px"><span class="inp" style="flex:1">Ask AI to refine the rule…</span><button class="btn pri">Send</button></div>
+  </div>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:var(--wf-paper)">
+   <div class="ftabs">${A(3)}${tabs.map(([k,l])=>`<button data-edtab="${k}" class="${state.edTab===k?'on':''}">${l}</button>`).join('')}</div>
+   ${verBar}<div style="flex:1;overflow:auto;background:var(--code-bg)">${center}</div>
+  </div>
+  <div style="width:250px;flex:none;border-left:1.5px solid var(--wf-line);background:var(--wf-paper);display:flex;flex-direction:column">
+   <div class="ftabs" style="padding:0 6px">${A(4)}<button data-rtab="vars" class="${state.rightTab==='vars'?'on':''}">Variables</button><button data-rtab="versions" class="${state.rightTab==='versions'?'on':''}">Versions<span class="n">${hist.length}</span></button></div>
+   ${state.rightTab==='versions'?`<div style="flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px">${hist.map(x=>`<div style="border:1px solid ${x.st==='editing'?'#3DD263':'var(--wf-line)'};background:${x.st==='editing'?'#F4FDF6':'#fff'};border-radius:7px;padding:9px 10px"><div style="display:flex;align-items:center;gap:6px"><b class="mono">${x.v}</b>${vpill(x.st)}</div><div class="sub">${x.by} · ${x.at}</div><div style="font-size:12px;margin-top:3px">${x.note}</div>${x.st==='editing'?'':`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"><button class="btn sm">View</button><button class="btn sm" data-edtab="diff">Compare</button>${x.st==='superseded'?'<button class="btn sm">Restore</button>':''}</div>`}</div>`).join('')}</div>`:`
+   <div style="padding:12px 14px;border-bottom:1.5px solid var(--wf-line)"><span class="inp" style="display:block">⌕ Search variables…</span></div>
+   <div style="flex:1;overflow:auto;padding:10px 14px">${VARS.map(([g,vs])=>`<div class="lbl" style="margin:8px 0 6px">${g}</div>${vs.map(v=>`<div style="padding:6px 8px;border:1.2px solid var(--wf-soft);border-radius:6px;margin-bottom:5px"><div class="mono" style="font-size:11.5px">${v[0]}</div><div class="sub">${v[1]} · ${v[2]}</div></div>`).join('')}`).join('')}</div>`}
+  </div></div>`;
+}
+
+/* ---------- 3 Simulator ---------- */
+const SIM=[['APP-2026-44821','Sunita Devi',42,18500,712,['PASS','PASS','PASS','PASS'],'PASS',2.1],
+['APP-2026-44822','Ramesh Kumar',51,22000,664,['DEVIATION','PASS','PASS','PASS'],'DEVIATION',2.4],
+['APP-2026-44823','Lalita Sharma',38,14000,590,['PASS','PASS','FAIL','PASS'],'FAIL',1.9],
+['APP-2026-44824','Vinod Patil',44,31000,740,['PASS','PASS','PASS','PASS'],'PASS',2.2],
+['APP-2026-44825','Meera Nair',53,19000,618,['FAIL','DEVIATION','PASS','PASS'],'FAIL',2.8],
+['APP-2026-44826','Arvind Gupta',36,12000,688,['PASS','FAIL','PASS','PASS'],'FAIL',2.0],
+['APP-2026-44827','Pushpa Yadav',40,16800,701,['PASS','PASS','PASS','DEVIATION'],'DEVIATION',3.1],
+['APP-2026-44828','Kamal Singh',47,25000,755,['PASS','PASS','PASS','PASS'],'PASS',1.8]];
+function simulator(){
+ const p=SIM.filter(r=>r[6]==='PASS').length,d=SIM.filter(r=>r[6]==='DEVIATION').length,f=SIM.filter(r=>r[6]==='FAIL').length,n=SIM.length,pc=x=>Math.round(x/n*100);
+ const cfg=(l,inner,a)=>`<div style="display:flex;flex-direction:column;gap:6px"><div class="lbl">${a?A(a):''}${l}</div>${inner}</div>`;
+ let right;
+ if(state.sim==='idle')right=`<div style="flex:1;display:grid;place-items:center;text-align:center"><div><div style="width:56px;height:56px;border:2px dashed var(--wf-line);border-radius:50%;display:grid;place-items:center;margin:0 auto 10px;font-size:18px">▶</div><b>Ready to simulate</b><div class="sub">Configure the policy and data source, then run</div><div class="state-note" style="margin-top:8px">Empty state</div></div></div>`;
+ else right=`<div class="kpis">${A(4)}${[[p,'Pass · '+pc(p)+'%','var(--pass)','var(--pass-bg)'],[d,'Deviation · '+pc(d)+'%','var(--dev)','var(--dev-bg)'],[f,'Fail · '+pc(f)+'%','var(--fail)','var(--fail-bg)'],['2.3ms','Avg eval time','var(--wf-ink)','var(--wf-paper)']].map(([v,k,col,bg])=>`<div class="card kpi" style="flex:1;background:${bg}"><div class="v" style="color:${col}">${v}</div><div class="k">${k}</div></div>`).join('')}</div>
+  <div class="bar"><div class="p" style="width:${pc(p)}%"></div><div class="d" style="width:${pc(d)}%"></div><div class="f" style="width:${100-pc(p)-pc(d)}%"></div></div>
+  <div class="card" style="flex:1;min-height:0;overflow:auto"><div style="padding:10px 12px;font-weight:600">${A(5)}Application results <span class="sub" style="font-weight:400">showing 8 of 200</span></div>
+  <table class="t"><tr>${['App ID','Borrower','Age','Income','CIBIL','Age rule','FOIR','Bureau','Exposure','Outcome','Time'].map(h=>`<th>${h}</th>`).join('')}</tr>
+  ${SIM.map(r=>`<tr><td class="mono sub">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>₹${r[3].toLocaleString('en-IN')}</td><td>${r[4]}</td>${r[5].map(O).map(x=>`<td>${x}</td>`).join('')}<td>${O(r[6])}</td><td class="mono sub">${r[7]}ms</td></tr>`).join('')}</table></div>`;
+ return header('BRE 2.0 › Simulator','Policy Simulator')+
+ `<div style="flex:1;min-height:0;display:flex">
+  <div style="width:270px;flex:none;border-right:1.5px solid var(--wf-line);background:var(--wf-paper);padding:16px;display:flex;flex-direction:column;gap:18px">
+   ${cfg('Policy / rule set',`<span class="inp" style="color:var(--wf-ink)">IND v12 (current) ▾</span><div class="sub">4 rules · Released 10 Sep 2026</div>`,1)}
+   ${cfg('Data source',['◉ Synthetic (FTH)','○ Historical — Sep 2026','○ Upload CSV'].map(x=>`<div>${x}</div>`).join(''),2)}
+   ${cfg('Sample size',`<span class="inp mono" style="color:var(--wf-ink)">200</span>`)}
+   ${cfg('Champion / challenger',`<span class="inp" style="color:var(--wf-ink)">None (single run) ▾</span>`,3)}
+   <button class="btn pri" id="runSim" style="padding:9px">${state.sim==='idle'?'▶ Run Simulation':'↺ Reset'}</button>
+  </div>
+  <div style="flex:1;min-width:0;padding:16px 20px;display:flex;flex-direction:column;gap:12px">${right}</div></div>`;
+}
+
+/* ---------- 4 Approvals ---------- */
+const PEND=[
+ {ruleId:'JLG-049',name:'Household FOIR',by:'Rahul Mehta',at:'15 Sep 2026 09:14',v:'v3',pv:'v2',cat:'Affordability',sum:'Raised FOIR threshold from 40% to 45% for MFI-cycle borrowers. Added RTR sub-rule for repeat borrowers.',sim:true,tp:11,tt:12},
+ {ruleId:'IND-012',name:'Bureau Score Cut-off',by:'Priya Nair',at:'15 Sep 2026 11:30',v:'v5',pv:'v4',cat:'Credit',sum:'Lowered minimum CIBIL from 675 to 650 for individual micro-enterprise segment.',sim:true,tp:8,tt:8},
+ {ruleId:'GRP-002',name:'JLG Group Formation',by:'Priya Nair',at:'14 Sep 2026 16:55',v:'v1',pv:'',cat:'Group Policy',sum:'New rule: minimum 5, maximum 10 members from same village, no first-degree relatives.',sim:false,tp:4,tt:6}];
+const DIFF=[[' ','RULE "JLG-049 · Household FOIR"'],[' ','  CATEGORY   Affordability'],[' ',''],['-','  IF borrower.foir > 0.40 THEN'],['+','  IF borrower.foir > 0.45 AND borrower.mfi_cycle_flag = true THEN'],[' ','    DEVIATION TO CU_L3'],[' ','    REASON "FOIR {{borrower.foir}} exceeds threshold"'],[' ',''],['+','  ELSE IF borrower.foir > 0.40 AND borrower.rtr_flag = true THEN'],['+','    DEVIATION TO CU_L2'],['+','    REASON "RTR borrower FOIR above 40%"'],[' ',''],[' ','  ELSE'],[' ','    PASS'],[' ','  END']];
+function approvals(){
+ const s=PEND[state.apSel],dec=state.apDec[state.apSel],left=PEND.length-Object.keys(state.apDec).length;
+ const diff=state.apSel===0?DIFF.map(([t,l])=>`<div class="code" style="padding:1px 12px;${t==='+'?'background:#DCFCE7;color:#166534':t==='-'?'background:#FEE2E2;color:#991B1B':''}">${t} ${esc(l)||' '}</div>`).join('')
+  :`<div style="padding:14px;display:flex;flex-direction:column;gap:9px">${[70,55,80,40,65,50].map(w=>`<div class="skel" style="width:${w}%"></div>`).join('')}<div class="state-note">Diff content for this submission</div></div>`;
+ return `<div style="flex:1;min-height:0;display:flex">
+  <div style="width:290px;flex:none;border-right:1.5px solid var(--wf-line);background:var(--wf-paper);display:flex;flex-direction:column">
+   <div style="padding:14px;border-bottom:1.5px solid var(--wf-line)"><div class="crumb">BRE 2.0 › Approvals</div><div class="ttl">Approval Queue</div><div class="sub">${left} awaiting review</div></div>
+   <div style="padding:10px;display:flex;flex-direction:column;gap:8px;overflow:auto">${A(1)}
+   ${PEND.map((p,i)=>`<div class="card" data-ap="${i}" style="padding:10px 12px;cursor:pointer;${i===state.apSel?'border-color:var(--wf-primary);box-shadow:0 0 0 1px var(--wf-primary);background:#EDFBF2':''}"><div style="display:flex"><div style="flex:1"><div class="mono sub">${p.ruleId} · ${p.v}</div><b>${p.name}</b><div class="sub">${p.by} · ${p.at.split(' ').slice(0,3).join(' ')}</div></div>${state.apDec[i]?`<b>${state.apDec[i]==='approved'?'✓':'✗'}</b>`:''}</div>
+    ${state.apDec[i]?'':`<div style="display:flex;gap:6px;margin-top:6px"><span class="o ${p.sim?'pass':'fail'}">${p.sim?'✓ Sim':'✗ Sim'}</span><span class="o ${p.tp===p.tt?'pass':'dev'}">${p.tp}/${p.tt} tests</span></div>`}</div>`).join('')}</div>
+  </div>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+   <div class="hd" style="align-items:flex-start"><div><div class="sub mono">${A(2)}${s.ruleId} · ${s.v}${s.pv?` (was ${s.pv})`:' (new)'} · ${s.cat}</div><div class="ttl">${s.name}</div><div class="sub">Submitted by <b>${s.by}</b> · ${s.at}</div></div><div class="sp"></div>
+    <span class="o ${s.sim?'pass':'fail'}">${s.sim?'✓ Simulator':'✗ Simulator'}</span>&nbsp;<span class="o ${s.tp===s.tt?'pass':'dev'}">${s.tp}/${s.tt} Tests</span></div>
+   <div class="body">
+    <div class="card" style="padding:12px 14px"><div class="lbl">${A(3)}Change summary</div><div style="margin-top:4px">${s.sum}</div></div>
+    <div class="card" style="overflow:hidden"><div style="padding:8px 12px;border-bottom:1.5px solid var(--wf-line)" class="lbl">${A(4)}TRL diff — ${s.pv||'new'} → ${s.v}</div><div style="padding:6px 0;background:var(--code-bg)">${diff}</div></div>
+    ${dec?`<div class="card" style="padding:14px;background:${dec==='approved'?'var(--pass-bg)':'var(--fail-bg)'};color:${dec==='approved'?'var(--pass)':'var(--fail)'};border-color:transparent"><b>${dec==='approved'?'✓ Approved — queued for release.':'✗ Rejected — author has been notified.'}</b> <button class="btn sm" data-undo="${state.apSel}" style="margin-left:8px">Undo (prototype)</button></div>`
+    :`<div style="display:flex;flex-direction:column;gap:6px"><div class="lbl">${A(5)}Comment</div><div class="inp" style="height:62px">Leave a comment for the author…</div></div>
+      <div style="display:flex;gap:8px"><button class="btn pri" data-decide="approved">✓ Approve</button><button class="btn" data-decide="rejected" style="color:var(--fail);border-color:#FCA5A5">✗ Reject</button></div>`}
+   </div></div></div>`;
+}
+
+/* ---------- 5 Decision trace ---------- */
+const RECENT=[['APP-2026-44828','Kamal Singh','PASS','IND v12','ELIGIBILITY_SUMMARY','11:09:22'],['APP-2026-44827','Pushpa Yadav','DEVIATION','IND v12','ELIGIBILITY_SUMMARY','11:07:51'],['APP-2026-44826','Arvind Gupta','FAIL','JLG v8','ELIGIBILITY_SUMMARY','11:06:14'],['APP-2026-44825','Meera Nair','FAIL','IND v12','POST_DDE','11:05:48'],['APP-2026-44822','Ramesh Kumar','DEVIATION','IND v12','ELIGIBILITY_SUMMARY','11:04:37'],['APP-2026-44821','Sunita Devi','PASS','JLG v8','ELIGIBILITY_SUMMARY','11:02:19']];
+const HITS=[['JLG-001','Minimum Borrower Age',312,261,38,13],['IND-012','Bureau Score Cut-off',312,248,0,64],['JLG-049','Household FOIR',312,290,17,5],['IND-031','Exposure Limit',312,302,8,2]];
+const TR=[['JLG-001','Minimum Borrower Age at Maturity','v4','DEVIATION','Age at maturity is 59 years — above 58, deviates to CU_L3',1.1,{'borrower.age_years':51,'loan.tenure_years':8,'age_at_maturity':59},'age_at_maturity > 58'],
+['IND-012','Bureau Score Cut-off','v4','PASS','CIBIL 664 ≥ 650 and no delinquency flag',0.8,{'borrower.cibil_score':664,'borrower.delinquent_flag':false},'cibil_score >= 650 AND delinquent_flag = false'],
+['JLG-049','Household FOIR','v2','PASS','FOIR 0.36 is within the 0.40 threshold',1.2,{'obligation.total_emi':6660,'borrower.monthly_income':18500,'obligation.foir':0.36},'foir <= 0.40'],
+['IND-031','Exposure Limit','v1','PASS','Total outstanding ₹85,000 is below ₹3,00,000 limit',0.9,{'obligation.total_outstanding':85000},'total_outstanding <= 300000']];
+function trace(){
+ const hd=header('BRE 2.0 › Audit','Decision Trace',`${A(1)}<span class="inp" style="width:280px">${state.traced?'<span style="color:var(--wf-ink)">APP-2026-44822</span>':'⌕ Application ID, borrower, or loan ID…'}</span><button class="btn pri" data-trace="1">Search</button>${state.traced?'<button class="btn" data-trace="0">✕ Clear</button>':''}`);
+ if(!state.traced){
+  return hd+`<div class="body">
+   <div class="kpis">${A(2)}${[['312','Decisions today','15 Sep 2026','var(--wf-ink)'],['83.7%','Pass rate','261 of 312','var(--pass)'],['10.3%','Deviation rate','32 of 312','var(--dev)'],['6.1%','Fail rate','19 of 312','var(--fail)']].map(k=>`<div class="card kpi" style="flex:1"><div class="v" style="color:${k[3]}">${k[0]}</div><div class="k">${k[1]}</div><div class="sub">${k[2]}</div></div>`).join('')}</div>
+   <div style="display:flex;gap:12px;min-height:0">
+    <div class="card" style="flex:1.4;overflow:hidden"><div style="padding:10px 12px;display:flex"><b>${A(3)}Recent decisions</b><div class="sp"></div><span class="sub">Last 30 minutes</span></div>
+     <table class="t"><tr>${['App ID','Borrower','Policy','Stage','Outcome','Time'].map(h=>`<th>${h}</th>`).join('')}</tr>${RECENT.map(r=>`<tr class="click" data-trace="1"><td class="mono sub">${r[0].slice(-5)}</td><td>${r[1]}</td><td class="sub">${r[3]}</td><td class="mono sub" style="font-size:10.5px">${r[4]}</td><td>${O(r[2])}</td><td class="mono sub">${r[5]}</td></tr>`).join('')}</table></div>
+    <div class="card" style="flex:1;padding:10px 14px;display:flex;flex-direction:column;gap:12px"><div style="display:flex"><b>Rule hit rates</b><div class="sp"></div><span class="sub">Today · 312 decisions</span></div>
+     ${HITS.map(h=>{const pw=Math.round(h[3]/h[2]*100),dw=Math.round(h[4]/h[2]*100),fw=Math.round(h[5]/h[2]*100);return `<div><div style="display:flex;gap:6px"><span class="mono sub">${h[0]}</span><span>${h[1]}</span><div class="sp"></div><span class="sub">${h[2]} runs</span></div><div class="bar" style="margin:5px 0 3px"><div class="p" style="width:${pw}%"></div><div class="d" style="width:${dw}%"></div><div class="f" style="width:${fw}%"></div></div><div class="sub">${pw}% pass · ${dw}% dev · ${fw}% fail</div></div>`}).join('')}</div>
+   </div>
+   <div class="card" style="padding:12px 14px"><b>${A(4)}Average evaluation time</b>
+    <div style="display:flex;gap:18px;align-items:flex-end;height:90px;margin-top:8px">${[['JLG-001',1.1],['IND-012',0.8],['JLG-049',1.2],['IND-031',0.9],['Total',4.7]].map(r=>`<div style="flex:1;text-align:center"><div class="mono sub">${r[1]}ms</div><div style="height:${Math.round(r[1]/4.7*52)}px;border:1.5px solid var(--wf-line);background:${r[0]==='Total'?'var(--wf-primary)':'#86EFAC'};border-color:transparent;border-radius:3px 3px 0 0;margin-top:3px"></div><div class="mono sub" style="margin-top:3px">${r[0]}</div></div>`).join('')}</div></div>
+  </div>`;
+ }
+ return hd+`<div class="body">
+  <div class="card" style="padding:12px 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px 16px">
+   ${[['Application','APP-2026-44822',1],['Borrower','Ramesh Kumar'],['Policy','IND v12'],['Stage','ELIGIBILITY_SUMMARY',1],['Evaluated at','15 Sep 2026 · 11:04:37 IST'],['Total time','4.7ms',1],['Bundle hash','sha256:a3f2…d9c1',1]].map(i=>`<div><div class="lbl">${i[0]}</div><div class="${i[2]?'mono':''}" style="font-size:12.5px">${i[1]}</div></div>`).join('')}
+   <div><div class="lbl">Outcome</div>${O('DEVIATION')}</div></div>
+  <div class="lbl">${A(5)}Rule evaluation timeline</div>
+  <div class="card" style="overflow:hidden">
+   <div style="display:grid;grid-template-columns:24px 1.4fr 110px 1.6fr 60px;gap:10px;padding:8px 12px;background:var(--wf-soft)" class="lbl"><span></span><span>Rule</span><span>Outcome</span><span>Fired condition</span><span>Time</span></div>
+   ${TR.map(r=>{const ex=state.expanded===r[0];return `<div style="border-top:1px solid var(--wf-soft)"><div data-exp="${r[0]}" style="display:grid;grid-template-columns:24px 1.4fr 110px 1.6fr 60px;gap:10px;padding:9px 12px;align-items:center;cursor:pointer"><span>${ex?'▾':'▸'}</span><div><b>${r[1]}</b><div class="mono sub">${r[0]} · ${r[2]}</div></div><div>${O(r[3])}</div><div class="mono sub">${esc(r[7])}</div><div class="mono sub">${r[5]}ms</div></div>
+    ${ex?`<div style="padding:4px 12px 12px 46px;display:flex;flex-direction:column;gap:6px"><i>“${r[4]}”</i><div class="lbl">Inputs evaluated</div><div style="display:flex;gap:8px;flex-wrap:wrap">${Object.entries(r[6]).map(([k,v])=>`<span class="tag" style="color:var(--wf-ink)">${k} = <b>${v}</b></span>`).join('')}</div></div>`:''}</div>`}).join('')}
+  </div></div>`;
+}
+
+const RENDER={repository,editor,simulator,approvals,trace};
+function renderNotes(){
+ const s=SCREENS.find(x=>x.id===state.screen),n=NOTES[state.screen],i=SCREENS.indexOf(s)+1;
+ document.getElementById('notes').innerHTML=`<h2>${String(i).padStart(2,'0')} · ${s.label}</h2><p class="purpose">${n.purpose}</p>
+ <ol>${n.items.map((it,k)=>`<li><span class="anno">${k+1}</span><div><b>${it[0]}</b><span class="d">${it[1]}</span></div></li>`).join('')}</ol>
+ <h3>Interaction</h3><p class="purpose">${n.flow}</p>
+ <h3>Status colours</h3><div class="legend" style="color:var(--wf-ink)"><span class="o pass">PASS / Live</span><span class="o dev">DEVIATION / In review</span><span class="o fail">FAIL</span><span class="o draft">Draft</span></div>`;
+}
+function render(){
+ document.getElementById('screen').innerHTML=RENDER[state.screen]();
+ document.getElementById('tabs').innerHTML=SCREENS.map((s,i)=>`<button role="tab" aria-selected="${s.id===state.screen}" data-go="${s.id}"><b>${String(i+1).padStart(2,'0')}</b>${s.label}</button>`).join('');
+ document.getElementById('sidenav').innerHTML=`<div class="cap">Workspace</div>`+SCREENS.map(s=>`<button data-go="${s.id}" class="${s.id===state.screen?'on':''}"><i></i>${s.label}${s.badge?`<span class="badge">${s.badge}</span>`:''}</button>`).join('');
+ renderNotes();
+}
+document.addEventListener('click',e=>{
+ const t=e.target.closest('[data-vh],[data-rtab],[data-go],[data-filter],[data-edtab],#runSim,[data-ap],[data-decide],[data-undo],[data-trace],[data-exp]');
+ if(!t)return;
+ if(t.dataset.vh){state.vhOpen=state.vhOpen===t.dataset.vh?null:t.dataset.vh}
+ else if(t.dataset.rtab)state.rightTab=t.dataset.rtab;
+ else if(t.dataset.go){state.screen=t.dataset.go;if('rule' in t.dataset){state.editingId=t.dataset.rule||null;state.edTab='trl'}}
+ else if(t.dataset.filter)state.filter=t.dataset.filter;
+ else if(t.dataset.edtab)state.edTab=t.dataset.edtab;
+ else if(t.id==='runSim')state.sim=state.sim==='idle'?'done':'idle';
+ else if(t.dataset.ap)state.apSel=+t.dataset.ap;
+ else if(t.dataset.decide)state.apDec[state.apSel]=t.dataset.decide;
+ else if(t.dataset.undo)delete state.apDec[+t.dataset.undo];
+ else if(t.dataset.trace)state.traced=t.dataset.trace==='1';
+ else if(t.dataset.exp)state.expanded=state.expanded===t.dataset.exp?null:t.dataset.exp;
+ render();
+});
+document.getElementById('annoToggle').addEventListener('change',e=>document.body.classList.toggle('show-anno',e.target.checked));
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# Default owner for everything.
+*                           @AiTdpBugFixer
+
+# The engine and the specification-bearing artifacts. Changes here change what
+# the product means, not just how it is built.
+/libs/bre-engine-core/      @AiTdpBugFixer
+/tests/engine-conformance/  @AiTdpBugFixer
+/BRE_PRD/                   @AiTdpBugFixer
+/docs/adr/                  @AiTdpBugFixer
+
+# The build contract, including the D11 / ADR-016 repository boundary.
+/build-logic/               @AiTdpBugFixer
+/gradle/                    @AiTdpBugFixer
+/build.gradle.kts           @AiTdpBugFixer
+/settings.gradle.kts        @AiTdpBugFixer

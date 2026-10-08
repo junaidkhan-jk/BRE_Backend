@@ -1,0 +1,1276 @@
+[
+  {
+    "id": "S8-01",
+    "description": "An approval {MFI_INDEBTEDNESS_CAP, INDEBTEDNESS_CAP, MEMBER, P-0003, approvedValue 215000, L2, expiresOn 2026-10-31} covers a DEVIATION with measure 210000 and required level L2 on asOf 2026-10-01: worseWhen HIGHER and measure <= approvedValue, so the effective status is PASS with the annotation DEVIATION_APPROVED (4.9)",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW",
+        "requestedAmount": "300000.00"
+      },
+      "group": {
+        "groupRef": "G-88412",
+        "memberPartyRefs": [
+          "P-0003"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "measuredIndebtedness": "210000"
+        }
+      ],
+      "deviationApprovals": [
+        {
+          "deviationType": "INDEBTEDNESS_CAP",
+          "ruleCode": "MFI_INDEBTEDNESS_CAP",
+          "entityType": "MEMBER",
+          "entityRef": "P-0003",
+          "approvedValue": "215000",
+          "approvedBy": "u_bm_221",
+          "approvedLevel": "L2",
+          "approvalRef": "APR-99120",
+          "approvedAt": "2026-10-01T12:05:00+05:30",
+          "expiresOn": "2026-10-31"
+        }
+      ]
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "S8_COVERAGE",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "assets": {
+        "authorityMatrix": {
+          "code": "S8_DOP",
+          "version": 1,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": null,
+              "levelCode": "L3"
+            },
+            {
+              "entryNo": 3,
+              "deviationType": "RISK_CATEGORY",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": null,
+              "levelCode": "L2"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "application.requestedAmount"
+      },
+      "rules": [
+        {
+          "code": "MFI_INDEBTEDNESS_CAP",
+          "name": "Member indebtedness within cap",
+          "scope": "MEMBER",
+          "check": "member.measuredIndebtedness <= 200000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INDEBTEDNESS_CAP",
+            "deviationType": "INDEBTEDNESS_CAP",
+            "measure": "member.measuredIndebtedness",
+            "worseWhen": "HIGHER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INDEBTEDNESS_CAP",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "PASS",
+          "entities": [
+            {
+              "entityType": "MEMBER",
+              "entityRef": "P-0003",
+              "status": "DEVIATION",
+              "effectiveStatus": "PASS",
+              "annotation": "DEVIATION_APPROVED",
+              "approvalRef": "APR-99120"
+            }
+          ],
+          "ref": "MFI_INDEBTEDNESS_CAP"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S8-02",
+    "description": "S8-01 with the measure worsened to 216000: worseWhen is HIGHER, so measure <= approvedValue fails and the approval does not cover; the effective status stays DEVIATION with requiredLevel L2 (4.9)",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW",
+        "requestedAmount": "300000.00"
+      },
+      "group": {
+        "groupRef": "G-88412",
+        "memberPartyRefs": [
+          "P-0003"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "measuredIndebtedness": "216000"
+        }
+      ],
+      "deviationApprovals": [
+        {
+          "deviationType": "INDEBTEDNESS_CAP",
+          "ruleCode": "MFI_INDEBTEDNESS_CAP",
+          "entityType": "MEMBER",
+          "entityRef": "P-0003",
+          "approvedValue": "215000",
+          "approvedBy": "u_bm_221",
+          "approvedLevel": "L2",
+          "approvalRef": "APR-99120",
+          "approvedAt": "2026-10-01T12:05:00+05:30",
+          "expiresOn": "2026-10-31"
+        }
+      ]
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "S8_COVERAGE",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "assets": {
+        "authorityMatrix": {
+          "code": "S8_DOP",
+          "version": 1,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": null,
+              "levelCode": "L3"
+            },
+            {
+              "entryNo": 3,
+              "deviationType": "RISK_CATEGORY",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": null,
+              "levelCode": "L2"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "application.requestedAmount"
+      },
+      "rules": [
+        {
+          "code": "MFI_INDEBTEDNESS_CAP",
+          "name": "Member indebtedness within cap",
+          "scope": "MEMBER",
+          "check": "member.measuredIndebtedness <= 200000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INDEBTEDNESS_CAP",
+            "deviationType": "INDEBTEDNESS_CAP",
+            "measure": "member.measuredIndebtedness",
+            "worseWhen": "HIGHER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INDEBTEDNESS_CAP",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "DEVIATION",
+          "entities": [
+            {
+              "entityType": "MEMBER",
+              "entityRef": "P-0003",
+              "status": "DEVIATION",
+              "effectiveStatus": "DEVIATION",
+              "measure": "216000",
+              "requiredLevel": "L2"
+            }
+          ],
+          "ref": "MFI_INDEBTEDNESS_CAP"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S8-03",
+    "description": "S8-01 with the approval issued for entityRef P-0004 while the deviation is on P-0003: coverage requires a.entityType == entityType and a.entityRef == entityRef, so an approval covers only its own entity (4.9, 00 3.6) and this one does not cover",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW",
+        "requestedAmount": "300000.00"
+      },
+      "group": {
+        "groupRef": "G-88412",
+        "memberPartyRefs": [
+          "P-0003"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "measuredIndebtedness": "210000"
+        }
+      ],
+      "deviationApprovals": [
+        {
+          "deviationType": "INDEBTEDNESS_CAP",
+          "ruleCode": "MFI_INDEBTEDNESS_CAP",
+          "entityType": "MEMBER",
+          "entityRef": "P-0004",
+          "approvedValue": "215000",
+          "approvedBy": "u_bm_221",
+          "approvedLevel": "L2",
+          "approvalRef": "APR-99120",
+          "approvedAt": "2026-10-01T12:05:00+05:30",
+          "expiresOn": "2026-10-31"
+        }
+      ]
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "S8_COVERAGE",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "assets": {
+        "authorityMatrix": {
+          "code": "S8_DOP",
+          "version": 1,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": null,
+              "levelCode": "L3"
+            },
+            {
+              "entryNo": 3,
+              "deviationType": "RISK_CATEGORY",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": null,
+              "levelCode": "L2"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "application.requestedAmount"
+      },
+      "rules": [
+        {
+          "code": "MFI_INDEBTEDNESS_CAP",
+          "name": "Member indebtedness within cap",
+          "scope": "MEMBER",
+          "check": "member.measuredIndebtedness <= 200000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INDEBTEDNESS_CAP",
+            "deviationType": "INDEBTEDNESS_CAP",
+            "measure": "member.measuredIndebtedness",
+            "worseWhen": "HIGHER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INDEBTEDNESS_CAP",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "DEVIATION",
+          "entities": [
+            {
+              "entityType": "MEMBER",
+              "entityRef": "P-0003",
+              "status": "DEVIATION",
+              "effectiveStatus": "DEVIATION",
+              "measure": "210000",
+              "requiredLevel": "L2"
+            }
+          ],
+          "ref": "MFI_INDEBTEDNESS_CAP"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S8-04",
+    "description": "S8-01 evaluated on asOf 2026-11-01: coverage requires expiresOn present and asOf <= a.expiresOn, and 2026-11-01 is past 2026-10-31, so the expired approval does not cover (4.9)",
+    "asOf": "2026-11-01",
+    "scope": "MEMBER",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW",
+        "requestedAmount": "300000.00"
+      },
+      "group": {
+        "groupRef": "G-88412",
+        "memberPartyRefs": [
+          "P-0003"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "measuredIndebtedness": "210000"
+        }
+      ],
+      "deviationApprovals": [
+        {
+          "deviationType": "INDEBTEDNESS_CAP",
+          "ruleCode": "MFI_INDEBTEDNESS_CAP",
+          "entityType": "MEMBER",
+          "entityRef": "P-0003",
+          "approvedValue": "215000",
+          "approvedBy": "u_bm_221",
+          "approvedLevel": "L2",
+          "approvalRef": "APR-99120",
+          "approvedAt": "2026-10-01T12:05:00+05:30",
+          "expiresOn": "2026-10-31"
+        }
+      ]
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "S8_COVERAGE",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "assets": {
+        "authorityMatrix": {
+          "code": "S8_DOP",
+          "version": 1,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": null,
+              "levelCode": "L3"
+            },
+            {
+              "entryNo": 3,
+              "deviationType": "RISK_CATEGORY",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": null,
+              "levelCode": "L2"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "application.requestedAmount"
+      },
+      "rules": [
+        {
+          "code": "MFI_INDEBTEDNESS_CAP",
+          "name": "Member indebtedness within cap",
+          "scope": "MEMBER",
+          "check": "member.measuredIndebtedness <= 200000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INDEBTEDNESS_CAP",
+            "deviationType": "INDEBTEDNESS_CAP",
+            "measure": "member.measuredIndebtedness",
+            "worseWhen": "HIGHER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INDEBTEDNESS_CAP",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "DEVIATION",
+          "entities": [
+            {
+              "entityType": "MEMBER",
+              "entityRef": "P-0003",
+              "status": "DEVIATION",
+              "effectiveStatus": "DEVIATION",
+              "measure": "210000",
+              "requiredLevel": "L2"
+            }
+          ],
+          "ref": "MFI_INDEBTEDNESS_CAP"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S8-05",
+    "description": "S8-01 with approvedLevel L1 against a required level of L2: coverage requires rank(a.approvedLevel) >= rank(level), so an approval from too junior an authority does not cover (4.9)",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW",
+        "requestedAmount": "300000.00"
+      },
+      "group": {
+        "groupRef": "G-88412",
+        "memberPartyRefs": [
+          "P-0003"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "measuredIndebtedness": "210000"
+        }
+      ],
+      "deviationApprovals": [
+        {
+          "deviationType": "INDEBTEDNESS_CAP",
+          "ruleCode": "MFI_INDEBTEDNESS_CAP",
+          "entityType": "MEMBER",
+          "entityRef": "P-0003",
+          "approvedValue": "215000",
+          "approvedBy": "u_bm_221",
+          "approvedLevel": "L1",
+          "approvalRef": "APR-99120",
+          "approvedAt": "2026-10-01T12:05:00+05:30",
+          "expiresOn": "2026-10-31"
+        }
+      ]
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "S8_COVERAGE",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "assets": {
+        "authorityMatrix": {
+          "code": "S8_DOP",
+          "version": 1,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": null,
+              "levelCode": "L3"
+            },
+            {
+              "entryNo": 3,
+              "deviationType": "RISK_CATEGORY",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": null,
+              "levelCode": "L2"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "application.requestedAmount"
+      },
+      "rules": [
+        {
+          "code": "MFI_INDEBTEDNESS_CAP",
+          "name": "Member indebtedness within cap",
+          "scope": "MEMBER",
+          "check": "member.measuredIndebtedness <= 200000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INDEBTEDNESS_CAP",
+            "deviationType": "INDEBTEDNESS_CAP",
+            "measure": "member.measuredIndebtedness",
+            "worseWhen": "HIGHER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INDEBTEDNESS_CAP",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "DEVIATION",
+          "entities": [
+            {
+              "entityType": "MEMBER",
+              "entityRef": "P-0003",
+              "status": "DEVIATION",
+              "effectiveStatus": "DEVIATION",
+              "measure": "210000",
+              "requiredLevel": "L2"
+            }
+          ],
+          "ref": "MFI_INDEBTEDNESS_CAP"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S8-06",
+    "description": "S8-01 with the rule outcome changed to FAIL while the same approval is present: approvals never cover FAIL, because coverage is resolved only for entity results whose raw status is DEVIATION and a FAIL outcome has no measure (4.9, 2.2 constraint)",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW",
+        "requestedAmount": "300000.00"
+      },
+      "group": {
+        "groupRef": "G-88412",
+        "memberPartyRefs": [
+          "P-0003"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "measuredIndebtedness": "210000"
+        }
+      ],
+      "deviationApprovals": [
+        {
+          "deviationType": "INDEBTEDNESS_CAP",
+          "ruleCode": "MFI_INDEBTEDNESS_CAP",
+          "entityType": "MEMBER",
+          "entityRef": "P-0003",
+          "approvedValue": "215000",
+          "approvedBy": "u_bm_221",
+          "approvedLevel": "L2",
+          "approvalRef": "APR-99120",
+          "approvedAt": "2026-10-01T12:05:00+05:30",
+          "expiresOn": "2026-10-31"
+        }
+      ]
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "S8_COVERAGE",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "assets": {
+        "authorityMatrix": {
+          "code": "S8_DOP",
+          "version": 1,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": null,
+              "levelCode": "L3"
+            },
+            {
+              "entryNo": 3,
+              "deviationType": "RISK_CATEGORY",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": null,
+              "levelCode": "L2"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "application.requestedAmount"
+      },
+      "rules": [
+        {
+          "code": "MFI_INDEBTEDNESS_CAP",
+          "name": "Member indebtedness within cap",
+          "scope": "MEMBER",
+          "check": "member.measuredIndebtedness <= 200000",
+          "onFail": {
+            "status": "FAIL",
+            "reasonCode": "KO_INDEBTEDNESS_CAP"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INDEBTEDNESS_CAP",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "FAIL",
+          "entities": [
+            {
+              "entityType": "MEMBER",
+              "entityRef": "P-0003",
+              "status": "FAIL",
+              "effectiveStatus": "FAIL",
+              "reasonCode": "KO_INDEBTEDNESS_CAP"
+            }
+          ],
+          "ref": "MFI_INDEBTEDNESS_CAP"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S8-07a",
+    "description": "Categorical coverage: a Text measure has no worseWhen, so it is matched by equality (S8). measure \"C\" against approvedValue \"C\" is covered, giving effective PASS and the annotation DEVIATION_APPROVED (4.9)",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW",
+        "requestedAmount": "300000.00"
+      },
+      "group": {
+        "groupRef": "G-88412",
+        "memberPartyRefs": [
+          "P-0003"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "riskCategory": "C"
+        }
+      ],
+      "deviationApprovals": [
+        {
+          "deviationType": "RISK_CATEGORY",
+          "ruleCode": "MFI_RISK_CATEGORY",
+          "entityType": "MEMBER",
+          "entityRef": "P-0003",
+          "approvedValue": "C",
+          "approvedBy": "u_bm_221",
+          "approvedLevel": "L2",
+          "approvalRef": "APR-99121",
+          "approvedAt": "2026-10-01T12:05:00+05:30",
+          "expiresOn": "2026-10-31"
+        }
+      ]
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "S8_COVERAGE",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "assets": {
+        "authorityMatrix": {
+          "code": "S8_DOP",
+          "version": 1,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": null,
+              "levelCode": "L3"
+            },
+            {
+              "entryNo": 3,
+              "deviationType": "RISK_CATEGORY",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": null,
+              "levelCode": "L2"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "application.requestedAmount"
+      },
+      "rules": [
+        {
+          "code": "MFI_RISK_CATEGORY",
+          "name": "Member risk category acceptable",
+          "scope": "MEMBER",
+          "check": "member.riskCategory in [\"A\", \"B\"]",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "POL_RISK_CATEGORY",
+            "deviationType": "RISK_CATEGORY",
+            "measure": "member.riskCategory"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_RISK_CATEGORY",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "PASS",
+          "entities": [
+            {
+              "entityType": "MEMBER",
+              "entityRef": "P-0003",
+              "status": "DEVIATION",
+              "effectiveStatus": "PASS",
+              "annotation": "DEVIATION_APPROVED",
+              "approvalRef": "APR-99121"
+            }
+          ],
+          "ref": "MFI_RISK_CATEGORY"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S8-07b",
+    "description": "S8-07a with the categorical measure moved to \"D\" while approvedValue stays \"C\": equality fails, so the approval does not cover and the effective status stays DEVIATION (S8, 4.9)",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW",
+        "requestedAmount": "300000.00"
+      },
+      "group": {
+        "groupRef": "G-88412",
+        "memberPartyRefs": [
+          "P-0003"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "riskCategory": "D"
+        }
+      ],
+      "deviationApprovals": [
+        {
+          "deviationType": "RISK_CATEGORY",
+          "ruleCode": "MFI_RISK_CATEGORY",
+          "entityType": "MEMBER",
+          "entityRef": "P-0003",
+          "approvedValue": "C",
+          "approvedBy": "u_bm_221",
+          "approvedLevel": "L2",
+          "approvalRef": "APR-99121",
+          "approvedAt": "2026-10-01T12:05:00+05:30",
+          "expiresOn": "2026-10-31"
+        }
+      ]
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "S8_COVERAGE",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "assets": {
+        "authorityMatrix": {
+          "code": "S8_DOP",
+          "version": 1,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": null,
+              "levelCode": "L3"
+            },
+            {
+              "entryNo": 3,
+              "deviationType": "RISK_CATEGORY",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": null,
+              "levelCode": "L2"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "application.requestedAmount"
+      },
+      "rules": [
+        {
+          "code": "MFI_RISK_CATEGORY",
+          "name": "Member risk category acceptable",
+          "scope": "MEMBER",
+          "check": "member.riskCategory in [\"A\", \"B\"]",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "POL_RISK_CATEGORY",
+            "deviationType": "RISK_CATEGORY",
+            "measure": "member.riskCategory"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_RISK_CATEGORY",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "DEVIATION",
+          "entities": [
+            {
+              "entityType": "MEMBER",
+              "entityRef": "P-0003",
+              "status": "DEVIATION",
+              "effectiveStatus": "DEVIATION",
+              "measure": "D",
+              "requiredLevel": "L2"
+            }
+          ],
+          "ref": "MFI_RISK_CATEGORY"
+        }
+      ]
+    }
+  }
+]

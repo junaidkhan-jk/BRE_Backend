@@ -1,0 +1,795 @@
+[
+  {
+    "id": "P-01",
+    "description": "Step statuses [FAIL, ERROR, DEVIATION] give decision DECLINE: FAIL in S wins over everything, so a FAIL plus an ERROR is never softened to REFER (4.8)",
+    "asOf": "2026-10-01",
+    "scope": "APPLICATION",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW",
+        "requestedAmount": "300000.00",
+        "one": "1",
+        "zero": "0",
+        "exposure": "210000"
+      }
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "P_PRECEDENCE",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "assets": {
+        "authorityMatrix": {
+          "code": "P_DOP",
+          "version": 1,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "EXPOSURE_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "EXPOSURE_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": null,
+              "levelCode": "L3"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "application.requestedAmount"
+      },
+      "rules": [
+        {
+          "code": "P_FAIL_RULE",
+          "name": "A rule that fails",
+          "scope": "APPLICATION",
+          "check": "application.one < 0",
+          "onFail": {
+            "status": "FAIL",
+            "reasonCode": "KO_PRECEDENCE_FAIL"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        },
+        {
+          "code": "P_ERROR_RULE",
+          "name": "A rule that divides by zero",
+          "scope": "APPLICATION",
+          "check": "application.one / application.zero <= 1",
+          "onFail": {
+            "status": "FAIL",
+            "reasonCode": "KO_PRECEDENCE_ERROR"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        },
+        {
+          "code": "P_DEVIATION_RULE",
+          "name": "A rule that deviates",
+          "scope": "APPLICATION",
+          "check": "application.exposure <= 200000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "POL_EXPOSURE_CAP",
+            "deviationType": "EXPOSURE_CAP",
+            "measure": "application.exposure",
+            "worseWhen": "HIGHER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "P_FAIL_RULE",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              },
+              {
+                "ref": "P_ERROR_RULE",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              },
+              {
+                "ref": "P_DEVIATION_RULE",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "decision": "DECLINE"
+    }
+  },
+  {
+    "id": "P-02",
+    "description": "Step statuses [PASS, DEVIATION covered by an approval] give decision APPROVE with stpEligible = false: a covered deviation counts as PASS for precedence (4.7), but the DEVIATION_APPROVED annotation on a step whose aggregate is not NONE removes straight-through eligibility (4.8)",
+    "asOf": "2026-10-01",
+    "scope": "APPLICATION",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW",
+        "requestedAmount": "300000.00",
+        "one": "1",
+        "exposure": "210000"
+      },
+      "deviationApprovals": [
+        {
+          "deviationType": "EXPOSURE_CAP",
+          "ruleCode": "P_DEVIATION_RULE",
+          "entityType": "APPLICATION",
+          "entityRef": "APP-2026-000123",
+          "approvedValue": "215000",
+          "approvedBy": "u_bm_221",
+          "approvedLevel": "L2",
+          "approvalRef": "APR-99130",
+          "approvedAt": "2026-10-01T12:05:00+05:30",
+          "expiresOn": "2026-10-31"
+        }
+      ]
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "P_PRECEDENCE",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "assets": {
+        "authorityMatrix": {
+          "code": "P_DOP",
+          "version": 1,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "EXPOSURE_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "EXPOSURE_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": null,
+              "levelCode": "L3"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "application.requestedAmount"
+      },
+      "rules": [
+        {
+          "code": "P_PASS_RULE",
+          "name": "A rule that passes",
+          "scope": "APPLICATION",
+          "check": "application.one > 0",
+          "onFail": {
+            "status": "FAIL",
+            "reasonCode": "KO_PRECEDENCE_FAIL"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        },
+        {
+          "code": "P_DEVIATION_RULE",
+          "name": "A rule that deviates",
+          "scope": "APPLICATION",
+          "check": "application.exposure <= 200000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "POL_EXPOSURE_CAP",
+            "deviationType": "EXPOSURE_CAP",
+            "measure": "application.exposure",
+            "worseWhen": "HIGHER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "P_PASS_RULE",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              },
+              {
+                "ref": "P_DEVIATION_RULE",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "decision": "APPROVE",
+      "stpEligible": false
+    }
+  },
+  {
+    "id": "P-03",
+    "description": "Step statuses [PASS, DATA_MISSING] give decision REFER: DATA_MISSING is in the REFER set, so missing data never approves (4.8)",
+    "asOf": "2026-10-01",
+    "scope": "APPLICATION",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW",
+        "requestedAmount": "300000.00",
+        "one": "1"
+      }
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "P_PRECEDENCE",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "settings": {
+        "authorityAmount": "application.requestedAmount"
+      },
+      "rules": [
+        {
+          "code": "P_PASS_RULE",
+          "name": "A rule that passes",
+          "scope": "APPLICATION",
+          "check": "application.one > 0",
+          "onFail": {
+            "status": "FAIL",
+            "reasonCode": "KO_PRECEDENCE_FAIL"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        },
+        {
+          "code": "P_MISSING_RULE",
+          "name": "A rule whose check reads a missing fact",
+          "scope": "APPLICATION",
+          "check": "application.absentField > 0",
+          "onFail": {
+            "status": "FAIL",
+            "reasonCode": "KO_PRECEDENCE_FAIL"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "P_PASS_RULE",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              },
+              {
+                "ref": "P_MISSING_RULE",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "decision": "REFER"
+    }
+  },
+  {
+    "id": "P-04a",
+    "description": "Authority resolution with authorityAmount 1000000.00 requires level L2: a band is amountAbove < amount <= amountUpTo, so the upper bound is inclusive and 10,00,000 still falls in the (null, 10,00,000] band (4.9)",
+    "asOf": "2026-10-01",
+    "scope": "APPLICATION",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW",
+        "requestedAmount": "1000000.00",
+        "exposure": "210000"
+      },
+      "deviationApprovals": []
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "P_AUTHORITY",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "assets": {
+        "authorityMatrix": {
+          "code": "P_DOP",
+          "version": 1,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            },
+            {
+              "levelCode": "CREDIT_HEAD",
+              "rank": 4
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "EXPOSURE_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "EXPOSURE_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": "2500000.00",
+              "levelCode": "L3"
+            },
+            {
+              "entryNo": 3,
+              "deviationType": "EXPOSURE_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "2500000.00",
+              "amountUpTo": null,
+              "levelCode": "CREDIT_HEAD"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "application.requestedAmount"
+      },
+      "rules": [
+        {
+          "code": "P_DEVIATION_RULE",
+          "name": "A rule that deviates",
+          "scope": "APPLICATION",
+          "check": "application.exposure <= 200000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "POL_EXPOSURE_CAP",
+            "deviationType": "EXPOSURE_CAP",
+            "measure": "application.exposure",
+            "worseWhen": "HIGHER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "P_DEVIATION_RULE",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "DEVIATION",
+          "entities": [
+            {
+              "entityType": "APPLICATION",
+              "entityRef": "APP-2026-000123",
+              "status": "DEVIATION",
+              "effectiveStatus": "DEVIATION",
+              "requiredLevel": "L2"
+            }
+          ],
+          "ref": "P_DEVIATION_RULE"
+        }
+      ]
+    }
+  },
+  {
+    "id": "P-04b",
+    "description": "P-04a with authorityAmount 1000000.01 requires level L3: one paisa above the band's inclusive upper bound moves the deviation into the next band (4.9)",
+    "asOf": "2026-10-01",
+    "scope": "APPLICATION",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW",
+        "requestedAmount": "1000000.01",
+        "exposure": "210000"
+      },
+      "deviationApprovals": []
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "P_AUTHORITY",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "assets": {
+        "authorityMatrix": {
+          "code": "P_DOP",
+          "version": 1,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            },
+            {
+              "levelCode": "CREDIT_HEAD",
+              "rank": 4
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "EXPOSURE_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "EXPOSURE_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": "2500000.00",
+              "levelCode": "L3"
+            },
+            {
+              "entryNo": 3,
+              "deviationType": "EXPOSURE_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "2500000.00",
+              "amountUpTo": null,
+              "levelCode": "CREDIT_HEAD"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "application.requestedAmount"
+      },
+      "rules": [
+        {
+          "code": "P_DEVIATION_RULE",
+          "name": "A rule that deviates",
+          "scope": "APPLICATION",
+          "check": "application.exposure <= 200000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "POL_EXPOSURE_CAP",
+            "deviationType": "EXPOSURE_CAP",
+            "measure": "application.exposure",
+            "worseWhen": "HIGHER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "P_DEVIATION_RULE",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "DEVIATION",
+          "entities": [
+            {
+              "entityType": "APPLICATION",
+              "entityRef": "APP-2026-000123",
+              "status": "DEVIATION",
+              "effectiveStatus": "DEVIATION",
+              "requiredLevel": "L3"
+            }
+          ],
+          "ref": "P_DEVIATION_RULE"
+        }
+      ]
+    }
+  },
+  {
+    "id": "P-04c",
+    "description": "P-04a with a deviationType the authority matrix does not contain: resolveAuthority returns none, so the entity becomes REFER with reason DEV_NO_AUTHORITY and an alert, and the decision is REFER (4.9, PRD FR-DEV-004)",
+    "asOf": "2026-10-01",
+    "scope": "APPLICATION",
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "stage": "CREDIT_UW",
+        "requestedAmount": "1000000.00",
+        "exposure": "210000"
+      },
+      "deviationApprovals": []
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "P_AUTHORITY",
+        "version": 1,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW"
+      },
+      "assets": {
+        "authorityMatrix": {
+          "code": "P_DOP",
+          "version": 1,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            },
+            {
+              "levelCode": "CREDIT_HEAD",
+              "rank": 4
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "EXPOSURE_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "EXPOSURE_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": "2500000.00",
+              "levelCode": "L3"
+            },
+            {
+              "entryNo": 3,
+              "deviationType": "EXPOSURE_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "2500000.00",
+              "amountUpTo": null,
+              "levelCode": "CREDIT_HEAD"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "application.requestedAmount"
+      },
+      "rules": [
+        {
+          "code": "P_DEVIATION_RULE",
+          "name": "A rule that deviates with an unmapped deviation type",
+          "scope": "APPLICATION",
+          "check": "application.exposure <= 200000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "POL_EXPOSURE_CAP",
+            "deviationType": "UNMAPPED_DEVIATION",
+            "measure": "application.exposure",
+            "worseWhen": "HIGHER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "P_DEVIATION_RULE",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "decision": "REFER",
+      "steps": [
+        {
+          "status": "REFER",
+          "entities": [
+            {
+              "entityType": "APPLICATION",
+              "entityRef": "APP-2026-000123",
+              "status": "DEVIATION",
+              "effectiveStatus": "REFER",
+              "reasonCode": "DEV_NO_AUTHORITY"
+            }
+          ],
+          "ref": "P_DEVIATION_RULE"
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>BRE Platform: Draft 2, Decisions and Canonical Terms</title>
+<style>
+/* ============================================================
+   Trustt Standard Documentation Stylesheet
+   Constitution: DESIGN.html — Refined Minimalism, IDE dark canvas.
+   Typography, whitespace, hairlines and meaning-coded color do
+   the work. No gradients, no blobs, no icon-in-circle grids.
+   ============================================================ */
+/* THEME: IDE Dark (default, all documents).
+   A standard editor-style dark surface (#15171c editor / #1c1f26 panel) with
+   syntax-family accents — blue links, warm-yellow inline code, and the five
+   meaning rails re-tuned for dark (brighter fg, low-alpha tint fills).
+   Never a pure #000 background: the near-black greys keep long-form reading calm.
+   Light palettes remain available by swapping ONLY these :root values —
+   Warm Notebook: canvas #f6f4ef · card #fffdf9 · ink #1c1b18 · accent #7c3a2d;
+   Editorial White Paper: paper #F4F1EA · edge #ECE6D8 · ink #0E1A2B ·
+   accent #A8472B (see references/design-constitution.md).
+   Print already re-maps to a light palette below. Structure and interactivity never change. */
+:root{
+  --canvas:#15171c; --card:#1c1f26; --card-2:#222630; --ink:#dfe3ea; --muted:#9aa3b2; --faint:#6d7585;
+  --line:#2b303b; --line-2:#39404e; --accent:#61afef; --accent-soft:#3b6ea8; --code-bg:#22262e; --code-fg:#e5c07b;
+  --th:#232833; --stripe:#191c23; --quote:#4b5566;
+  /* Rails — reserved for their meaning, never decorative (dark-tuned) */
+  --green:#57cc8f; --green-soft:rgba(87,204,143,.14); --green-ink:#7ee2ab;
+  --amber:#e0a458; --amber-soft:rgba(224,164,88,.15); --amber-ink:#f0c07f;
+  --purple:#c586c0; --purple-soft:rgba(197,134,192,.15); --purple-ink:#dcaad8;
+  --crimson:#e06c75; --crimson-soft:rgba(224,108,117,.15); --crimson-ink:#f0949b;
+  --steel:#61afef; --steel-soft:rgba(97,175,239,.15); --steel-ink:#8fc7f5;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","IBM Plex Sans",Roboto,Helvetica,Arial,sans-serif;
+  --mono:"IBM Plex Mono","SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{margin:0;background:var(--canvas);color:var(--ink);font-family:var(--sans);
+  font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+
+/* ---- Topbar ---- */
+.topbar{position:sticky;top:0;z-index:10;background:rgba(21,23,28,.85);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);padding:11px 0}
+.topbar .in{max-width:1460px;margin:0 auto;padding:0 clamp(18px,3vw,40px);display:flex;align-items:center;gap:12px;
+  font-size:12.5px;color:var(--muted)}
+.topbar a.back{color:var(--accent);text-decoration:none;font-weight:600;white-space:nowrap}
+.topbar a.back:hover{text-decoration:underline}
+.topbar .crumb{color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar .crumb code{font-family:var(--mono);font-size:11.5px;background:var(--code-bg);padding:1px 6px;border-radius:4px}
+
+/* ---- Content column ---- */
+.wrap{width:100%;min-width:0;max-width:1120px;margin:0 auto;padding:40px clamp(18px,3.5vw,48px) 110px}
+h1,h2,h3,h4{font-family:var(--serif);line-height:1.22;color:var(--ink);font-weight:600;
+  margin-top:1.7em;margin-bottom:.5em;letter-spacing:-.01em;position:relative}
+h1{font-size:2.1rem;margin-top:.2em;padding-bottom:.32em;border-bottom:2px solid var(--line)}
+h2{font-size:1.5rem;padding-bottom:.22em;border-bottom:1px solid var(--line)}
+h3{font-size:1.22rem;color:var(--accent)}
+h4{font-size:1.05rem;color:var(--muted);font-style:italic}
+p{margin:.75em 0}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent;transition:.15s}
+a:hover{border-bottom-color:var(--accent-soft)}
+hr{border:none;border-top:1px solid var(--line);margin:2.4em 0}
+code{font-family:var(--mono);font-size:.85em;background:var(--code-bg);color:var(--code-fg);
+  padding:.13em .42em;border-radius:5px;overflow-wrap:anywhere}
+pre{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:15px 17px;
+  overflow-x:auto;line-height:1.55;box-shadow:0 1px 2px rgba(0,0,0,.35);position:relative}
+pre{background:#111318}
+pre code{background:none;padding:0;font-size:.84em;color:#d6dae2;white-space:pre-wrap;overflow-wrap:anywhere}
+/* Optional hand-applied syntax tokens inside <pre><code> — editor-style colouring.
+   Use sparingly and only where colour aids reading; they carry no rail meaning. */
+.tok-com{color:#6a7383;font-style:italic}   /* comment */
+.tok-kw{color:#c586c0}                      /* keyword */
+.tok-str{color:#98c379}                     /* string */
+.tok-num{color:#d19a66}                     /* number / literal */
+.tok-fn{color:#61afef}                      /* function / method */
+.tok-var{color:#e5c07b}                     /* variable / identifier */
+.tok-op{color:#9aa3b2}                      /* operator / punctuation */
+table{border-collapse:collapse;width:100%;margin:1.3em 0;font-size:.9rem;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:9px 13px;text-align:left;vertical-align:top;overflow-wrap:break-word}
+th{background:var(--th);font-weight:600;font-family:var(--sans)}
+tr:nth-child(even) td{background:var(--stripe)}
+blockquote{border-left:3px solid var(--quote);margin:1.1em 0;padding:.4em 1.1em;color:var(--muted);
+  background:var(--card);border-radius:0 9px 9px 0}
+ul,ol{padding-left:1.5em}li{margin:.32em 0}
+strong{font-weight:650;color:var(--ink)}
+img{max-width:100%;height:auto;border:1px solid var(--line);border-radius:10px;margin:.6em 0;display:block}
+
+/* ---- The spine: one section = one question, answered plainly ---- */
+.meaning{font-size:13.5px;color:var(--muted);background:var(--card);border:1px solid var(--line);
+  border-left:3px solid var(--steel);border-radius:0 9px 9px 0;padding:.55em 1.1em;margin:.9em 0 1.3em}
+.meaning b{color:var(--steel-ink);font-weight:650}
+
+/* ---- Kicker labels (mono, uppercase) ---- */
+.kicker{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;
+  color:var(--faint);display:block;margin-top:2.2em}
+.kicker + h2, .kicker + h3{margin-top:.25em}
+
+/* ---- Status pills (meaning-coded; never decorative) ---- */
+.pill{display:inline-block;font-family:var(--mono);font-size:11px;line-height:1;padding:4px 9px;
+  border-radius:999px;border:1px solid var(--line-2);background:var(--card-2);color:var(--muted);white-space:nowrap}
+.pill.green{background:var(--green-soft);color:var(--green-ink);border-color:transparent}
+.pill.amber{background:var(--amber-soft);color:var(--amber-ink);border-color:transparent}
+.pill.crimson{background:var(--crimson-soft);color:var(--crimson-ink);border-color:transparent}
+.pill.steel{background:var(--steel-soft);color:var(--steel-ink);border-color:transparent}
+.pill.purple{background:var(--purple-soft);color:var(--purple-ink);border-color:transparent}
+
+/* ---- Stat cards (one key number per card) ---- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:1.3em 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:14px 16px;
+  box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.stat .k{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:var(--faint)}
+.stat .v{font-family:var(--serif);font-size:1.55rem;font-weight:600;margin-top:2px;letter-spacing:-.01em}
+.stat .s{font-size:12px;color:var(--muted);margin-top:1px}
+
+/* ---- Collapsible sections ---- */
+details.fold{background:var(--card);border:1px solid var(--line);border-radius:11px;margin:1em 0;
+  box-shadow:0 1px 2px rgba(0,0,0,.35);overflow:hidden}
+details.fold>summary{cursor:pointer;padding:13px 18px;font-weight:600;list-style:none;
+  display:flex;align-items:center;gap:10px;transition:background .15s}
+details.fold>summary:hover{background:var(--card-2)}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::before{content:"›";font-family:var(--serif);color:var(--accent);
+  font-size:1.15em;transition:transform .2s ease-out;display:inline-block;line-height:1}
+details.fold[open]>summary::before{transform:rotate(90deg)}
+details.fold>.fold-body{padding:2px 18px 16px;border-top:1px solid var(--line)}
+
+/* ---- TOC rail (≥1200px: fixed left; below: collapsible block) ---- */
+.page{max-width:1460px;margin:0 auto}
+nav.toc{display:none}
+@media(min-width:1200px){
+  .page{display:grid;grid-template-columns:225px minmax(0,1fr);gap:8px;padding:0 clamp(12px,2vw,28px)}
+  nav.toc{display:block;position:sticky;top:64px;align-self:start;width:auto;
+    max-height:calc(100vh - 90px);overflow-y:auto;font-size:12.5px;line-height:1.5;
+    padding:42px 12px 24px 0;scrollbar-width:thin}
+  nav.toc .toc-title{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.11em;color:var(--faint);margin-bottom:8px}
+  nav.toc a{display:block;color:var(--muted);padding:3px 0 3px 10px;border-left:2px solid var(--line);
+    border-bottom:none;transition:.15s}
+  nav.toc a.lvl3{padding-left:22px;font-size:12px}
+  nav.toc a:hover{color:var(--ink)}
+  nav.toc a.active{color:var(--accent);border-left-color:var(--accent);font-weight:600}
+}
+details.toc-inline{background:var(--card);border:1px solid var(--line);border-radius:11px;margin:1.4em 0;padding:0}
+details.toc-inline>summary{cursor:pointer;padding:11px 18px;font-weight:600;list-style:none}
+details.toc-inline>summary::-webkit-details-marker{display:none}
+details.toc-inline .toc-body{padding:0 18px 14px;font-size:14px}
+details.toc-inline .toc-body a{display:block;padding:2px 0;color:var(--muted);border-bottom:none}
+details.toc-inline .toc-body a.lvl3{padding-left:18px;font-size:13px}
+details.toc-inline .toc-body a:hover{color:var(--accent)}
+@media(min-width:1200px){details.toc-inline{display:none}}
+
+/* ---- Heading anchors + code copy (richer color on hover only) ---- */
+.hanchor{position:absolute;left:-1.05em;top:0;color:var(--faint);opacity:0;border-bottom:none;
+  font-family:var(--sans);font-weight:400;transition:opacity .15s}
+h2:hover .hanchor,h3:hover .hanchor,h4:hover .hanchor{opacity:1}
+.copy-btn{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.06em;color:var(--muted);background:var(--card-2);border:1px solid var(--line);
+  border-radius:6px;padding:3px 9px;cursor:pointer;opacity:0;transition:opacity .15s,color .15s}
+pre:hover .copy-btn{opacity:1}
+.copy-btn:hover{color:var(--accent)}
+.copy-btn.done{color:var(--green-ink)}
+
+/* ---- Diagrams (inline SVG; see constitution "Diagram language") ---- */
+figure.diagram{margin:1.4em 0;background:var(--card);border:1px solid var(--line);border-radius:11px;
+  padding:16px 16px 8px;box-shadow:0 1px 2px rgba(0,0,0,.35)}
+figure.diagram svg{width:100%;max-width:980px;height:auto;display:block;margin:0 auto}
+figure.diagram figcaption{font-size:12.5px;color:var(--muted);padding:8px 4px 6px;border-top:1px solid var(--line);margin-top:10px}
+figure.diagram figcaption b{color:var(--ink)}
+svg .t-lbl{font-family:var(--mono);font-size:11px;fill:var(--muted)}
+svg .t-lbl2{font-family:var(--mono);font-size:10px;fill:var(--faint)}
+svg .t-name{font-family:var(--sans);font-size:12.5px;font-weight:600;fill:var(--ink)}
+svg .t-cap{font-family:var(--sans);font-size:11.5px;fill:var(--muted)}
+svg .t-kick{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;fill:var(--faint)}
+svg .ln{stroke:var(--line-2);stroke-width:1}
+svg .arrow{stroke:var(--faint);stroke-width:1.2;fill:none;marker-end:url(#arr)}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin:.8em 0 1.2em;font-size:12.5px;color:var(--muted)}
+.legend .sw{display:inline-flex;align-items:center;gap:6px}
+.legend .dot{width:11px;height:11px;border-radius:3px;display:inline-block;border:1px solid rgba(255,255,255,.14)}
+
+/* ---- Plain / Engineer mode (constitution: non-negotiable when audiences mix).
+   Add class .eng-only to engineering tokens (IDs, endpoints, confidences) and
+   .plain-only to their plain-language stand-ins; the toggle appears automatically. ---- */
+body.mode-plain .eng-only{display:none !important}
+body.mode-eng .plain-only{display:none !important}
+#modetoggle{display:none;margin-left:auto;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
+  color:var(--muted);background:var(--card-2);border:1px solid var(--line-2);border-radius:999px;
+  padding:4px 11px;cursor:pointer;white-space:nowrap;transition:color .15s}
+#modetoggle:hover{color:var(--accent)}
+#modetoggle .on{color:var(--accent);font-weight:600}
+
+/* ---- Back to top ---- */
+#totop{position:fixed;bottom:26px;right:26px;width:38px;height:38px;border-radius:999px;
+  background:var(--card);border:1px solid var(--line-2);color:var(--muted);cursor:pointer;
+  font-size:17px;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.45);opacity:0;pointer-events:none;
+  transition:opacity .2s}
+#totop.show{opacity:1;pointer-events:auto}
+#totop:hover{color:var(--accent)}
+
+.doc-foot{max-width:1120px;margin:0 auto;padding:22px clamp(18px,3.5vw,48px) 60px;border-top:1px solid var(--line);
+  color:var(--faint);font-size:12.5px}
+.doc-foot code{font-family:var(--mono);font-size:11.5px;background:var(--code-bg);padding:1px 6px;border-radius:4px}
+@media(max-width:560px){.wrap{padding:28px 18px 80px}h1{font-size:1.7rem}.topbar .in,.doc-foot{padding-left:18px;padding-right:18px}}
+/* ---- Print: the dark canvas is for screens only — re-map to a light palette so
+   a printed or PDF'd copy stays legible and does not flood the page with ink ---- */
+@media print{
+  :root{
+    --canvas:#fff; --card:#fff; --card-2:#f7f6f3; --ink:#14151a; --muted:#4c5261; --faint:#6f7583;
+    --line:#d8d5cd; --line-2:#c9c6bd; --accent:#1f5f96; --accent-soft:#8fb4d4; --code-bg:#f0eee9; --code-fg:#5a4a2e;
+    --th:#f0eee9; --stripe:#faf9f6; --quote:#b6b1a6;
+    --green:#1f8a5b; --green-soft:#e4f0e9; --green-ink:#175e40;
+    --amber:#c8941d; --amber-soft:#f6eeda; --amber-ink:#8a6614;
+    --purple:#7c5cc4; --purple-soft:#ece7f6; --purple-ink:#57408f;
+    --crimson:#c0455b; --crimson-soft:#f6e4e8; --crimson-ink:#8c3243;
+    --steel:#3c7fa6; --steel-soft:#e3edf3; --steel-ink:#2b5e7d;
+  }
+  .topbar,nav.toc,#totop,.copy-btn{display:none}
+  body{background:#fff;color:var(--ink)}
+  pre{background:var(--code-bg);box-shadow:none}
+  pre code{color:#24262c}
+  .tok-com{color:#6a7383}.tok-kw{color:#7c3aa0}.tok-str{color:#2f7a3f}.tok-num{color:#a15c1a}
+  .tok-fn{color:#1f5f96}.tok-var{color:#7a5c14}.tok-op{color:#4c5261}
+  .stat,details.fold,figure.diagram{box-shadow:none}
+  details.fold{page-break-inside:avoid}details[open]{display:block}
+}
+
+/* ---- content-specific additions (BRE build) ---- */
+.fig-kick{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:var(--faint);margin:0 0 10px}
+figure.diagram svg{max-height:none}
+.docnav{display:flex;justify-content:space-between;gap:16px;margin-top:3em;padding-top:1.2em;border-top:1px solid var(--line);font-size:14px}
+.docnav a{border-bottom:none}
+.doccards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin:1.3em 0}
+.doccard{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:16px 18px;box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.doccard h3{margin:.1em 0 .35em;font-size:1.12rem}
+.doccard h3 a{border-bottom:none}
+.doccard p{margin:.35em 0;font-size:14px;color:var(--muted)}
+.doccard .meta{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:.6em}
+.fig-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.fig-zoom{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted);background:var(--card-2);
+  border:1px solid var(--line-2);border-radius:999px;padding:3px 10px;cursor:pointer;white-space:nowrap;margin:0 0 10px}
+.fig-zoom:hover{color:var(--accent)}
+figure.diagram.zoomed .fig-scroll{overflow-x:auto}
+figure.diagram.zoomed .fig-scroll svg{width:var(--natw) !important;max-width:none !important}
+@media print{.fig-zoom{display:none}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="in"><a class="back" href="index.html">← BRE Draft 2 index</a>
+<span class="crumb">&middot;&nbsp; <code>docs/BRE_PRD/draft2/00_Decisions_and_Canonical_Terms.md</code></span>
+<button id="modetoggle" title="Toggle plain-language / engineering detail" aria-label="Toggle plain or engineer mode"></button></div></div>
+
+<div class="page">
+<nav class="toc" id="toc-rail" aria-label="Table of contents"><div class="toc-title">On this page</div></nav>
+
+<div class="wrap">
+<!-- ====================================================================
+     CONTENT — replace everything between these markers.
+     Structure rules (the constitution):
+       · h1 once. h2 = major question-led section. h3 = sub-topic.
+       · Open every h2 section with:  <p class="meaning"><b>What this means:</b> …one plain sentence.</p>
+       · <span class="kicker">PART N — LABEL</span> above an h2 groups sections.
+       · Key numbers → .stats/.stat cards, one number per card.
+       · Status → .pill (green=live/good, amber=partial/caution, crimson=risk, steel=neutral, purple=structural).
+       · Deep detail the reader may skip → <details class="fold"><summary>…</summary><div class="fold-body">…</div></details>
+       · Tables for enumerable facts; prose around them for the why.
+     ==================================================================== -->
+<h1 id="doc-title">BRE Platform: Draft 2, Decisions and Canonical Terms</h1>
+<blockquote><p>The binding foundation of Draft 2. It records the fifteen default decisions and the single vocabulary that every other document must use: names, states, outcomes, fact fields, the rule-language rules and the policy file format. If two Draft 2 documents disagree, this one wins. For everyone working on the BRE Platform. Draft 2, 2026-10-01.</p></blockquote>
+
+<details class="toc-inline"><summary>On this page</summary><div class="toc-body" id="toc-inline-body"></div></details>
+
+
+<p><strong>Status:</strong> Draft 2 · 2026-10-01
+<strong>Applies to:</strong> <code>01_PRD.md</code>, <code>02_Architecture.md</code>, <code>03_LLD.md</code> and <code>04_Rule_Authoring_Guide.md</code>. Every Draft 2 document uses the names, enums, numbers and paths defined here. If a document needs a term that is not here, it adds the term to its own &quot;Additions to canonical terms&quot; appendix rather than inventing a conflicting one.</p>
+<p><strong>Basis:</strong> this is a <strong>fresh, independent product</strong>. It is not derived from any existing rule set or codebase. It uses only open dependencies from Maven Central and npm.</p>
+<hr />
+<span class="kicker">PART 1 — DECISIONS</span>
+<h2 id="1-decisions-taken-for-draft-2">1. Decisions taken for Draft 2</h2>
+<p class="meaning"><b>What this means:</b> Fifteen foundational choices that every other Draft 2 document assumes: tenancy, how data arrives, the engine, scale, and the technology stack.</p>
+
+<p>Each decision below is the default. You can override any of them; if you do, every document is updated to match.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Decision</th>
+<th>Default taken</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1</td>
+<td><strong>Product model</strong></td>
+<td><strong>Multi-tenant from day one.</strong> <code>tenant_id</code> appears on every row, cache key, event, metric and log line. The same artifacts ship as (a) multi-tenant SaaS hosted in India, or (b) a dedicated single-tenant install in a lender's VPC or data centre.</td>
+<td>Tenancy costs little to build in and is very expensive to retrofit. Indian banks often insist on (b), and NBFC-MFIs often prefer (a).</td>
+</tr>
+<tr>
+<td>D2</td>
+<td><strong>Facts in, decision out</strong></td>
+<td>The Decision API is a <strong>pure function</strong> of <code>(facts, policy bundle, asOf)</code>. The BRE never calls a bureau, KYC, screening or core-banking system. <strong>Fact Connectors</strong> are a separate, optional component (Phase 3) that fetch data and produce fact snapshots.</td>
+<td>Determinism makes replay, simulation and back-testing exact. It keeps latency in single-digit ms. It keeps regulated data such as bureau reports out of the decision engine.</td>
+</tr>
+<tr>
+<td>D3</td>
+<td><strong>Engine</strong></td>
+<td>Our own decision model, plus our own typed, <strong>decimal-native, sandboxed</strong> expression language, <strong>BEL (BRE Expression Language)</strong>, with FEEL-inspired syntax. It is compiled at approval time into an IR and executed by <strong><code>bre-engine-core</code></strong>, a pure Java library with no Spring dependency. DMN import/export comes in Phase 3.</td>
+<td>SpEL can execute arbitrary code. CEL has no decimal type, which is unacceptable for money and ratios. Drools DRL is not friendly to business analysts. The KIE DMN runtime is heavy and gives us less control over the authoring experience; it remains a reference design.</td>
+</tr>
+<tr>
+<td>D4</td>
+<td><strong>MVP launch vertical</strong></td>
+<td><strong>MFI group lending (JLG and SHG).</strong> Retail and MSME follow in Phase 2.</td>
+<td>It has the hardest entity model (group → members → households). A model that handles it handles retail and MSME.</td>
+</tr>
+<tr>
+<td>D5</td>
+<td><strong>Control plane / data plane split</strong></td>
+<td>Policy bundles are <strong>content-addressed</strong> (SHA-256), <strong>signed</strong> (Ed25519) and immutable. The data plane loads bundles by hash. Activation is an atomic pointer flip. All pods must converge within <strong>30 s</strong>.</td>
+<td>Gives atomic policy switches, instant rollback and tamper evidence. <strong>No policy data is read from a database or Redis on the hot path.</strong> The only shared-state hop is the optional idempotency key in Valkey. If Valkey is down the request still proceeds, because a duplicate is harmless: evaluation is deterministic and the sink de-duplicates on <code>(tenant_id, request_id)</code>.</td>
+</tr>
+<tr>
+<td>D6</td>
+<td><strong>Decision log</strong></td>
+<td><strong>Kafka-first durable write</strong> before the response returns: <code>acks=all</code>, RF 3, <code>min.insync.replicas=2</code>, idempotent producer. This gives RPO 0 for every acknowledged decision. Sinks then copy decisions to a PostgreSQL <strong>hot store</strong>, an object-store <strong>WORM archive</strong> (Parquet + zstd, default retention 10 years) and analytics. The hot store keeps decision headers and results for 90 days, but facts for only 14 days (both configurable). Older facts are read from the archive for explanations and back-tests. <strong>Compact mode</strong> (small on-prem installs) instead writes to PostgreSQL first, with a transactional outbox. Both modes sit behind one port, <code>DecisionLog</code>.</td>
+<td>The write path is the scaling bottleneck, and Kafka scales it horizontally. Compact mode keeps small installs simple.</td>
+</tr>
+<tr>
+<td>D7</td>
+<td><strong>Explanations</strong></td>
+<td>Store outcomes, reason codes and key values per decision. Regenerate the full evaluation <strong>trace on demand</strong> by deterministic replay of the stored facts against the stored bundle hash.</td>
+<td>Roughly 10× less storage, and the trace is still exact.</td>
+</tr>
+<tr>
+<td>D8</td>
+<td><strong>Determinism</strong></td>
+<td><code>BigDecimal</code> everywhere. Evaluation never reads the wall clock; it uses only <code>asOf</code>. No randomness: champion/challenger assignment is <code>hash(tenantId, applicationRef, experimentId) mod 10000</code>. The engine version is pinned in every decision.</td>
+<td>Makes &quot;replay this decision from March&quot; exact, and makes simulation parity 100% by construction.</td>
+</tr>
+<tr>
+<td>D9</td>
+<td><strong>Outcomes</strong></td>
+<td>Rule status and the overall decision are separate enums (§3.5). The model is fail-closed: <code>ERROR</code> and <code>DATA_MISSING</code> can never produce <code>APPROVE</code>.</td>
+<td>Closes the fail-open defect in Draft 1.</td>
+</tr>
+<tr>
+<td>D10</td>
+<td><strong>Deviation approvals</strong></td>
+<td>The BRE computes <strong>which approvals are required</strong>, using the authority matrix. The <strong>caller's workflow</strong> (LOS) runs the approval process. Approved deviations come back as facts (<code>deviationApprovals[]</code>), each with the approved value bound and an expiry. On re-evaluation an approved deviation is not raised again unless the underlying value has <strong>worsened beyond the approved bound</strong>.</td>
+<td>The BRE stays stateless. Approvals are bound to a specific value, as credit policy requires.</td>
+</tr>
+<tr>
+<td>D11</td>
+<td><strong>Stack</strong></td>
+<td>Java 25 LTS · Spring Boot 4.x (virtual threads) · Gradle Kotlin DSL · PostgreSQL 17+ · Apache Kafka 4.x (KRaft) · Redis 7+/Valkey (optional: idempotency keys, rate limits) · S3-compatible object storage (MinIO on-prem) · Kubernetes · OpenTelemetry · Prometheus + Grafana · any OIDC provider (Keycloak by default) · Vault or cloud KMS, with HSM for PROD · React + TypeScript studio with the Monaco editor · RE2J for regex. <strong>Maven Central and npm only.</strong></td>
+<td>Current long-term-support versions with no proprietary licences.</td>
+</tr>
+<tr>
+<td>D12</td>
+<td><strong>Interfaces</strong></td>
+<td>Decision API over REST/JSON (OpenAPI 3.1) <strong>and</strong> gRPC/protobuf. Async work and events over Kafka using the CloudEvents 1.0 envelope (AsyncAPI 3.0).</td>
+<td>gRPC suits high-volume system callers. REST suits everyone else.</td>
+</tr>
+<tr>
+<td>D13</td>
+<td><strong>Residency and regions</strong></td>
+<td>All data stays in India. The data plane runs <strong>active-active across two regions</strong> (or two availability zones in compact mode). The control plane runs active-passive.</td>
+<td>Data residency, and 99.95%+ availability.</td>
+</tr>
+<tr>
+<td>D14</td>
+<td><strong>Cells</strong></td>
+<td>Tenants are assigned to <strong>cells</strong>. A cell is a set of decision pods, its own Kafka partitions and its own PostgreSQL shard. A large tenant gets a dedicated cell. The gateway routes requests by tenant.</td>
+<td>Limits the blast radius and isolates noisy neighbours. Scale-out is &quot;add a cell&quot;.</td>
+</tr>
+<tr>
+<td>D15</td>
+<td><strong>Document format</strong></td>
+<td>Markdown with Mermaid diagrams. Exported to PDF, DOCX or HTML on request.</td>
+<td>The source can be diffed and versioned.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-requirement-numbering">2. Requirement numbering</h2>
+<p class="meaning"><b>What this means:</b> How requirement, non-functional and acceptance-criteria IDs are formed, so that any item can be traced across documents.</p>
+
+<ul>
+<li>Functional: <code>FR-&lt;AREA&gt;-nnn</code></li>
+<li>Non-functional: <code>NFR-&lt;CAT&gt;-nn</code></li>
+<li>Acceptance criteria: <code>AC-&lt;AREA&gt;-nnn</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>AREA</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MODEL</td>
+<td>Decision model: variables, rules, decision tables, scorecards, flows, entities</td>
+</tr>
+<tr>
+<td>AUTH</td>
+<td>Authoring studio and the BEL editor</td>
+</tr>
+<tr>
+<td>LIFE</td>
+<td>Policy-version lifecycle, deployments, promotion, rollback</td>
+</tr>
+<tr>
+<td>EXEC</td>
+<td>Decision execution: sync, async, bulk</td>
+</tr>
+<tr>
+<td>DEV</td>
+<td>Deviations and the authority matrix</td>
+</tr>
+<tr>
+<td>TEST</td>
+<td>Rule tests, simulation, back-testing, impact analysis, shadow runs, champion/challenger</td>
+</tr>
+<tr>
+<td>AUD</td>
+<td>Decision record, audit trail, explanations, reason codes</td>
+</tr>
+<tr>
+<td>INT</td>
+<td>Integration contracts, SDKs, events</td>
+</tr>
+<tr>
+<td>ADM</td>
+<td>Tenancy, cells, quotas, environments, users</td>
+</tr>
+<tr>
+<td>RPT</td>
+<td>Reporting, MIS, monitoring of decision outcomes</td>
+</tr>
+<tr>
+<td>GOV</td>
+<td>Regulatory and model governance controls</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>NFR category</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PERF</td>
+<td>Performance</td>
+</tr>
+<tr>
+<td>SCALE</td>
+<td>Scalability</td>
+</tr>
+<tr>
+<td>AVAIL</td>
+<td>Availability</td>
+</tr>
+<tr>
+<td>DR</td>
+<td>Disaster recovery</td>
+</tr>
+<tr>
+<td>SEC</td>
+<td>Security</td>
+</tr>
+<tr>
+<td>PRIV</td>
+<td>Privacy</td>
+</tr>
+<tr>
+<td>OBS</td>
+<td>Observability</td>
+</tr>
+<tr>
+<td>OPS</td>
+<td>Operability</td>
+</tr>
+<tr>
+<td>COMP</td>
+<td>Compliance</td>
+</tr>
+<tr>
+<td>MAINT</td>
+<td>Maintainability</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<span class="kicker">PART 2 — VOCABULARY</span>
+<h2 id="3-canonical-vocabulary">3. Canonical vocabulary</h2>
+<p class="meaning"><b>What this means:</b> The single set of names, states, outcomes, data fields and rule-language behaviours that every Draft 2 document must use exactly.</p>
+
+<h3 id="3-1-organisation-and-scoping">3.1 Organisation and scoping</h3>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Tenant</strong></td>
+<td>A lender organisation: bank, NBFC, NBFC-MFI, HFC or SFB.</td>
+</tr>
+<tr>
+<td><strong>Environment</strong></td>
+<td>DEV, UAT or PROD. The set of environments is configurable per tenant. Policy assets are promoted between environments as signed bundles.</td>
+</tr>
+<tr>
+<td><strong>Cell</strong></td>
+<td>A data-plane scaling and isolation unit (D14).</td>
+</tr>
+<tr>
+<td><strong>Product line</strong></td>
+<td>Tenant-configured code. Seeded examples: <code>MFI_JLG</code>, <code>MFI_SHG</code>, <code>RETAIL_PL</code>, <code>RETAIL_HL</code>, <code>RETAIL_LAP</code>, <code>GOLD</code>, <code>MSME_TL</code>, <code>MSME_WC</code>.</td>
+</tr>
+<tr>
+<td><strong>Stage</strong></td>
+<td>Tenant-configured code for a point in the loan journey where a decision is requested, for example <code>SOURCING</code>, <code>KYC</code>, <code>CREDIT_UW</code>, <code>SANCTION</code>, <code>PRE_DISBURSAL</code>. Stages are configuration, never an enum.</td>
+</tr>
+<tr>
+<td><strong>Segment</strong></td>
+<td>An optional tenant-defined sub-population, for example <code>NTB</code> or <code>ETB</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-2-policy-assets">3.2 Policy assets</h3>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Policy</strong></td>
+<td>Identified by <code>(tenant, policyCode)</code>. Declares the product line(s), stage and segment it serves. Each Policy has many PolicyVersions.</td>
+</tr>
+<tr>
+<td><strong>PolicyVersion</strong></td>
+<td>The immutable unit of approval. It contains Variables, Rules, DecisionTables, Scorecards and a Flow. It pins exact versions of Shared Assets and of one FactSchema. Its versions are numbered 1, 2, 3 and so on.</td>
+</tr>
+<tr>
+<td><strong>Shared Assets</strong></td>
+<td>Tenant-level assets that are versioned independently and pinned by PolicyVersions: <strong>Parameter Set</strong>, <strong>Reference List</strong>, <strong>Reason Code Catalogue</strong>, <strong>Authority Matrix</strong>, <strong>Fact Schema</strong>.</td>
+</tr>
+<tr>
+<td><strong>Bundle</strong></td>
+<td>The compiled, signed, content-addressed artifact built when a PolicyVersion is approved. It contains the IR plus every pinned asset, and is identified by <code>bundleHash</code> (<code>sha256:…</code>).</td>
+</tr>
+<tr>
+<td><strong>Deployment</strong></td>
+<td>An append-only record that makes a bundle live for <code>(tenant, environment, policyCode)</code>. Each deployment has a mode and an <code>effectiveFrom</code>. The <strong>active pointer</strong> is the latest effective <code>CHAMPION</code> deployment.</td>
+</tr>
+<tr>
+<td><strong>Deployment mode</strong></td>
+<td><code>CHAMPION</code> makes the live decision. <code>CHALLENGER(trafficBasisPoints)</code> makes the live decision for a deterministic slice of traffic. <code>SHADOW</code> is evaluated asynchronously and never affects outcomes.</td>
+</tr>
+<tr>
+<td><strong>Variable</strong></td>
+<td>A typed, named value. <code>INPUT</code> variables are read from a fact path. <code>DERIVED</code> variables are computed by a BEL expression. Variables form a DAG that is checked for cycles at compile time.</td>
+</tr>
+<tr>
+<td><strong>Parameter</strong></td>
+<td>A typed, named constant held in a Parameter Set, for example <code>INDEBTEDNESS_CAP = 200000.00</code>. Parameters are maker-checked and effective-dated. In BEL they are written <code>param.NAME</code>.</td>
+</tr>
+<tr>
+<td><strong>Reference List</strong></td>
+<td>A named set of values, for example <code>UNSECURED_ACCOUNT_TYPES</code>, written <code>list.NAME</code> in BEL. A list held in a bundle is capped at 100,000 entries; anything larger must be supplied as a fact (for example, a negative-list hit flag).</td>
+</tr>
+<tr>
+<td><strong>Rule</strong></td>
+<td><code>code</code>, <code>name</code>, <code>scope</code>, an optional <code>when</code> precondition (BEL boolean), a <code>check</code> assertion (BEL boolean), an <code>onFail</code> result (<code>FAIL</code>, <code>DEVIATION</code> or <code>REFER</code>) with <code>reasonCode</code>, an optional <code>deviationType</code>, an <code>onMissing</code> policy, and optional <code>outputs</code>.</td>
+</tr>
+<tr>
+<td><strong>Decision Table</strong></td>
+<td>Named <code>inputs</code> (BEL), ordered <code>rows</code> of input conditions mapped to outputs or an outcome, and a <code>hitPolicy</code>: <code>FIRST</code>, <code>UNIQUE</code>, <code>PRIORITY</code> or <code>COLLECT(SUM, MIN, MAX, COUNT, LIST)</code>. Checked at compile time for overlaps and gaps.</td>
+</tr>
+<tr>
+<td><strong>Scorecard</strong></td>
+<td><code>characteristics</code>, each with bins → points. Produces a <code>baseScore</code>, the total, a scaled score, and a reason code for the top N adverse characteristics.</td>
+</tr>
+<tr>
+<td><strong>Flow</strong></td>
+<td>An ordered list of <strong>Stages</strong>, each with <strong>Steps</strong> (references to rules, tables or scorecards). Each step has a <code>scope</code> and an aggregation. A stage can be marked <code>KNOCKOUT</code>, which short-circuits the flow on any <code>FAIL</code>.</td>
+</tr>
+<tr>
+<td><strong>Scope</strong></td>
+<td>The entity a step runs against: <code>APPLICATION</code>, <code>PARTY</code> (with a role filter), <code>GROUP</code>, <code>MEMBER</code>, <code>HOUSEHOLD</code>, <code>COLLATERAL</code>. Steps with a per-entity scope run once per matching entity.</td>
+</tr>
+<tr>
+<td><strong>Aggregation</strong></td>
+<td>How per-entity results roll up. <code>WORST</code> is the default. <code>ALL_MUST_PASS</code>; <code>THRESHOLD(count | percent, status)</code>, for example &quot;group REFERs if ≥ 20% of members DEVIATE&quot;; <code>NONE</code>, which reports per entity only.</td>
+</tr>
+<tr>
+<td><strong>Test Case</strong></td>
+<td>Facts, an <code>asOf</code> date and the expected outputs, stored with the PolicyVersion. Every test case must pass before the version can be submitted for review.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-3-policy-version-lifecycle">3.3 Policy-version lifecycle</h3>
+<p><code>DRAFT → IN_REVIEW → APPROVED → ARCHIVED</code>, with two side transitions: <code>IN_REVIEW → DRAFT</code> when the reviewer requests changes, and <code>DRAFT → DISCARDED</code>.</p>
+<ul>
+<li>
+<p>A version is editable <strong>only</strong> while in <code>DRAFT</code>. Approval builds and signs the bundle.</p>
+</li>
+<li>
+<p><strong>Segregation of duties:</strong> the reviewer cannot be the author. Two separate tenant settings control approval counts:</p>
+<ul>
+<li><code>minPolicyReviewers</code>: approvals a PolicyVersion needs. Default 1.</li>
+<li><code>minDeploymentApprovers[environment]</code>: approvals a Deployment needs in that environment. Defaults: DEV 0, UAT 1, PROD 2.</li>
+</ul>
+<p>A deployment approver can be neither the version's author nor its reviewer.</p>
+</li>
+</ul>
+<h3 id="3-4-deployment-lifecycle">3.4 Deployment lifecycle</h3>
+<p><code>PENDING_APPROVAL → SCHEDULED → ACTIVE → SUPERSEDED</code>, with <code>ROLLED_BACK</code> and <code>CANCELLED</code> as side states.</p>
+<ul>
+<li><strong>Rollback</strong> creates a new deployment that points to a previous bundle. Nothing is ever edited in place.</li>
+<li><strong>Emergency change:</strong> a deployment can be marked <code>EXPEDITED</code>. It needs 2 approvers and creates a mandatory post-implementation review task.</li>
+</ul>
+<h3 id="3-5-outcomes">3.5 Outcomes</h3>
+<p><strong>RuleStatus</strong> is one of <code>PASS</code>, <code>DEVIATION</code>, <code>REFER</code>, <code>FAIL</code>, <code>NOT_APPLICABLE</code> (the <code>when</code> precondition was false), <code>DATA_MISSING</code>, <code>ERROR</code>.</p>
+<p><strong><code>onMissing</code></strong> is set per rule to <code>REFER</code> (default), <code>FAIL</code>, <code>NOT_APPLICABLE</code> or <code>USE_DEFAULT(true|false)</code>. <code>USE_DEFAULT</code> supplies a <strong>Boolean</strong> that stands in for the unknown <code>when</code> or <code>check</code> result. To default an <em>input</em> value, write <code>coalesce(x, 0)</code> in a variable instead.</p>
+<p><strong><code>onError</code></strong> is <strong>not configurable</strong>. An error always yields <code>ERROR</code>, which counts as <code>REFER</code> and raises a system alert.</p>
+<p>The <strong>Decision</strong> (overall outcome) is one of <code>DECLINE</code>, <code>REFER</code>, <code>APPROVE_WITH_DEVIATION</code>, <code>APPROVE</code>. Precedence, first match wins:</p>
+<ol>
+<li>Any <code>FAIL</code> → <strong>DECLINE</strong></li>
+<li>Otherwise any <code>REFER</code>, <code>DATA_MISSING</code> or <code>ERROR</code> → <strong>REFER</strong></li>
+<li>Otherwise any <code>DEVIATION</code> that is not covered by a valid <code>deviationApproval</code> → <strong>APPROVE_WITH_DEVIATION</strong></li>
+<li>Otherwise → <strong>APPROVE</strong></li>
+</ol>
+<p><code>NOT_APPLICABLE</code> is ignored when computing the Decision. <code>stpEligible</code> is <code>true</code> only when the Decision is <code>APPROVE</code> and no rule produced <code>DEVIATION_APPROVED</code>.</p>
+<p>A deviation that is covered by a valid approval is reported as <code>DEVIATION_APPROVED</code>. This is an annotation on the rule result, not an additional RuleStatus. It does not affect the Decision.</p>
+<h3 id="3-6-deviations">3.6 Deviations</h3>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Deviation Type</strong></td>
+<td>A tenant code such as <code>FOIR_EXCEEDED</code>, <code>INDEBTEDNESS_CAP</code>, <code>VRM_CATEGORY_C</code> or <code>AGE_AT_MATURITY</code>.</td>
+</tr>
+<tr>
+<td><strong>Authority Matrix</strong></td>
+<td>Maps <code>(deviationType, product line, amount band[, segment])</code> to a required authority level. Authority levels are tenant-defined and ordered, for example <code>L1 &lt; L2 &lt; L3 &lt; CREDIT_HEAD &lt; CRO &lt; MD</code>. Matrices are versioned Shared Assets; <strong>no role hierarchy is ever hard-coded</strong>.</td>
+</tr>
+<tr>
+<td><strong>Routing mode</strong></td>
+<td>Tenant setting. <code>HIGHEST_ONLY</code> gives one approval at the highest authority required. <code>EACH</code> gives one approval per deviation, which can run in parallel. The mode in force is copied into each Authority Matrix version when that version is created, so that replay is exact.</td>
+</tr>
+<tr>
+<td><strong>Deviation Approval (fact)</strong></td>
+<td><code>{deviationType, ruleCode, entityType, entityRef, approvedValue, approvedBy, approvedLevel, approvalRef, approvedAt, expiresOn}</code>. <code>entityType</code>/<code>entityRef</code> identify the entity: for example <code>MEMBER</code> plus the partyRef, or <code>APPLICATION</code> plus the applicationRef. An approval covers only that entity.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-7-decision-record">3.7 Decision record</h3>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>decisionId</code></td>
+<td>UUIDv7.</td>
+</tr>
+<tr>
+<td><code>requestId</code></td>
+<td>The caller's idempotency key. Unique per tenant for 7 days; repeating it returns the original decision.</td>
+</tr>
+<tr>
+<td><code>applicationRef</code></td>
+<td>The caller's own identifier for the application, a string of at most 128 characters. Not interpreted by the BRE.</td>
+</tr>
+<tr>
+<td><code>correlationId</code></td>
+<td>W3C <code>traceparent</code>.</td>
+</tr>
+<tr>
+<td><strong>Decision record contents</strong></td>
+<td>tenantId, environment, policyCode, bundleHash, engineVersion, deploymentId, mode, asOf, receivedAt, completedAt, latency; the facts (encrypted; masked view for display); the Decision; per-rule, per-entity results (status, reasonCode, key values); deviations with required authority; outputs (for example <code>eligibleAmount</code>); reasons (customer-facing codes); stpEligible.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-7a-policy-resolution-pinning-and-asof">3.7a Policy resolution, pinning and <code>asOf</code></h3>
+<p><strong>Resolution.</strong> A request either names <code>policyCode</code> explicitly, or the BRE resolves the policy from <code>(productLine, stage, segment)</code>:</p>
+<ul>
+<li>The most specific match wins: a policy with an exact segment beats one with no segment.</li>
+<li><strong>Uniqueness:</strong> for each <code>(tenant, environment, productLine, stage, segment)</code> there can be at most one ACTIVE CHAMPION deployment. The registry rejects any deployment that would create two.</li>
+</ul>
+<p><strong>Pinning (grandfathering).</strong> The request field <code>pinning</code> is either <code>LATEST</code> (the default) or <code>{ &quot;bundleHash&quot;: &quot;sha256:…&quot; }</code>.</p>
+<ul>
+<li>A pinned bundle is honoured only if it was ACTIVE as CHAMPION in that environment within the tenant's <code>grandfatherWindowDays</code> (default 90), measured back from the server's <code>receivedAt</code>, never from the client's <code>asOf</code>, so a pin cannot be back-dated. Otherwise the BRE returns the problem <code>pinned-bundle-not-allowed</code>.</li>
+<li>This lets an application that started under policy v3 finish under v3 when the lender's policy says so. Whether to pin is the caller's choice.</li>
+</ul>
+<p><strong><code>asOf</code>.</strong> If the request omits <code>asOf</code>, it is set to <code>receivedAt</code>. Date functions evaluate in the tenant time zone (default <code>Asia/Kolkata</code>). The resolved <code>asOf</code> and time zone are stored in the decision record.</p>
+<p><strong>Phasing note.</strong> Kafka is Phase 1 infrastructure, because it carries the decision log (D6). The async request API on <code>bre.decision.requested.v1</code> is a Phase 2 feature. Compact mode needs no Kafka at all.</p>
+<h3 id="3-8-reason-codes">3.8 Reason codes</h3>
+<p>A <strong>Reason Code</strong> is <code>{code, internalText, customerText{lang→text}, category (KNOCKOUT | CREDIT | KYC | FRAUD | AFFORDABILITY | COLLATERAL | POLICY), adverse: boolean}</code>.</p>
+<p><strong>Customer-facing reasons</strong> are produced <strong>only when the Decision is DECLINE</strong>. They are taken from the adverse reason codes of the FAIL results, up to <code>customerReasonLimit</code> (default 4), ordered by rule priority. System codes are excluded. <strong>Internal reasons</strong>, meaning every non-PASS reason code, are always returned. A REFER is not a rejection, so it carries no customer reasons.</p>
+<h3 id="3-9-fact-schema-canonical-lending-facts-v1-abridged">3.9 Fact schema (canonical lending facts v1, abridged)</h3>
+<pre><code>application { applicationRef, productLine, productCode, stage, segment?, channel, branchCode,
+              requestedAmount, recommendedAmount?, approvedAmount?, tenureMonths, repaymentFrequency,
+              proposedMonthlyInstalment?, emiPerLakh?, purpose, asOf? }
+parties[]   { partyRef, principalRef?, role (APPLICANT|CO_APPLICANT|GUARANTOR|PROMOTER|DIRECTOR|MEMBER),
+              type (INDIVIDUAL|NON_INDIVIDUAL), dateOfBirth?, gender? [protected], householdRef?,
+              proposedAmount?, proposedMonthlyInstalment?,   # member-level split of a group loan
+              kyc{status, verifiedAt, method},
+              income{monthlyGross?, monthlyNet?, verified, source}, declaredObligations[],
+              bureauReports[]{bureau, scoreType, score?, noHit, pulledAt,
+                 tradelines[]{lenderRef, accountType, lenderType, ownership, sanctionedAmount, currentBalance, instalmentAmount?,
+                              overdueAmount, status, openedOn, closedOn?, reportedOn,
+                              dpdHistory[]{month, dpd}}, enquiries[]{date, purpose, amount}},
+              screening{sanctionsHit, pepHit, negativeListHit, matchScore?},
+              bankStatement?{source(AA|UPLOAD), monthsCovered, avgMonthlyBalance, avgMonthlyCredits,
+                             bounceCount, salaryCredits[]},
+              ext{} }
+group?      { groupRef, type (JLG|SHG), formedOn, cycleNumber, memberPartyRefs[], meetingFrequency,
+              centreRef?, villageRiskCategory?, ext{} }
+households[]{ householdRef, memberPartyRefs[], annualIncome, monthlyRepaymentObligations, ext{} }
+collaterals[]{ collateralRef, type, marketValue, valuationDate, ownerPartyRefs[], ext{} }
+business?   { constitution, vintageMonths, sectorCode, gstTurnover12m?, bankingTurnover12m?,
+              financials[]{fiscalYear, revenue, ebitda, pat, depreciation, interestExpense,
+                           currentAssets, currentLiabilities, totalOutsideLiabilities, tangibleNetWorth,
+                           existingDebtService}, ext{} }
+portfolio?  { sectorExposure{sectorCode, currentAmount, limitAmount, asOf}, ... }   # supplied by the caller; the BRE never queries it
+deviationApprovals[] { see §3.6 }
+consent     { consentRef, purposeCode }
+</code></pre>
+<p>Data rules for facts:</p>
+<ul>
+<li>All money is a decimal in INR with scale 2. A <code>currency</code> field is reserved for later.</li>
+<li><strong>Raw Aadhaar numbers are prohibited</strong> in facts; send a vault reference or token instead.</li>
+<li><code>principalRef</code> is the caller's stable, pseudonymous ID for the data principal (customer), used to target erasure and crypto-shredding of that person's data (per-data-principal keys). It is optional and must never be a natural identifier such as a PAN or mobile number.</li>
+<li>PAN is accepted only as a token or in encrypted form.</li>
+<li>Fields tagged <code>protected</code> (for example <code>religion</code>, <code>caste</code>, <code>gender</code>) cannot be used in rule logic unless a governance override is approved and recorded.</li>
+</ul>
+<h3 id="3-10-bel-bre-expression-language-essentials">3.10 BEL (BRE Expression Language) essentials</h3>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Specification</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Types</strong></td>
+<td><code>Decimal</code>, <code>Integer</code>, <code>Boolean</code>, <code>Text</code>, <code>Date</code>, <code>DateTime</code>, <code>Period</code>, <code>Enum</code>, <code>List&lt;T&gt;</code>, <code>Record</code></td>
+</tr>
+<tr>
+<td><strong>Nulls</strong></td>
+<td>Three-valued logic. Any operation or comparison involving a missing value yields <strong>unknown</strong>. If a <code>check</code> is unknown, the rule's <code>onMissing</code> policy applies. Helpers: <code>isMissing(x)</code>, <code>coalesce(a, b, …)</code>.</td>
+</tr>
+<tr>
+<td><strong>Arithmetic</strong></td>
+<td>Decimal arithmetic. Division uses an internal scale of 10 with HALF_EVEN rounding. <code>round(x, scale, mode)</code> rounds explicitly. <strong>Comparisons use the unrounded value unless the author rounds.</strong></td>
+</tr>
+<tr>
+<td><strong>Operators</strong></td>
+<td><code>+ - * /</code> · <code>= != &lt; &lt;= &gt; &gt;=</code> · <code>and or not</code> · <code>x in [..]</code> · <code>x in list.NAME</code> · <code>x between a and b</code> (inclusive)</td>
+</tr>
+<tr>
+<td><strong>Collections</strong></td>
+<td><code>list[filter]</code> (the element is <code>it</code>) · <code>sum(list.field)</code> · <code>count(list)</code> · <code>min</code> · <code>max</code> · <code>avg</code> · <code>distinctCount(list.field)</code> · <code>any(list, cond)</code> · <code>all(list, cond)</code> · <code>first(list)</code></td>
+</tr>
+<tr>
+<td><strong>Dates</strong></td>
+<td><code>asOf</code> · <code>monthsBetween(a, b)</code> · <code>daysBetween(a, b)</code> · <code>ageInYears(dob, onDate)</code> · <code>addMonths(d, n)</code> · <code>addDays(d, n)</code></td>
+</tr>
+<tr>
+<td><strong>Text</strong></td>
+<td><code>startsWith</code> · <code>endsWith</code> · <code>contains</code> · <code>matches(re)</code> (RE2J, linear time) · <code>upper</code> · <code>lower</code> · <code>length</code></td>
+</tr>
+<tr>
+<td><strong>References</strong></td>
+<td>Fact paths (<code>application.requestedAmount</code>) · scope variables (<code>party</code>, <code>member</code>, <code>group</code>, <code>household</code>, <code>collateral</code>) · variables by name · <code>param.X</code> · <code>list.X</code></td>
+</tr>
+<tr>
+<td><strong>Safety</strong></td>
+<td>No host calls, no reflection, no loops or recursion, no user-defined functions in the MVP. Functions come from a closed registry only. A compile-time cost estimate is made. A runtime <strong>fuel limit</strong> (default 1,000,000 steps per decision) and a list-size cap (default 10,000) both produce <code>ERROR</code> when exceeded.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>BEL additions</strong> (adopted from the Authoring Guide):</p>
+<ul>
+<li><code>if c then a else b</code>. If <code>c</code> is unknown, the result is missing.</li>
+<li>List literals <code>[a, b, c]</code> usable anywhere, so <code>min([x, y, z])</code> works.</li>
+<li>Unary minus.</li>
+<li><code>round(x, scale, mode)</code>. <code>scale</code> may be negative (<code>-3</code> rounds to thousands). <code>mode</code> is one of <code>HALF_UP</code>, <code>HALF_EVEN</code>, <code>DOWN</code>, <code>UP</code>, <code>CEILING</code>, <code>FLOOR</code>.</li>
+<li>Parameters may appear inside unary tests (<code>&lt;= param.X</code>) and inside <code>THRESHOLD(...)</code>.</li>
+<li><strong>Scope collections</strong>: <code>parties</code>, <code>members</code> (parties with role MEMBER, in <code>group.memberPartyRefs</code> order), <code>households</code>, <code>collaterals</code>. A <strong>per-entity derived variable is a virtual field of its entity record</strong>, so a wider scope can aggregate it, for example <code>sum(members.memberUnsecuredOutstanding)</code> in a GROUP rule.</li>
+<li><strong>Result references</strong>: <code>scorecard.&lt;CODE&gt;.score</code>, <code>scorecard.&lt;CODE&gt;.reasons</code>, <code>table.&lt;CODE&gt;.&lt;output&gt;</code>, <code>rule.&lt;CODE&gt;.&lt;output&gt;</code>. They are added to the dependency DAG. A reference may point only to an earlier stage, or to an earlier step within the same stage; any other reference is a compile error. Referencing a step skipped by a knockout yields missing.</li>
+<li>Decision tables accept <code>when</code> with the same semantics as rules. A scorecard characteristic may carry a <code>reasonCode</code>; a bin's own <code>reasonCode</code> overrides it.</li>
+<li>Rules, tables, scorecards and variables that read a <code>protected</code> field must carry <code>governance: { overrideRef }</code>.</li>
+</ul>
+<p><strong>Binding evaluation semantics.</strong> The LLD formalises these and the conformance suite tests them.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Semantics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S1</td>
+<td><strong>Unknown <code>when</code>.</strong> If the precondition is unknown, <code>onMissing</code> applies (default DATA_MISSING → REFER). It <strong>never</strong> yields NOT_APPLICABLE.</td>
+</tr>
+<tr>
+<td>S2</td>
+<td><strong>Empty lists.</strong> <code>sum</code>, <code>count</code> and <code>distinctCount</code> return 0; <code>any</code> returns false; <code>all</code> returns true; <code>min</code>, <code>max</code>, <code>avg</code> and <code>first</code> return missing. <strong>Strict propagation:</strong> if any projected element value is missing, <code>sum</code>, <code>min</code>, <code>max</code>, <code>avg</code> and <code>distinctCount</code> return missing.</td>
+</tr>
+<tr>
+<td>S3</td>
+<td><strong>Filters are fail-closed.</strong> If a filter predicate is unknown for <strong>any</strong> element, the filtered list is <strong>missing</strong>; the element is not silently excluded. To include or exclude elements with missing values, authors write total predicates, for example <code>isMissing(it.status) or it.status in list.OPEN</code>. The static check flags filters over optional fields. <code>any</code> and <code>all</code> use Kleene three-valued logic. <em>(This deliberately departs from FEEL, which drops such elements and could under-count debt.)</em></td>
+</tr>
+<tr>
+<td>S4</td>
+<td><strong>Projections through nested lists flatten</strong>: <code>member.bureauReports.tradelines</code> is one list.</td>
+</tr>
+<tr>
+<td>S5</td>
+<td><strong>Unary tests and missing values.</strong> <code>-</code> matches any <strong>present</strong> value. Only <code>missing</code> matches a missing value; write <code>-, missing</code> to match both. <strong>No matching row:</strong> if any input was missing → <code>onMissing</code> (DATA_MISSING by default); if all inputs were present → <code>ERROR</code> (a table gap, which the static check should already have reported).</td>
+</tr>
+<tr>
+<td>S6</td>
+<td><strong>WORST ordering:</strong> FAIL &gt; ERROR &gt; DATA_MISSING &gt; REFER &gt; DEVIATION &gt; PASS &gt; NOT_APPLICABLE.</td>
+</tr>
+<tr>
+<td>S7</td>
+<td><strong>THRESHOLD.</strong> The denominator is the entities whose status is not NOT_APPLICABLE. Only the named status counts, excluding deviations already covered by a valid approval. If the threshold is not met, WORST applies. If it is met, the result is the more severe of the declared result and WORST, so one member's FAIL is never softened to REFER. <code>percent</code> takes whole numbers (20 = 20%); every other percentage-like parameter is a fraction (0.50). <strong>ALL_MUST_PASS:</strong> PASS only if every applicable entity PASSes. Any FAIL, REFER or DEVIATION makes it FAIL. If only DATA_MISSING or ERROR remain, they are kept as they are (→ REFER), never converted to a decline. Covered deviations count as PASS in every aggregation.</td>
+</tr>
+<tr>
+<td>S8</td>
+<td><strong>Deviation coverage</strong> requires all of: a match on <code>ruleCode</code>, <code>deviationType</code>, <code>entityType</code> and <code>entityRef</code>; <code>asOf ≤ expiresOn</code>; a current measure no worse than <code>approvedValue</code> per <code>worseWhen</code> (categorical measures must be equal); and <code>approvedLevel</code> ≥ the level now required. Approvals never cover FAIL.</td>
+</tr>
+<tr>
+<td>S9</td>
+<td><strong>Division by zero</strong> → ERROR. <code>measure</code> is evaluated only when the check fails; an error inside it → ERROR. <code>outputs</code> are evaluated whatever the check result; an unknown output is reported as missing and does not change the status.</td>
+</tr>
+<tr>
+<td>S10</td>
+<td><strong>Dates.</strong> <code>monthsBetween</code> counts completed months and <code>ageInYears</code> completed years, using <code>java.time.Period</code> semantics: a 29 February birthday is completed on 1 March in a common year. <code>asOf</code> is a Date in the tenant time zone. <code>dpdHistory[].month</code> is the first day of its month. <code>financials[].fiscalYear</code> is the FY end year (Integer).</td>
+</tr>
+<tr>
+<td>S11</td>
+<td><strong>Scorecards.</strong> Adverse reasons are ranked by shortfall from the characteristic's maximum points, counting only shortfalls above 0; ties go to declaration order. A value matching no bin → ERROR.</td>
+</tr>
+<tr>
+<td>S12</td>
+<td><strong>Knockout.</strong> Steps skipped because of a KNOCKOUT are reported as NOT_APPLICABLE with reason <code>SYS_SKIPPED_KNOCKOUT</code>, and so do not affect the Decision.</td>
+</tr>
+<tr>
+<td>S13</td>
+<td><strong>Visibility.</strong> A per-entity variable is readable as a scalar in its own scope and in narrower ones. Wider scopes read it through scope collections (see the additions above).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-11-deployables-and-libraries">3.11 Deployables and libraries</h3>
+<table>
+<thead>
+<tr>
+<th>Plane</th>
+<th>Component</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Library</td>
+<td><code>bre-engine-core</code></td>
+<td>IR model, BEL parser, type checker and compiler, evaluator, explainer, static checks. No framework dependencies. One code path for live decisions, simulation, back-testing and studio tests.</td>
+</tr>
+<tr>
+<td>Library</td>
+<td><code>bre-fact-model</code></td>
+<td>Canonical fact schema (JSON Schema plus Java records) and validation.</td>
+</tr>
+<tr>
+<td>Library</td>
+<td><code>bre-sdk-java</code></td>
+<td>Client SDK (REST and gRPC). Optionally embeds the engine for in-process evaluation.</td>
+</tr>
+<tr>
+<td>Data</td>
+<td><code>decision-service</code></td>
+<td>Sync Decision API (REST + gRPC). Loads bundles by hash. Writes to <code>DecisionLog</code>.</td>
+</tr>
+<tr>
+<td>Data</td>
+<td><code>decision-worker</code></td>
+<td>Async Kafka requests and bulk decision jobs.</td>
+</tr>
+<tr>
+<td>Data</td>
+<td><code>decision-sink</code></td>
+<td>Kafka → PostgreSQL hot store, object-store WORM archive and analytics feed.</td>
+</tr>
+<tr>
+<td>Data</td>
+<td><code>shadow-evaluator</code></td>
+<td>Consumes <code>bre.decision.recorded.v1</code> and re-evaluates against SHADOW bundles. Writes diffs.</td>
+</tr>
+<tr>
+<td>Control</td>
+<td><code>studio-service</code></td>
+<td>Authoring API for policies, assets, tests, reviews and the audit trail.</td>
+</tr>
+<tr>
+<td>Control</td>
+<td><code>policy-registry</code></td>
+<td>Bundle build, sign and store. Deployments, the active pointer, and the distribution endpoint that data-plane pods poll.</td>
+</tr>
+<tr>
+<td>Control</td>
+<td><code>simulation-service</code></td>
+<td>Simulations, back-tests, impact analysis (worker pool).</td>
+</tr>
+<tr>
+<td>Control</td>
+<td><code>studio-web</code></td>
+<td>React + TypeScript rule studio.</td>
+</tr>
+<tr>
+<td>Control</td>
+<td><code>tenant-admin-service</code></td>
+<td>Tenants, cells, quotas, environments, settings.</td>
+</tr>
+<tr>
+<td>External</td>
+<td>OIDC IdP · KMS/HSM · Kafka · PostgreSQL · object store · OTel stack</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-12-roles-rbac">3.12 Roles (RBAC)</h3>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>May</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POLICY_AUTHOR</code></td>
+<td>Edit DRAFT versions and assets, run tests and simulations.</td>
+</tr>
+<tr>
+<td><code>POLICY_REVIEWER</code></td>
+<td>Approve a version or request changes. Cannot approve their own work.</td>
+</tr>
+<tr>
+<td><code>DEPLOYMENT_APPROVER</code></td>
+<td>Approve deployments to PROD, roll back.</td>
+</tr>
+<tr>
+<td><code>RISK_ANALYST</code></td>
+<td>Run back-tests and impact analyses, read decisions (masked view).</td>
+</tr>
+<tr>
+<td><code>AUDITOR</code></td>
+<td>Read everything, including the full audit trail. Unmask only with a recorded reason.</td>
+</tr>
+<tr>
+<td><code>OPS_VIEWER</code></td>
+<td>Dashboards and decision lookup (masked view).</td>
+</tr>
+<tr>
+<td><code>TENANT_ADMIN</code></td>
+<td>Users, roles, environments and tenant settings.</td>
+</tr>
+<tr>
+<td><code>PLATFORM_ADMIN</code></td>
+<td>Cells, tenants and quotas (operator side).</td>
+</tr>
+</tbody>
+</table>
+<p>System-client OAuth scopes: <code>decisions:evaluate</code>, <code>decisions:read</code>, <code>decision-jobs:submit</code>, <code>bundles:read</code>.</p>
+<h3 id="3-13-interfaces">3.13 Interfaces</h3>
+<p><strong>REST, Decision API:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>POST</td>
+<td><code>/v1/decisions</code></td>
+<td>Synchronous decision</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/v1/decisions/{decisionId}</code></td>
+<td>Fetch a decision</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/v1/decisions/{decisionId}/explanation</code></td>
+<td>Trace, regenerated on demand</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/v1/decisions?applicationRef=</code></td>
+<td>List decisions for an application</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/v1/decisions:async</code></td>
+<td>Asynchronous decision; returns <code>202 Accepted</code> (Phase 2)</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/v1/decision-jobs</code></td>
+<td>Submit a bulk decision job</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/v1/decision-jobs/{jobId}</code></td>
+<td>Bulk job status</td>
+</tr>
+</tbody>
+</table>
+<p><strong>gRPC:</strong> <code>bre.decision.v1.DecisionService/Evaluate</code>, <code>/Get</code>.</p>
+<p><strong>REST, Studio</strong> (prefix <code>/v1/studio</code>): <code>policies</code>, <code>policies/{policyCode}/versions</code>, <code>…/versions/{n}/{rules|decision-tables|scorecards|variables|flow|tests}</code>, <code>…/versions/{n}:submit</code>, <code>:approve</code>, <code>:request-changes</code>, <code>:simulate</code>, <code>parameter-sets</code>, <code>reference-lists</code>, <code>reason-codes</code>, <code>authority-matrices</code>, <code>fact-schemas</code>, <code>backtests</code>, <code>impact-analyses</code>.</p>
+<p><strong>REST, Registry:</strong> <code>/v1/deployments</code> (create, approve, rollback), <code>/v1/bundles/{bundleHash}</code> (export), <code>/v1/bundles:import</code>, <code>/v1/active-pointers</code>.</p>
+<p><strong>Kafka topics</strong> (CloudEvents; partition key <code>tenantId:applicationRef</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Carries</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bre.decision.requested.v1</code></td>
+<td>Async requests in</td>
+</tr>
+<tr>
+<td><code>bre.decision.completed.v1</code></td>
+<td>Async results out</td>
+</tr>
+<tr>
+<td><code>bre.decision.recorded.v1</code></td>
+<td>Every decision; the system of record in Kafka-first mode</td>
+</tr>
+<tr>
+<td><code>bre.deviation.raised.v1</code></td>
+<td>Deviations raised</td>
+</tr>
+<tr>
+<td><code>bre.deployment.activated.v1</code></td>
+<td>Deployments activated</td>
+</tr>
+<tr>
+<td><code>bre.policy.approved.v1</code></td>
+<td>Policy versions approved</td>
+</tr>
+<tr>
+<td><code>bre.studio.audit.v1</code></td>
+<td>Studio audit trail</td>
+</tr>
+<tr>
+<td><code>&lt;topic&gt;.dlq</code></td>
+<td>One dead-letter topic per consumer topic</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Event encoding.</strong></p>
+<ul>
+<li><code>bre.decision.recorded.v1</code> uses CloudEvents <strong>binary mode with a protobuf payload</strong>, because it is the high-volume system of record.</li>
+<li>Every other topic uses CloudEvents <strong>structured JSON</strong>.</li>
+<li>All schemas are registered in the schema registry, and evolution is backward-compatible within a major version.</li>
+</ul>
+<p><strong>Async ingress by deployment type.</strong></p>
+<ul>
+<li><strong>Shared-cell SaaS tenants</strong> never produce to platform Kafka directly. They call <code>POST /v1/decisions:async</code>, which returns <code>202 Accepted</code> with the <code>decisionId</code>. Results arrive by signed webhook (Phase 3) or <code>GET /v1/decisions/{decisionId}</code>.</li>
+<li><strong>Dedicated cells and single-tenant installs</strong> may also produce directly to <code>bre.decision.requested.v1</code>, through per-tenant ACLs.</li>
+</ul>
+<p><strong>Errors:</strong> RFC 9457 <code>application/problem+json</code>, using stable <code>type</code> URIs <code>https://bre.dev/problems/&lt;slug&gt;</code> and the codes in the LLD error catalogue.</p>
+<h3 id="3-14-policy-source-format-psf-v1">3.14 Policy Source Format (PSF v1)</h3>
+<p>PSF is the canonical, human-readable form of a PolicyVersion. It is YAML and maps 1:1 to the IR. The studio imports and exports it, and diffs between versions are shown in it. The LLD formalises it as a JSON Schema; the Authoring Guide uses it for every example.</p>
+<pre><code class="language-yaml">policy: MFI_JLG_CREDIT_UW
+version: 3
+productLines: [MFI_JLG]
+stage: CREDIT_UW
+factSchema: lending-facts@1.0.0
+assets:
+  parameterSet: MFI_PARAMS@7
+  referenceLists: [UNSECURED_ACCOUNT_TYPES@2, OPEN_TRADELINE_STATUSES@1]
+  reasonCodes: CORE_REASONS@5
+  authorityMatrix: MFI_DOP@3
+
+variables:
+  - name: proposedAmount
+    type: Decimal
+    expr: coalesce(application.approvedAmount, application.recommendedAmount, application.requestedAmount)
+  - name: memberUnsecuredOutstanding        # per-entity variable: one value per MEMBER
+    scope: MEMBER
+    type: Decimal
+    expr: &gt;
+      sum(member.bureauReports.tradelines[
+            it.accountType in list.UNSECURED_ACCOUNT_TYPES
+        and it.status in list.OPEN_TRADELINE_STATUSES].currentBalance)
+
+rules:
+  - code: MFI_INDEBTEDNESS_CAP
+    name: Member indebtedness within cap
+    scope: MEMBER                           # APPLICATION | PARTY | GROUP | MEMBER | HOUSEHOLD | COLLATERAL
+    when: true                              # optional precondition; false → NOT_APPLICABLE
+    check: memberUnsecuredOutstanding + proposedAmount / count(group.memberPartyRefs) &lt;= param.INDEBTEDNESS_CAP
+    onFail:
+      status: DEVIATION                     # FAIL | DEVIATION | REFER
+      reasonCode: AFF_INDEBTEDNESS_CAP
+      deviationType: INDEBTEDNESS_CAP
+      measure: memberUnsecuredOutstanding + proposedAmount / count(group.memberPartyRefs)
+      worseWhen: HIGHER                     # HIGHER | LOWER; used to match deviationApprovals[]
+    onMissing: REFER                        # REFER (default) | FAIL | NOT_APPLICABLE | USE_DEFAULT(true|false)
+    outputs:
+      totalIndebtedness: memberUnsecuredOutstanding + proposedAmount / count(group.memberPartyRefs)
+
+decisionTables:
+  - code: GRP_VRM_CATEGORY
+    scope: GROUP
+    hitPolicy: FIRST                        # FIRST | UNIQUE | PRIORITY | COLLECT(SUM|MIN|MAX|COUNT|LIST)
+    inputs:
+      - { name: vrm, expr: group.villageRiskCategory }
+    rows:                                   # cells are unary tests: = &quot;C&quot;, in [..], &lt; 700, [650..750), -, missing
+      - { when: ['in [&quot;A&quot;,&quot;B&quot;]'], then: { status: PASS } }
+      - { when: ['= &quot;C&quot;'],        then: { status: DEVIATION, deviationType: VRM_CATEGORY_C, reasonCode: POL_VRM_C } }
+      - { when: ['in [&quot;D&quot;,&quot;E&quot;]'], then: { status: FAIL, reasonCode: POL_VRM_DE } }
+      - { when: ['missing'],      then: { status: REFER, reasonCode: DATA_VRM_MISSING } }
+      - { when: ['-'],            then: { status: REFER, reasonCode: POL_VRM_UNKNOWN } }
+
+scorecards:
+  - code: MFI_APP_SCORE_V1
+    scope: MEMBER
+    baseScore: 300
+    characteristics:
+      - name: groupCycle
+        expr: group.cycleNumber
+        bins:
+          - { when: '= 1',     points: 20 }
+          - { when: '[2..3]',  points: 45 }
+          - { when: '&gt;= 4',    points: 70 }
+          - { when: 'missing', points: 0, reasonCode: SC_CYCLE_MISSING }
+    adverseReasons: 3                       # report the top N lowest-scoring characteristics
+
+flow:
+  stages:
+    - name: KNOCKOUT
+      knockout: true                        # any FAIL here stops the flow → DECLINE
+      steps:
+        - { ref: SCREENING_HIT, roles: [MEMBER], aggregate: WORST }
+    - name: ELIGIBILITY
+      steps:
+        - { ref: GRP_VRM_CATEGORY }
+        - { ref: MFI_INDEBTEDNESS_CAP, aggregate: &quot;THRESHOLD(percent &gt;= 20, DEVIATION) -&gt; REFER&quot; }   # else WORST
+    - name: SCORING
+      steps:
+        - { ref: MFI_APP_SCORE_V1, aggregate: NONE }
+
+tests:
+  - name: VRM C raises a deviation
+    asOf: 2026-10-01
+    facts: { $ref: fixtures/jlg_vrm_c.json }
+    expect:
+      decision: APPROVE_WITH_DEVIATION
+      rules: { GRP_VRM_CATEGORY: DEVIATION }
+</code></pre>
+<p><strong>Unary-test syntax</strong> (decision-table cells and scorecard bins), as in FEEL:</p>
+<ul>
+<li>comparisons: <code>&lt; x</code>, <code>&lt;= x</code>, <code>&gt; x</code>, <code>&gt;= x</code>, <code>= x</code>, <code>!= x</code></li>
+<li>ranges: <code>[a..b]</code> inclusive; <code>(a..b)</code> exclusive; <code>[a..b)</code> and <code>(a..b]</code> half-open</li>
+<li>membership: <code>in [..]</code>, <code>in list.NAME</code></li>
+<li><code>-</code> matches any <strong>present</strong> value; <code>missing</code> matches a missing value; <code>-, missing</code> matches both (S5)</li>
+<li>several tests in one cell are joined with <code>,</code>, meaning OR</li>
+</ul>
+<hr />
+<span class="kicker">PART 3 — TARGETS</span>
+<h2 id="4-nfr-design-point-per-region-per-cell-unless-stated">4. NFR design point (per region, per cell unless stated)</h2>
+<p class="meaning"><b>What this means:</b> The speed, volume, availability and retention targets the platform is designed and tested against.</p>
+
+<table>
+<thead>
+<tr>
+<th>NFR</th>
+<th>Target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NFR-PERF-01</td>
+<td>Server-side latency for a 100-rule policy with ≤ 64 KB of facts, <strong>including the durable decision write</strong>: p50 ≤ 20 ms, p99 ≤ 100 ms</td>
+</tr>
+<tr>
+<td>NFR-PERF-02</td>
+<td>Large case (1,000 rules, ≤ 1 MB facts, e.g. a 40-member JLG group): p99 ≤ 250 ms</td>
+</tr>
+<tr>
+<td>NFR-SCALE-01</td>
+<td>5,000 decisions/s sustained and 10,000/s burst per cell. Throughput scales linearly by adding pods, then by adding cells. Planning assumption: ≥ 800 decisions/s per 2-vCPU pod, to be confirmed by benchmark.</td>
+</tr>
+<tr>
+<td>NFR-SCALE-02</td>
+<td>Bulk jobs: ≥ 1,000,000 decisions per hour per cell</td>
+</tr>
+<tr>
+<td>NFR-SCALE-03</td>
+<td>Back-test of 1,000,000 historical decisions in ≤ 30 min</td>
+</tr>
+<tr>
+<td>NFR-AVAIL-01</td>
+<td>Decision API 99.95% monthly with one region; 99.99% with two-region active-active. Studio 99.5%.</td>
+</tr>
+<tr>
+<td>NFR-DR-01</td>
+<td><strong>RPO 0</strong> for acknowledged decisions on any broker, node or availability-zone failure. <strong>Full-region loss:</strong> RPO ≤ 5 s (asynchronous cross-region replication), or RPO 0 in the optional <strong>Sync-DR mode</strong> (a stretched cluster, at a higher latency cost). Data-plane RTO ≤ 1 min (active-active). Control-plane RTO ≤ 30 min.</td>
+</tr>
+<tr>
+<td>NFR-OPS-01</td>
+<td>Activation and rollback converge on every pod within ≤ 30 s at p99</td>
+</tr>
+<tr>
+<td>NFR-COMP-01</td>
+<td>Hot store holds decisions for 90 days (configurable). The WORM archive holds them for 10 years by default (configurable per tenant). Security logs are kept ≥ 180 days in India, per the CERT-In directions.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-draft-2-document-set">5. Draft 2 document set</h2>
+<p class="meaning"><b>What this means:</b> Which file covers what.</p>
+
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>00_Decisions_and_Canonical_Terms.md</code></td>
+<td>This file</td>
+</tr>
+<tr>
+<td><code>01_PRD.md</code></td>
+<td>Product requirements</td>
+</tr>
+<tr>
+<td><code>02_Architecture.md</code></td>
+<td>HLD and system design, scalability, security, DR, ADRs</td>
+</tr>
+<tr>
+<td><code>03_LLD.md</code></td>
+<td>Schema, BEL grammar, IR, APIs, events, algorithms, error catalogue</td>
+</tr>
+<tr>
+<td><code>04_Rule_Authoring_Guide.md</code></td>
+<td>Worked examples for business analysts</td>
+</tr>
+</tbody>
+</table>
+<nav class="docnav"><a href="BRE_Draft1_Review.html">← Draft 1 Review</a><a href="01_PRD.html">01 · PRD →</a></nav>
+
+</div>
+</div>
+<div class="doc-foot">Rendered from <code>docs/BRE_PRD/draft2/00_Decisions_and_Canonical_Terms.md</code> · generated with the html-creator template (Trustt Design Constitution, IDE Dark) · 2026-10-01. The markdown file is the source of truth; regenerate with <code>docs/BRE_PRD/.build/build_html.py</code>.</div>
+<button id="totop" title="Back to top" aria-label="Back to top">↑</button>
+
+<script>
+/* Interactivity layer — TOC build + scroll-spy, heading anchors, code copy, back-to-top.
+   Pure vanilla, no dependencies, works from file:// */
+(function(){
+  var headings=[].slice.call(document.querySelectorAll('.wrap h2, .wrap h3'));
+  var rail=document.getElementById('toc-rail'), inline=document.getElementById('toc-inline-body');
+  headings.forEach(function(h,i){
+    if(!h.id){h.id='s-'+i+'-'+h.textContent.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}
+    var a=document.createElement('a');a.href='#'+h.id;a.textContent=h.textContent;
+    if(h.tagName==='H3')a.className='lvl3';
+    rail.appendChild(a);
+    if(inline)inline.appendChild(a.cloneNode(true));
+    var an=document.createElement('a');an.className='hanchor';an.href='#'+h.id;an.textContent='#';
+    an.setAttribute('aria-label','Link to '+h.textContent);h.appendChild(an);
+  });
+  /* scroll-spy */
+  var links=[].slice.call(rail.querySelectorAll('a'));
+  function spy(){
+    var y=window.scrollY+90,cur=null;
+    headings.forEach(function(h){if(h.offsetTop<=y)cur=h.id});
+    links.forEach(function(l){l.classList.toggle('active',l.getAttribute('href')==='#'+cur)});
+  }
+  window.addEventListener('scroll',spy,{passive:true});spy();
+  /* code copy */
+  [].slice.call(document.querySelectorAll('pre')).forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';b.textContent='copy';
+    b.addEventListener('click',function(){
+      var t=(pre.querySelector('code')||pre).innerText;
+      (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){
+        b.textContent='copied';b.classList.add('done');
+        setTimeout(function(){b.textContent='copy';b.classList.remove('done')},1600);
+      }).catch(function(){});
+    });
+    pre.appendChild(b);
+  });
+  /* plain / engineer mode toggle — appears only if the document uses the classes */
+  var mt=document.getElementById('modetoggle');
+  if(mt && document.querySelector('.eng-only,.plain-only')){
+    var eng=false;
+    function paint(){
+      document.body.classList.toggle('mode-eng',eng);
+      document.body.classList.toggle('mode-plain',!eng);
+      mt.innerHTML=eng?'plain / <span class="on">engineer</span>':'<span class="on">plain</span> / engineer';
+    }
+    mt.style.display='inline-block';paint();
+    mt.addEventListener('click',function(){eng=!eng;paint()});
+  }
+  /* back to top */
+  var tt=document.getElementById('totop');
+  window.addEventListener('scroll',function(){tt.classList.toggle('show',window.scrollY>600)},{passive:true});
+  tt.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'})});
+})();
+</script>
+</body>
+</html>

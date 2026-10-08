@@ -1,0 +1,1021 @@
+[
+  {
+    "id": "S7-01",
+    "description": "THRESHOLD(PERCENT >= 20, {DEVIATION} -> REFER) is met at exactly the boundary: 2 of 10 members deviate, 100 x 2 / 10 = 20, 20 >= 20 is TRUE, so the step is the more severe of REFER and WORST(E') = DEVIATION, which is REFER",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "memberPartyRefs": [
+          "P-0001",
+          "P-0002",
+          "P-0003",
+          "P-0004",
+          "P-0005",
+          "P-0006",
+          "P-0007",
+          "P-0008",
+          "P-0009",
+          "P-0010"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0001",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "5000"
+          }
+        },
+        {
+          "partyRef": "P-0002",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "5000"
+          }
+        },
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0004",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0005",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0006",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0007",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0008",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0009",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0010",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        }
+      ]
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "MFI_INCOME_FLOOR",
+          "name": "Member net monthly income above the floor",
+          "scope": "MEMBER",
+          "when": "member.proposedAmount > 0",
+          "check": "member.income.monthlyNet >= 10000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INCOME_FLOOR",
+            "deviationType": "INCOME_FLOOR",
+            "measure": "member.income.monthlyNet",
+            "worseWhen": "LOWER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INCOME_FLOOR",
+                "aggregate": {
+                  "kind": "THRESHOLD",
+                  "metric": "PERCENT",
+                  "op": ">=",
+                  "value": "20",
+                  "statuses": [
+                    "DEVIATION"
+                  ],
+                  "result": "REFER"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "REFER",
+          "ref": "MFI_INCOME_FLOOR"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S7-02",
+    "description": "THRESHOLD not met falls back to WORST: 1 of 10 members deviates, 100 x 1 / 10 = 10, 10 >= 20 is FALSE, so the step is WORST(E') = DEVIATION and not the configured REFER",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "memberPartyRefs": [
+          "P-0001",
+          "P-0002",
+          "P-0003",
+          "P-0004",
+          "P-0005",
+          "P-0006",
+          "P-0007",
+          "P-0008",
+          "P-0009",
+          "P-0010"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0001",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "5000"
+          }
+        },
+        {
+          "partyRef": "P-0002",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0004",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0005",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0006",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0007",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0008",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0009",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0010",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        }
+      ]
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "MFI_INCOME_FLOOR",
+          "name": "Member net monthly income above the floor",
+          "scope": "MEMBER",
+          "when": "member.proposedAmount > 0",
+          "check": "member.income.monthlyNet >= 10000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INCOME_FLOOR",
+            "deviationType": "INCOME_FLOOR",
+            "measure": "member.income.monthlyNet",
+            "worseWhen": "LOWER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INCOME_FLOOR",
+                "aggregate": {
+                  "kind": "THRESHOLD",
+                  "metric": "PERCENT",
+                  "op": ">=",
+                  "value": "20",
+                  "statuses": [
+                    "DEVIATION"
+                  ],
+                  "result": "REFER"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "DEVIATION",
+          "ref": "MFI_INCOME_FLOOR"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S7-03",
+    "description": "a deviation covered by a valid approval counts as PASS for aggregation, so it leaves the THRESHOLD numerator but stays in the denominator: 2 of 10 members deviate and one is covered, giving 1/10 = 10% < 20%, so the step falls back to WORST(E') = DEVIATION",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "memberPartyRefs": [
+          "P-0001",
+          "P-0002",
+          "P-0003",
+          "P-0004",
+          "P-0005",
+          "P-0006",
+          "P-0007",
+          "P-0008",
+          "P-0009",
+          "P-0010"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0001",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "5000"
+          }
+        },
+        {
+          "partyRef": "P-0002",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "5000"
+          }
+        },
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0004",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0005",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0006",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0007",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0008",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0009",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0010",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        }
+      ],
+      "deviationApprovals": [
+        {
+          "deviationType": "INCOME_FLOOR",
+          "ruleCode": "MFI_INCOME_FLOOR",
+          "entityType": "MEMBER",
+          "entityRef": "P-0001",
+          "approvedValue": "4000",
+          "approvedBy": "U-0007",
+          "approvedLevel": "L2",
+          "approvalRef": "APR-0001",
+          "approvedAt": "2026-09-28",
+          "expiresOn": "2026-10-31"
+        }
+      ]
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "MFI_INCOME_FLOOR",
+          "name": "Member net monthly income above the floor",
+          "scope": "MEMBER",
+          "when": "member.proposedAmount > 0",
+          "check": "member.income.monthlyNet >= 10000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INCOME_FLOOR",
+            "deviationType": "INCOME_FLOOR",
+            "measure": "member.income.monthlyNet",
+            "worseWhen": "LOWER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INCOME_FLOOR",
+                "aggregate": {
+                  "kind": "THRESHOLD",
+                  "metric": "PERCENT",
+                  "op": ">=",
+                  "value": "20",
+                  "statuses": [
+                    "DEVIATION"
+                  ],
+                  "result": "REFER"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "DEVIATION",
+          "ref": "MFI_INCOME_FLOOR"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S7-04",
+    "description": "NOT_APPLICABLE entities leave the THRESHOLD denominator: of 10 members 2 deviate, 2 are NOT_APPLICABLE and 6 PASS, so the share is 2/8 = 25% rather than 2/10 = 20%, 25 >= 20 is TRUE, and the step is REFER",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "memberPartyRefs": [
+          "P-0001",
+          "P-0002",
+          "P-0003",
+          "P-0004",
+          "P-0005",
+          "P-0006",
+          "P-0007",
+          "P-0008",
+          "P-0009",
+          "P-0010"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0001",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "5000"
+          }
+        },
+        {
+          "partyRef": "P-0002",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "5000"
+          }
+        },
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "0",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0004",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "0",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0005",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0006",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0007",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0008",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0009",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0010",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        }
+      ]
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "MFI_INCOME_FLOOR",
+          "name": "Member net monthly income above the floor",
+          "scope": "MEMBER",
+          "when": "member.proposedAmount > 0",
+          "check": "member.income.monthlyNet >= 10000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INCOME_FLOOR",
+            "deviationType": "INCOME_FLOOR",
+            "measure": "member.income.monthlyNet",
+            "worseWhen": "LOWER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INCOME_FLOOR",
+                "aggregate": {
+                  "kind": "THRESHOLD",
+                  "metric": "PERCENT",
+                  "op": ">=",
+                  "value": "20",
+                  "statuses": [
+                    "DEVIATION"
+                  ],
+                  "result": "REFER"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "REFER",
+          "ref": "MFI_INCOME_FLOOR"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S7-05",
+    "description": "a met THRESHOLD is never weaker than WORST: of 10 members 1 FAILs and 3 deviate, so 3/10 = 30% >= 20% is met, and the step is the more severe of the configured REFER and WORST(E') = FAIL, which is FAIL",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "memberPartyRefs": [
+          "P-0001",
+          "P-0002",
+          "P-0003",
+          "P-0004",
+          "P-0005",
+          "P-0006",
+          "P-0007",
+          "P-0008",
+          "P-0009",
+          "P-0010"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0001",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "1000"
+          }
+        },
+        {
+          "partyRef": "P-0002",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "5000"
+          }
+        },
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "5000"
+          }
+        },
+        {
+          "partyRef": "P-0004",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "5000"
+          }
+        },
+        {
+          "partyRef": "P-0005",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0006",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0007",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0008",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0009",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0010",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        }
+      ]
+    },
+    "policy": {
+      "decisionTables": [
+        {
+          "code": "MFI_INCOME_BAND",
+          "name": "Member net monthly income band",
+          "scope": "MEMBER",
+          "when": "member.proposedAmount > 0",
+          "hitPolicy": {
+            "kind": "FIRST"
+          },
+          "inputs": [
+            {
+              "name": "net",
+              "expr": "member.income.monthlyNet"
+            }
+          ],
+          "outputs": [],
+          "rows": [
+            {
+              "when": [
+                "< 3000"
+              ],
+              "then": {
+                "status": "FAIL",
+                "reasonCode": "KO_INCOME_FLOOR"
+              }
+            },
+            {
+              "when": [
+                "[3000..10000)"
+              ],
+              "then": {
+                "status": "DEVIATION",
+                "deviationType": "INCOME_FLOOR",
+                "reasonCode": "AFF_INCOME_FLOOR",
+                "measure": "member.income.monthlyNet",
+                "worseWhen": "LOWER"
+              }
+            },
+            {
+              "when": [
+                ">= 10000"
+              ],
+              "then": {
+                "status": "PASS"
+              }
+            }
+          ],
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INCOME_BAND",
+                "aggregate": {
+                  "kind": "THRESHOLD",
+                  "metric": "PERCENT",
+                  "op": ">=",
+                  "value": "20",
+                  "statuses": [
+                    "DEVIATION"
+                  ],
+                  "result": "REFER"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "FAIL",
+          "ref": "MFI_INCOME_BAND"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S7-06",
+    "description": "the THRESHOLD value may be a parameter reference, and the PERCENT metric is a Decimal divided to scale 10: with param.GROUP_DEVIATION_SHARE_REFER_PCT = 20 as a whole-number percent and 1 of 6 members deviating, 100 x 1 / 6 = 16.6666666667, which is < 20, so the step falls back to WORST(E') = DEVIATION",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "params": {
+      "GROUP_DEVIATION_SHARE_REFER_PCT": {
+        "int": 20
+      }
+    },
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "memberPartyRefs": [
+          "P-0001",
+          "P-0002",
+          "P-0003",
+          "P-0004",
+          "P-0005",
+          "P-0006"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0001",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "5000"
+          }
+        },
+        {
+          "partyRef": "P-0002",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0004",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0005",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0006",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        }
+      ]
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "MFI_INCOME_FLOOR",
+          "name": "Member net monthly income above the floor",
+          "scope": "MEMBER",
+          "when": "member.proposedAmount > 0",
+          "check": "member.income.monthlyNet >= 10000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INCOME_FLOOR",
+            "deviationType": "INCOME_FLOOR",
+            "measure": "member.income.monthlyNet",
+            "worseWhen": "LOWER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INCOME_FLOOR",
+                "aggregate": {
+                  "kind": "THRESHOLD",
+                  "metric": "PERCENT",
+                  "op": ">=",
+                  "value": "param.GROUP_DEVIATION_SHARE_REFER_PCT",
+                  "statuses": [
+                    "DEVIATION"
+                  ],
+                  "result": "REFER"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "DEVIATION",
+          "ref": "MFI_INCOME_FLOOR"
+        }
+      ]
+    }
+  }
+]

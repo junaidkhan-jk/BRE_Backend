@@ -1,0 +1,43 @@
+# Single source of dependency versions (Build Plan §4).
+# Everything resolves from Maven Central. Versions verified against
+# repo1.maven.org on 2026-10-08; stable releases only, no milestones.
+
+[versions]
+# --- engine path. Nothing else may appear in bre-engine-core (LLD §1.2). ---
+re2j = "1.8"
+
+# --- libs outside the engine ---
+jackson = "2.22.3"
+snakeyaml-engine = "3.2"
+json-schema-validator = "3.0.8"
+zstd-jni = "1.5.7-22"
+
+# --- test ---
+# JUnit stays on the 5.x line: jqwik 1.x and archunit-junit5 1.x both target
+# the JUnit Platform 1.x API, which JUnit 6 replaces. Revisit together.
+junit = "5.14.4"
+assertj = "3.27.7"
+jqwik = "1.10.1"
+archunit = "1.5.1"
+
+# --- services (M2 onwards) ---
+spring-boot = "4.1.1"
+
+[libraries]
+re2j = { module = "com.google.re2j:re2j", version.ref = "re2j" }
+
+jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+snakeyaml-engine = { module = "org.snakeyaml:snakeyaml-engine", version.ref = "snakeyaml-engine" }
+json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
+zstd-jni = { module = "com.github.luben:zstd-jni", version.ref = "zstd-jni" }
+
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
+archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }

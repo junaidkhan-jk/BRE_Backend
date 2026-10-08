@@ -1,0 +1,22 @@
+# Gradle
+.gradle/
+build/
+build-logic/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Node (apps/studio-web)
+node_modules/
+dist/
+
+# Local secrets. Nexus credentials belong in ~/.gradle/gradle.properties or
+# the environment, never in the repository.
+local.properties
+*.local.properties
+
+# Tooling scratch
+.aitdp/

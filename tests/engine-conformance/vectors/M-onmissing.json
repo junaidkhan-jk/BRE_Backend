@@ -1,0 +1,77 @@
+[
+  {
+    "id": "M-01a",
+    "description": "onMissing FAIL on an unknown check gives status FAIL with the author's reasonCode, which CHK-007 requires whenever the policy is FAIL",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {}
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "M_01_RULE",
+          "scope": "MEMBER",
+          "check": "member.kycVerified",
+          "onMissing": {
+            "policy": "FAIL",
+            "reasonCode": "KYC_MISSING"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "status": "FAIL",
+      "reasonCode": "KYC_MISSING"
+    }
+  },
+  {
+    "id": "M-01b",
+    "description": "onMissing NOT_APPLICABLE on an unknown check gives NOT_APPLICABLE: an explicit author choice, which CHK-009 warns about as possible fail-open",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {}
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "M_01_RULE",
+          "scope": "MEMBER",
+          "check": "member.kycVerified",
+          "onMissing": {
+            "policy": "NOT_APPLICABLE"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "status": "NOT_APPLICABLE"
+    }
+  },
+  {
+    "id": "M-01c",
+    "description": "onMissing USE_DEFAULT(true) re-runs the decision point with the unknown Boolean replaced by true, so the check reads TRUE and the rule is PASS; the literal defaults the Boolean, not the input value",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {}
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "M_01_RULE",
+          "scope": "MEMBER",
+          "check": "member.kycVerified",
+          "onMissing": {
+            "policy": "USE_DEFAULT",
+            "value": true
+          }
+        }
+      ]
+    },
+    "expect": {
+      "status": "PASS"
+    }
+  }
+]

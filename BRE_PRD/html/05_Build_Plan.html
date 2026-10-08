@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>BRE Platform: Build Plan (from scratch)</title>
+<style>
+/* ============================================================
+   Trustt Standard Documentation Stylesheet
+   Constitution: DESIGN.html — Refined Minimalism, IDE dark canvas.
+   Typography, whitespace, hairlines and meaning-coded color do
+   the work. No gradients, no blobs, no icon-in-circle grids.
+   ============================================================ */
+/* THEME: IDE Dark (default, all documents).
+   A standard editor-style dark surface (#15171c editor / #1c1f26 panel) with
+   syntax-family accents — blue links, warm-yellow inline code, and the five
+   meaning rails re-tuned for dark (brighter fg, low-alpha tint fills).
+   Never a pure #000 background: the near-black greys keep long-form reading calm.
+   Light palettes remain available by swapping ONLY these :root values —
+   Warm Notebook: canvas #f6f4ef · card #fffdf9 · ink #1c1b18 · accent #7c3a2d;
+   Editorial White Paper: paper #F4F1EA · edge #ECE6D8 · ink #0E1A2B ·
+   accent #A8472B (see references/design-constitution.md).
+   Print already re-maps to a light palette below. Structure and interactivity never change. */
+:root{
+  --canvas:#15171c; --card:#1c1f26; --card-2:#222630; --ink:#dfe3ea; --muted:#9aa3b2; --faint:#6d7585;
+  --line:#2b303b; --line-2:#39404e; --accent:#61afef; --accent-soft:#3b6ea8; --code-bg:#22262e; --code-fg:#e5c07b;
+  --th:#232833; --stripe:#191c23; --quote:#4b5566;
+  /* Rails — reserved for their meaning, never decorative (dark-tuned) */
+  --green:#57cc8f; --green-soft:rgba(87,204,143,.14); --green-ink:#7ee2ab;
+  --amber:#e0a458; --amber-soft:rgba(224,164,88,.15); --amber-ink:#f0c07f;
+  --purple:#c586c0; --purple-soft:rgba(197,134,192,.15); --purple-ink:#dcaad8;
+  --crimson:#e06c75; --crimson-soft:rgba(224,108,117,.15); --crimson-ink:#f0949b;
+  --steel:#61afef; --steel-soft:rgba(97,175,239,.15); --steel-ink:#8fc7f5;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","IBM Plex Sans",Roboto,Helvetica,Arial,sans-serif;
+  --mono:"IBM Plex Mono","SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{margin:0;background:var(--canvas);color:var(--ink);font-family:var(--sans);
+  font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+
+/* ---- Topbar ---- */
+.topbar{position:sticky;top:0;z-index:10;background:rgba(21,23,28,.85);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);padding:11px 0}
+.topbar .in{max-width:1460px;margin:0 auto;padding:0 clamp(18px,3vw,40px);display:flex;align-items:center;gap:12px;
+  font-size:12.5px;color:var(--muted)}
+.topbar a.back{color:var(--accent);text-decoration:none;font-weight:600;white-space:nowrap}
+.topbar a.back:hover{text-decoration:underline}
+.topbar .crumb{color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar .crumb code{font-family:var(--mono);font-size:11.5px;background:var(--code-bg);padding:1px 6px;border-radius:4px}
+
+/* ---- Content column ---- */
+.wrap{width:100%;min-width:0;max-width:1120px;margin:0 auto;padding:40px clamp(18px,3.5vw,48px) 110px}
+h1,h2,h3,h4{font-family:var(--serif);line-height:1.22;color:var(--ink);font-weight:600;
+  margin-top:1.7em;margin-bottom:.5em;letter-spacing:-.01em;position:relative}
+h1{font-size:2.1rem;margin-top:.2em;padding-bottom:.32em;border-bottom:2px solid var(--line)}
+h2{font-size:1.5rem;padding-bottom:.22em;border-bottom:1px solid var(--line)}
+h3{font-size:1.22rem;color:var(--accent)}
+h4{font-size:1.05rem;color:var(--muted);font-style:italic}
+p{margin:.75em 0}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent;transition:.15s}
+a:hover{border-bottom-color:var(--accent-soft)}
+hr{border:none;border-top:1px solid var(--line);margin:2.4em 0}
+code{font-family:var(--mono);font-size:.85em;background:var(--code-bg);color:var(--code-fg);
+  padding:.13em .42em;border-radius:5px;overflow-wrap:anywhere}
+pre{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:15px 17px;
+  overflow-x:auto;line-height:1.55;box-shadow:0 1px 2px rgba(0,0,0,.35);position:relative}
+pre{background:#111318}
+pre code{background:none;padding:0;font-size:.84em;color:#d6dae2;white-space:pre-wrap;overflow-wrap:anywhere}
+/* Optional hand-applied syntax tokens inside <pre><code> — editor-style colouring.
+   Use sparingly and only where colour aids reading; they carry no rail meaning. */
+.tok-com{color:#6a7383;font-style:italic}   /* comment */
+.tok-kw{color:#c586c0}                      /* keyword */
+.tok-str{color:#98c379}                     /* string */
+.tok-num{color:#d19a66}                     /* number / literal */
+.tok-fn{color:#61afef}                      /* function / method */
+.tok-var{color:#e5c07b}                     /* variable / identifier */
+.tok-op{color:#9aa3b2}                      /* operator / punctuation */
+table{border-collapse:collapse;width:100%;margin:1.3em 0;font-size:.9rem;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:9px 13px;text-align:left;vertical-align:top;overflow-wrap:break-word}
+th{background:var(--th);font-weight:600;font-family:var(--sans)}
+tr:nth-child(even) td{background:var(--stripe)}
+blockquote{border-left:3px solid var(--quote);margin:1.1em 0;padding:.4em 1.1em;color:var(--muted);
+  background:var(--card);border-radius:0 9px 9px 0}
+ul,ol{padding-left:1.5em}li{margin:.32em 0}
+strong{font-weight:650;color:var(--ink)}
+img{max-width:100%;height:auto;border:1px solid var(--line);border-radius:10px;margin:.6em 0;display:block}
+
+/* ---- The spine: one section = one question, answered plainly ---- */
+.meaning{font-size:13.5px;color:var(--muted);background:var(--card);border:1px solid var(--line);
+  border-left:3px solid var(--steel);border-radius:0 9px 9px 0;padding:.55em 1.1em;margin:.9em 0 1.3em}
+.meaning b{color:var(--steel-ink);font-weight:650}
+
+/* ---- Kicker labels (mono, uppercase) ---- */
+.kicker{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;
+  color:var(--faint);display:block;margin-top:2.2em}
+.kicker + h2, .kicker + h3{margin-top:.25em}
+
+/* ---- Status pills (meaning-coded; never decorative) ---- */
+.pill{display:inline-block;font-family:var(--mono);font-size:11px;line-height:1;padding:4px 9px;
+  border-radius:999px;border:1px solid var(--line-2);background:var(--card-2);color:var(--muted);white-space:nowrap}
+.pill.green{background:var(--green-soft);color:var(--green-ink);border-color:transparent}
+.pill.amber{background:var(--amber-soft);color:var(--amber-ink);border-color:transparent}
+.pill.crimson{background:var(--crimson-soft);color:var(--crimson-ink);border-color:transparent}
+.pill.steel{background:var(--steel-soft);color:var(--steel-ink);border-color:transparent}
+.pill.purple{background:var(--purple-soft);color:var(--purple-ink);border-color:transparent}
+
+/* ---- Stat cards (one key number per card) ---- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:1.3em 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:14px 16px;
+  box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.stat .k{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:var(--faint)}
+.stat .v{font-family:var(--serif);font-size:1.55rem;font-weight:600;margin-top:2px;letter-spacing:-.01em}
+.stat .s{font-size:12px;color:var(--muted);margin-top:1px}
+
+/* ---- Collapsible sections ---- */
+details.fold{background:var(--card);border:1px solid var(--line);border-radius:11px;margin:1em 0;
+  box-shadow:0 1px 2px rgba(0,0,0,.35);overflow:hidden}
+details.fold>summary{cursor:pointer;padding:13px 18px;font-weight:600;list-style:none;
+  display:flex;align-items:center;gap:10px;transition:background .15s}
+details.fold>summary:hover{background:var(--card-2)}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::before{content:"›";font-family:var(--serif);color:var(--accent);
+  font-size:1.15em;transition:transform .2s ease-out;display:inline-block;line-height:1}
+details.fold[open]>summary::before{transform:rotate(90deg)}
+details.fold>.fold-body{padding:2px 18px 16px;border-top:1px solid var(--line)}
+
+/* ---- TOC rail (≥1200px: fixed left; below: collapsible block) ---- */
+.page{max-width:1460px;margin:0 auto}
+nav.toc{display:none}
+@media(min-width:1200px){
+  .page{display:grid;grid-template-columns:225px minmax(0,1fr);gap:8px;padding:0 clamp(12px,2vw,28px)}
+  nav.toc{display:block;position:sticky;top:64px;align-self:start;width:auto;
+    max-height:calc(100vh - 90px);overflow-y:auto;font-size:12.5px;line-height:1.5;
+    padding:42px 12px 24px 0;scrollbar-width:thin}
+  nav.toc .toc-title{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.11em;color:var(--faint);margin-bottom:8px}
+  nav.toc a{display:block;color:var(--muted);padding:3px 0 3px 10px;border-left:2px solid var(--line);
+    border-bottom:none;transition:.15s}
+  nav.toc a.lvl3{padding-left:22px;font-size:12px}
+  nav.toc a:hover{color:var(--ink)}
+  nav.toc a.active{color:var(--accent);border-left-color:var(--accent);font-weight:600}
+}
+details.toc-inline{background:var(--card);border:1px solid var(--line);border-radius:11px;margin:1.4em 0;padding:0}
+details.toc-inline>summary{cursor:pointer;padding:11px 18px;font-weight:600;list-style:none}
+details.toc-inline>summary::-webkit-details-marker{display:none}
+details.toc-inline .toc-body{padding:0 18px 14px;font-size:14px}
+details.toc-inline .toc-body a{display:block;padding:2px 0;color:var(--muted);border-bottom:none}
+details.toc-inline .toc-body a.lvl3{padding-left:18px;font-size:13px}
+details.toc-inline .toc-body a:hover{color:var(--accent)}
+@media(min-width:1200px){details.toc-inline{display:none}}
+
+/* ---- Heading anchors + code copy (richer color on hover only) ---- */
+.hanchor{position:absolute;left:-1.05em;top:0;color:var(--faint);opacity:0;border-bottom:none;
+  font-family:var(--sans);font-weight:400;transition:opacity .15s}
+h2:hover .hanchor,h3:hover .hanchor,h4:hover .hanchor{opacity:1}
+.copy-btn{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.06em;color:var(--muted);background:var(--card-2);border:1px solid var(--line);
+  border-radius:6px;padding:3px 9px;cursor:pointer;opacity:0;transition:opacity .15s,color .15s}
+pre:hover .copy-btn{opacity:1}
+.copy-btn:hover{color:var(--accent)}
+.copy-btn.done{color:var(--green-ink)}
+
+/* ---- Diagrams (inline SVG; see constitution "Diagram language") ---- */
+figure.diagram{margin:1.4em 0;background:var(--card);border:1px solid var(--line);border-radius:11px;
+  padding:16px 16px 8px;box-shadow:0 1px 2px rgba(0,0,0,.35)}
+figure.diagram svg{width:100%;max-width:980px;height:auto;display:block;margin:0 auto}
+figure.diagram figcaption{font-size:12.5px;color:var(--muted);padding:8px 4px 6px;border-top:1px solid var(--line);margin-top:10px}
+figure.diagram figcaption b{color:var(--ink)}
+svg .t-lbl{font-family:var(--mono);font-size:11px;fill:var(--muted)}
+svg .t-lbl2{font-family:var(--mono);font-size:10px;fill:var(--faint)}
+svg .t-name{font-family:var(--sans);font-size:12.5px;font-weight:600;fill:var(--ink)}
+svg .t-cap{font-family:var(--sans);font-size:11.5px;fill:var(--muted)}
+svg .t-kick{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;fill:var(--faint)}
+svg .ln{stroke:var(--line-2);stroke-width:1}
+svg .arrow{stroke:var(--faint);stroke-width:1.2;fill:none;marker-end:url(#arr)}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin:.8em 0 1.2em;font-size:12.5px;color:var(--muted)}
+.legend .sw{display:inline-flex;align-items:center;gap:6px}
+.legend .dot{width:11px;height:11px;border-radius:3px;display:inline-block;border:1px solid rgba(255,255,255,.14)}
+
+/* ---- Plain / Engineer mode (constitution: non-negotiable when audiences mix).
+   Add class .eng-only to engineering tokens (IDs, endpoints, confidences) and
+   .plain-only to their plain-language stand-ins; the toggle appears automatically. ---- */
+body.mode-plain .eng-only{display:none !important}
+body.mode-eng .plain-only{display:none !important}
+#modetoggle{display:none;margin-left:auto;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
+  color:var(--muted);background:var(--card-2);border:1px solid var(--line-2);border-radius:999px;
+  padding:4px 11px;cursor:pointer;white-space:nowrap;transition:color .15s}
+#modetoggle:hover{color:var(--accent)}
+#modetoggle .on{color:var(--accent);font-weight:600}
+
+/* ---- Back to top ---- */
+#totop{position:fixed;bottom:26px;right:26px;width:38px;height:38px;border-radius:999px;
+  background:var(--card);border:1px solid var(--line-2);color:var(--muted);cursor:pointer;
+  font-size:17px;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.45);opacity:0;pointer-events:none;
+  transition:opacity .2s}
+#totop.show{opacity:1;pointer-events:auto}
+#totop:hover{color:var(--accent)}
+
+.doc-foot{max-width:1120px;margin:0 auto;padding:22px clamp(18px,3.5vw,48px) 60px;border-top:1px solid var(--line);
+  color:var(--faint);font-size:12.5px}
+.doc-foot code{font-family:var(--mono);font-size:11.5px;background:var(--code-bg);padding:1px 6px;border-radius:4px}
+@media(max-width:560px){.wrap{padding:28px 18px 80px}h1{font-size:1.7rem}.topbar .in,.doc-foot{padding-left:18px;padding-right:18px}}
+/* ---- Print: the dark canvas is for screens only — re-map to a light palette so
+   a printed or PDF'd copy stays legible and does not flood the page with ink ---- */
+@media print{
+  :root{
+    --canvas:#fff; --card:#fff; --card-2:#f7f6f3; --ink:#14151a; --muted:#4c5261; --faint:#6f7583;
+    --line:#d8d5cd; --line-2:#c9c6bd; --accent:#1f5f96; --accent-soft:#8fb4d4; --code-bg:#f0eee9; --code-fg:#5a4a2e;
+    --th:#f0eee9; --stripe:#faf9f6; --quote:#b6b1a6;
+    --green:#1f8a5b; --green-soft:#e4f0e9; --green-ink:#175e40;
+    --amber:#c8941d; --amber-soft:#f6eeda; --amber-ink:#8a6614;
+    --purple:#7c5cc4; --purple-soft:#ece7f6; --purple-ink:#57408f;
+    --crimson:#c0455b; --crimson-soft:#f6e4e8; --crimson-ink:#8c3243;
+    --steel:#3c7fa6; --steel-soft:#e3edf3; --steel-ink:#2b5e7d;
+  }
+  .topbar,nav.toc,#totop,.copy-btn{display:none}
+  body{background:#fff;color:var(--ink)}
+  pre{background:var(--code-bg);box-shadow:none}
+  pre code{color:#24262c}
+  .tok-com{color:#6a7383}.tok-kw{color:#7c3aa0}.tok-str{color:#2f7a3f}.tok-num{color:#a15c1a}
+  .tok-fn{color:#1f5f96}.tok-var{color:#7a5c14}.tok-op{color:#4c5261}
+  .stat,details.fold,figure.diagram{box-shadow:none}
+  details.fold{page-break-inside:avoid}details[open]{display:block}
+}
+
+/* ---- content-specific additions (BRE build) ---- */
+.fig-kick{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:var(--faint);margin:0 0 10px}
+figure.diagram svg{max-height:none}
+.docnav{display:flex;justify-content:space-between;gap:16px;margin-top:3em;padding-top:1.2em;border-top:1px solid var(--line);font-size:14px}
+.docnav a{border-bottom:none}
+.doccards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin:1.3em 0}
+.doccard{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:16px 18px;box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.doccard h3{margin:.1em 0 .35em;font-size:1.12rem}
+.doccard h3 a{border-bottom:none}
+.doccard p{margin:.35em 0;font-size:14px;color:var(--muted)}
+.doccard .meta{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:.6em}
+.fig-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.fig-zoom{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted);background:var(--card-2);
+  border:1px solid var(--line-2);border-radius:999px;padding:3px 10px;cursor:pointer;white-space:nowrap;margin:0 0 10px}
+.fig-zoom:hover{color:var(--accent)}
+figure.diagram.zoomed .fig-scroll{overflow-x:auto}
+figure.diagram.zoomed .fig-scroll svg{width:var(--natw) !important;max-width:none !important}
+@media print{.fig-zoom{display:none}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="in"><a class="back" href="index.html">← BRE Draft 2 index</a>
+<span class="crumb">&middot;&nbsp; <code>docs/BRE_PRD/draft2/05_Build_Plan.md</code></span>
+<button id="modetoggle" title="Toggle plain-language / engineering detail" aria-label="Toggle plain or engineer mode"></button></div></div>
+
+<div class="page">
+<nav class="toc" id="toc-rail" aria-label="Table of contents"><div class="toc-title">On this page</div></nav>
+
+<div class="wrap">
+<!-- ====================================================================
+     CONTENT — replace everything between these markers.
+     Structure rules (the constitution):
+       · h1 once. h2 = major question-led section. h3 = sub-topic.
+       · Open every h2 section with:  <p class="meaning"><b>What this means:</b> …one plain sentence.</p>
+       · <span class="kicker">PART N — LABEL</span> above an h2 groups sections.
+       · Key numbers → .stats/.stat cards, one number per card.
+       · Status → .pill (green=live/good, amber=partial/caution, crimson=risk, steel=neutral, purple=structural).
+       · Deep detail the reader may skip → <details class="fold"><summary>…</summary><div class="fold-body">…</div></details>
+       · Tables for enumerable facts; prose around them for the why.
+     ==================================================================== -->
+<h1 id="doc-title">BRE Platform: Build Plan (from scratch)</h1>
+<blockquote><p>The plan for building the BRE Platform from scratch to the Draft 2 specification. It sets out the build principles, the verified starting environment, the repository setup, seven milestones (each with tasks and a demonstrable exit), the critical path, team and effort, the Definition of Done, the test strategy, build risks and the decisions needed to start. For the product owner, the tech lead and the engineering team. Draft 1.0, 2026-10-01.</p></blockquote>
+
+<details class="toc-inline"><summary>On this page</summary><div class="toc-body" id="toc-inline-body"></div></details>
+
+
+<p><strong>Document:</strong> <code>05_Build_Plan.md</code> · <strong>Version:</strong> 1.0-draft · <strong>Date:</strong> 2026-10-01
+<strong>Builds:</strong> the Draft 2 specification (<code>00</code>–<code>04</code>). If this plan and the specification disagree, the specification wins and this plan is corrected.
+<strong>Starting point:</strong> nothing exists yet. There is no code and no repository; the workspace has an empty <code>BRE/</code> folder.</p>
+<hr />
+<span class="kicker">PART 1 — APPROACH</span>
+<h2 id="1-summary">1. Summary</h2>
+<p class="meaning"><b>What this means:</b> The platform is built in seven milestones. The rule engine comes first; the system runs end to end on a laptop by week 10, is proven at production scale by week 20, and is pilot-ready by week 26.</p>
+
+<p>We build the platform in <strong>seven milestones</strong>: M0 to M6 make up Phase 1 (the MFI MVP), and Phases 2 and 3 follow.</p>
+<p>The order is chosen so that the riskiest and most central part, the <strong>rule engine</strong>, is built first against an executable specification. The platform is then <strong>running end to end on a laptop by week 10</strong>, long before it is complete. From that point every milestone adds capability to a system that already works; we never sit on a codebase that only compiles.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Phase 1 (MVP: MFI JLG/SHG)</strong></td>
+<td>≈ 26 weeks with a team of about 9 (§7). It ends at the PRD §12.1 exit criteria.</td>
+</tr>
+<tr>
+<td><strong>First end-to-end decision</strong></td>
+<td>Week 10 (M2). REST → engine → durable record → <code>GET</code> → replayed explanation, on a laptop, with no Docker.</td>
+</tr>
+<tr>
+<td><strong>Engine complete</strong></td>
+<td>Week 9 (M1): 100% of the LLD §13 conformance vectors pass, and the fail-closed property test passes.</td>
+</tr>
+<tr>
+<td><strong>Production-scale proof</strong></td>
+<td>Week 20 (M4): 5,000 decisions/s at p99 ≤ 100 ms on a production-like cell.</td>
+</tr>
+<tr>
+<td><strong>Pilot-ready</strong></td>
+<td>Week 26 (M6): the full MFI reference policy, a pen test, a DR drill, and a parallel run with a pilot lender.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-build-principles">2. Build principles</h2>
+<p class="meaning"><b>What this means:</b> Nine rules that keep the build honest: the specification is executable, every milestone ends in a running demo, and fail-closed behaviour is a CI gate.</p>
+
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Principle</th>
+<th>What it means in practice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P1</td>
+<td><strong>The specification is executable</strong></td>
+<td>The LLD §13 conformance vectors and the 00 §3.10 semantics (S1–S13) become a JUnit suite <strong>before</strong> the engine is written. The engine is &quot;done&quot; when that suite is green, not when it looks finished.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><strong>Walking skeleton early</strong></td>
+<td>By M2 one thin path works end to end. Everything after that thickens a running system.</td>
+</tr>
+<tr>
+<td>P3</td>
+<td><strong>Run it at every milestone</strong></td>
+<td>Every milestone's exit includes a demonstrated end-to-end run, not just green unit tests. A milestone that compiles but has never run is not done.</td>
+</tr>
+<tr>
+<td>P4</td>
+<td><strong>Engine purity</strong></td>
+<td><code>bre-engine-core</code> has zero framework dependencies and never reads the clock (LLD §1.2). ArchUnit enforces this in CI from day one.</td>
+</tr>
+<tr>
+<td>P5</td>
+<td><strong>Ports and adapters</strong></td>
+<td>Every infrastructure choice is an adapter behind a port, so we start with the simplest adapter and swap to the production one by configuration. The ports are <code>DecisionLog</code> (PostgreSQL outbox ↔ Kafka), <code>ObjectStore</code> (filesystem ↔ S3/MinIO), <code>KmsPort</code> (local dev keys ↔ Vault/KMS/HSM), <code>IdempotencyStore</code> (PostgreSQL ↔ Valkey) and <code>Identity</code> (dev JWT ↔ OIDC).</td>
+</tr>
+<tr>
+<td>P6</td>
+<td><strong>Fail-closed is a CI gate</strong></td>
+<td>The property test &quot;no combination of ERROR / DATA_MISSING / REFER / FAIL can produce APPROVE&quot; (PRD AC-MODEL-016) runs on every build from M1.</td>
+</tr>
+<tr>
+<td>P7</td>
+<td><strong>Performance budget from day one</strong></td>
+<td>JMH benchmarks for the engine run in CI with regression thresholds. Load tests start in M2, not at the end.</td>
+</tr>
+<tr>
+<td>P8</td>
+<td><strong>Independent stack</strong></td>
+<td>Maven Central and npm only. No platform plugins or private registries are inherited from other codebases. Our own Gradle build, our own conventions.</td>
+</tr>
+<tr>
+<td>P9</td>
+<td><strong>Security is built in, not bolted on</strong></td>
+<td>Expression safety (fuzzing), tenant isolation tests, PII-free logging and signed bundles are part of the milestone where each capability first appears.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-starting-environment-verified-2026-10-01">3. Starting environment (verified 2026-10-01)</h2>
+<p class="meaning"><b>What this means:</b> What the build machine has and lacks today, and how the plan works around the gaps. The main gap is that there is no Docker, so local tests use embedded PostgreSQL and Kafka.</p>
+
+<table>
+<thead>
+<tr>
+<th>Fact</th>
+<th>Consequence for the plan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>System JDK is 17. Gradle toolchain auto-provisioning works: JDK 21 is already provisioned and the foojay API is reachable.</td>
+<td>The build declares a <strong>Java 25 toolchain</strong>, and Gradle downloads JDK 25 automatically. No system install is needed.</td>
+</tr>
+<tr>
+<td>Gradle 9.6.1 distribution is cached</td>
+<td>Use the Gradle 9.6.x wrapper.</td>
+</tr>
+<tr>
+<td>Node 20.18.1, npm 10.8.2</td>
+<td><strong>Upgrade to Node 22 LTS for <code>studio-web</code></strong>, installed in the user's own directory with no sudo. Current Vite releases need Node ≥ 20.19.</td>
+</tr>
+<tr>
+<td>Maven Central, npm, GitHub and foojay are reachable. <code>gh</code> is logged in.</td>
+<td>Dependencies resolve normally. A private GitHub repository can be created when you approve it.</td>
+</tr>
+<tr>
+<td>16 cores, 125 GB RAM, 465 GB free</td>
+<td>Ample for local builds, embedded databases and laptop-scale load tests.</td>
+</tr>
+<tr>
+<td><strong>No Docker or Podman.</strong> Only the <code>psql</code> client is installed.</td>
+<td>Local integration tests use <strong>embedded</strong> infrastructure from Maven Central: real PostgreSQL binaries through <code>io.zonky.test:embedded-postgres</code>, an in-JVM Kafka KRaft broker through <code>spring-kafka-test</code>, a filesystem object store and local signing keys. CI (GitHub Actions has Docker) also runs Testcontainers profiles. <strong>Production-scale tests (M4) need a real cluster</strong>; see the infrastructure decision in §11.</td>
+</tr>
+<tr>
+<td>Empty <code>BRE/</code> folder in the workspace</td>
+<td>Proposed repository root (§4).</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4-repository-and-engineering-setup">4. Repository and engineering setup</h2>
+<p class="meaning"><b>What this means:</b> How the repository, the build, code-quality tooling, CI and local development are set up before feature work starts.</p>
+
+<p><strong>Repository:</strong> <code>BRE/</code> becomes the git root of <strong><code>bre-platform</code></strong>, laid out exactly as in LLD §1.1 (<code>build-logic/</code>, <code>libs/</code>, <code>services/</code>, <code>apps/studio-web/</code>, <code>tools/bre-cli/</code>, <code>tests/</code>). A private GitHub remote is created only when you say so.</p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Choice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Build</td>
+<td>Gradle 9.6 Kotlin DSL; version catalog <code>gradle/libs.versions.toml</code>; convention plugins in <code>build-logic/</code> (<code>bre.java-library</code>, <code>bre.spring-service</code>, <code>bre.contracts</code>); Java 25 toolchain; <code>-Werror</code></td>
+</tr>
+<tr>
+<td>Framework</td>
+<td>Spring Boot 4.x BOM (services only), virtual threads on</td>
+</tr>
+<tr>
+<td>Code quality</td>
+<td>Spotless (google-java-format), Error Prone, ArchUnit (the LLD §1.2 rules), JaCoCo with a coverage gate on <code>libs/</code></td>
+</tr>
+<tr>
+<td>Engine-specific libraries</td>
+<td><code>re2j</code> (regex), <code>snakeyaml-engine</code> (YAML 1.2 for PSF), a JSON Schema 2020-12 validator, <code>zstd-jni</code>. Nothing else is in the engine path.</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>JUnit 5, AssertJ, <strong>jqwik</strong> (property-based), <strong>Jazzer</strong> (fuzzing the BEL parser and type checker), JMH, Gatling (Java DSL), embedded-postgres, <code>spring-kafka-test</code>; Testcontainers in CI only</td>
+</tr>
+<tr>
+<td>Persistence</td>
+<td>PostgreSQL 17; schema migrations with Flyway (community edition); the LLD §5 DDL becomes the first migrations</td>
+</tr>
+<tr>
+<td>Contracts</td>
+<td>OpenAPI 3.1, <code>.proto</code> with buf breaking-change checks, AsyncAPI 3.0, event JSON Schemas, in <code>libs/bre-contracts</code></td>
+</tr>
+<tr>
+<td>Supply chain</td>
+<td>CycloneDX SBOM per artifact, licence scan, dependency vulnerability scan, Renovate for updates</td>
+</tr>
+<tr>
+<td>CI (GitHub Actions)</td>
+<td>On every PR: build, unit tests, conformance, ArchUnit, a JMH smoke run with thresholds, embedded integration tests, SBOM. Nightly: Testcontainers integration, Jazzer fuzz runs, a longer JMH run. Weekly: load test on the PERF cell (from M4).</td>
+</tr>
+<tr>
+<td>Repo hygiene</td>
+<td><code>docs/adr/</code> (ADRs carried from Architecture §14), CODEOWNERS, PR template with a Definition-of-Done checklist, protected <code>main</code>, conventional commits</td>
+</tr>
+<tr>
+<td>Local dev</td>
+<td><code>tools/devstack</code>: one command starts embedded PostgreSQL (plus embedded Kafka when needed) and the services in compact mode, seeded with a demo tenant and the MFI sample policy</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<span class="kicker">PART 2 — MILESTONES</span>
+<h2 id="5-milestones-phase-1">5. Milestones (Phase 1)</h2>
+<p class="meaning"><b>What this means:</b> The seven Phase 1 milestones, each a table of tasks with a concrete &quot;done when&quot; check and a demonstrable exit.</p>
+
+<figure class="diagram"><div class="fig-head"><div class="fig-kick">Diagram 1 · timeline · 5. Milestones (Phase 1)</div><button class="fig-zoom" type="button" title="Show this diagram at natural size">full size ↔</button></div><div class="fig-scroll" style="--natw:1400px"><svg role="img" aria-label="5. Milestones (Phase 1) (timeline diagram)" id="bre-d05-1" width="100%" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 268" style="max-width: 1400px;" role="graphics-document document" aria-roledescription="gantt"><style>#bre-d05-1{font-family:Arial,Helvetica,'Liberation Sans',sans-serif;font-size:13px;fill:var(--ink);}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#bre-d05-1 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#bre-d05-1 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#bre-d05-1 .error-icon{fill:var(--stripe);}#bre-d05-1 .error-text{fill:var(--ink);stroke:var(--ink);}#bre-d05-1 .edge-thickness-normal{stroke-width:1px;}#bre-d05-1 .edge-thickness-thick{stroke-width:3.5px;}#bre-d05-1 .edge-pattern-solid{stroke-dasharray:0;}#bre-d05-1 .edge-thickness-invisible{stroke-width:0;fill:none;}#bre-d05-1 .edge-pattern-dashed{stroke-dasharray:3;}#bre-d05-1 .edge-pattern-dotted{stroke-dasharray:2;}#bre-d05-1 .marker{fill:var(--faint);stroke:var(--faint);}#bre-d05-1 .marker.cross{stroke:var(--faint);}#bre-d05-1 svg{font-family:Arial,Helvetica,'Liberation Sans',sans-serif;font-size:13px;}#bre-d05-1 p{margin:0;}#bre-d05-1 .mermaid-main-font{font-family:Arial,Helvetica,'Liberation Sans',sans-serif;}#bre-d05-1 .exclude-range{fill:#eeeeee;}#bre-d05-1 .section{stroke:none;opacity:0.2;}#bre-d05-1 .section0{fill:var(--card);}#bre-d05-1 .section2{fill:var(--card-2);}#bre-d05-1 .section1,#bre-d05-1 .section3{fill:var(--stripe);opacity:0.2;}#bre-d05-1 .sectionTitle0{fill:var(--ink);}#bre-d05-1 .sectionTitle1{fill:var(--ink);}#bre-d05-1 .sectionTitle2{fill:var(--ink);}#bre-d05-1 .sectionTitle3{fill:var(--ink);}#bre-d05-1 .sectionTitle{text-anchor:start;font-family:Arial,Helvetica,'Liberation Sans',sans-serif;}#bre-d05-1 .grid .tick{stroke:var(--line);opacity:0.8;shape-rendering:crispEdges;}#bre-d05-1 .grid .tick text{font-family:Arial,Helvetica,'Liberation Sans',sans-serif;fill:var(--ink);}#bre-d05-1 .grid path{stroke-width:0;}#bre-d05-1 .today{fill:none;stroke:var(--crimson);stroke-width:2px;}#bre-d05-1 .task{stroke-width:2;}#bre-d05-1 .taskText{text-anchor:middle;font-family:Arial,Helvetica,'Liberation Sans',sans-serif;}#bre-d05-1 .taskTextOutsideRight{fill:var(--ink);text-anchor:start;font-family:Arial,Helvetica,'Liberation Sans',sans-serif;}#bre-d05-1 .taskTextOutsideLeft{fill:var(--ink);text-anchor:end;}#bre-d05-1 .task.clickable{cursor:pointer;}#bre-d05-1 .taskText.clickable{cursor:pointer;fill:#003163!important;font-weight:bold;}#bre-d05-1 .taskTextOutsideLeft.clickable{cursor:pointer;fill:#003163!important;font-weight:bold;}#bre-d05-1 .taskTextOutsideRight.clickable{cursor:pointer;fill:#003163!important;font-weight:bold;}#bre-d05-1 .taskText0,#bre-d05-1 .taskText1,#bre-d05-1 .taskText2,#bre-d05-1 .taskText3{fill:var(--ink);}#bre-d05-1 .task0,#bre-d05-1 .task1,#bre-d05-1 .task2,#bre-d05-1 .task3{fill:var(--accent-soft);stroke:var(--accent);}#bre-d05-1 .taskTextOutside0,#bre-d05-1 .taskTextOutside2{fill:var(--ink);}#bre-d05-1 .taskTextOutside1,#bre-d05-1 .taskTextOutside3{fill:var(--ink);}#bre-d05-1 .active0,#bre-d05-1 .active1,#bre-d05-1 .active2,#bre-d05-1 .active3{fill:var(--green);stroke:var(--green);}#bre-d05-1 .activeText0,#bre-d05-1 .activeText1,#bre-d05-1 .activeText2,#bre-d05-1 .activeText3{fill:var(--ink)!important;}#bre-d05-1 .done0,#bre-d05-1 .done1,#bre-d05-1 .done2,#bre-d05-1 .done3{stroke:grey;fill:lightgrey;stroke-width:2;}#bre-d05-1 .doneText0,#bre-d05-1 .doneText1,#bre-d05-1 .doneText2,#bre-d05-1 .doneText3{fill:var(--ink)!important;}#bre-d05-1 .doneText0.taskTextOutsideLeft,#bre-d05-1 .doneText0.taskTextOutsideRight,#bre-d05-1 .doneText1.taskTextOutsideLeft,#bre-d05-1 .doneText1.taskTextOutsideRight,#bre-d05-1 .doneText2.taskTextOutsideLeft,#bre-d05-1 .doneText2.taskTextOutsideRight,#bre-d05-1 .doneText3.taskTextOutsideLeft,#bre-d05-1 .doneText3.taskTextOutsideRight{fill:var(--ink)!important;}#bre-d05-1 .crit0,#bre-d05-1 .crit1,#bre-d05-1 .crit2,#bre-d05-1 .crit3{stroke:#ff8888;fill:red;stroke-width:2;}#bre-d05-1 .activeCrit0,#bre-d05-1 .activeCrit1,#bre-d05-1 .activeCrit2,#bre-d05-1 .activeCrit3{stroke:#ff8888;fill:var(--green);stroke-width:2;}#bre-d05-1 .doneCrit0,#bre-d05-1 .doneCrit1,#bre-d05-1 .doneCrit2,#bre-d05-1 .doneCrit3{stroke:#ff8888;fill:lightgrey;stroke-width:2;cursor:pointer;shape-rendering:crispEdges;}#bre-d05-1 .milestone{transform:rotate(45deg) scale(0.8,0.8);}#bre-d05-1 .milestoneText{font-style:italic;}#bre-d05-1 .doneCritText0,#bre-d05-1 .doneCritText1,#bre-d05-1 .doneCritText2,#bre-d05-1 .doneCritText3{fill:var(--ink)!important;}#bre-d05-1 .doneCritText0.taskTextOutsideLeft,#bre-d05-1 .doneCritText0.taskTextOutsideRight,#bre-d05-1 .doneCritText1.taskTextOutsideLeft,#bre-d05-1 .doneCritText1.taskTextOutsideRight,#bre-d05-1 .doneCritText2.taskTextOutsideLeft,#bre-d05-1 .doneCritText2.taskTextOutsideRight,#bre-d05-1 .doneCritText3.taskTextOutsideLeft,#bre-d05-1 .doneCritText3.taskTextOutsideRight{fill:var(--ink)!important;}#bre-d05-1 .vert{stroke:navy;}#bre-d05-1 .vertText{font-size:15px;text-anchor:middle;fill:navy!important;}#bre-d05-1 .activeCritText0,#bre-d05-1 .activeCritText1,#bre-d05-1 .activeCritText2,#bre-d05-1 .activeCritText3{fill:var(--ink)!important;}#bre-d05-1 .titleText{text-anchor:middle;font-size:18px;fill:var(--ink);font-family:Arial,Helvetica,'Liberation Sans',sans-serif;}#bre-d05-1 .node .neo-node{stroke:var(--accent);}#bre-d05-1 [data-look="neo"].node rect,#bre-d05-1 [data-look="neo"].cluster rect,#bre-d05-1 [data-look="neo"].node polygon{stroke:url(#bre-d05-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#bre-d05-1 [data-look="neo"].swimlane.cluster rect{filter:none;}#bre-d05-1 [data-look="neo"].node path{stroke:url(#bre-d05-1-gradient);stroke-width:1px;}#bre-d05-1 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#bre-d05-1 [data-look="neo"].node .neo-line path{stroke:var(--accent);filter:none;}#bre-d05-1 [data-look="neo"].node circle{stroke:url(#bre-d05-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#bre-d05-1 [data-look="neo"].node circle .state-start{fill:#000000;}#bre-d05-1 [data-look="neo"].icon-shape .icon{fill:url(#bre-d05-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#bre-d05-1 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#bre-d05-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#bre-d05-1 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g></g><g class="grid" transform="translate(75, 218)" fill="none" font-size="10" font-family="sans-serif" text-anchor="middle"><path class="domain" stroke="currentColor" d="M0.5,-183V0.5H1250.5V-183"></path><g class="tick" opacity="1" transform="translate(193.5,0)"><line stroke="currentColor" y2="-183"></line><text fill="#000" y="3" dy="1em" stroke="none" font-size="10" style="text-anchor: middle;"> 01 Nov</text></g><g class="tick" opacity="1" transform="translate(407.5,0)"><line stroke="currentColor" y2="-183"></line><text fill="#000" y="3" dy="1em" stroke="none" font-size="10" style="text-anchor: middle;"> 01 Dec</text></g><g class="tick" opacity="1" transform="translate(629.5,0)"><line stroke="currentColor" y2="-183"></line><text fill="#000" y="3" dy="1em" stroke="none" font-size="10" style="text-anchor: middle;"> 01 Jan</text></g><g class="tick" opacity="1" transform="translate(850.5,0)"><line stroke="currentColor" y2="-183"></line><text fill="#000" y="3" dy="1em" stroke="none" font-size="10" style="text-anchor: middle;"> 01 Feb</text></g><g class="tick" opacity="1" transform="translate(1050.5,0)"><line stroke="currentColor" y2="-183"></line><text fill="#000" y="3" dy="1em" stroke="none" font-size="10" style="text-anchor: middle;"> 01 Mar</text></g></g><g><rect x="0" y="48" width="1362.5" height="24" class="section section0"></rect><rect x="0" y="72" width="1362.5" height="24" class="section section1"></rect><rect x="0" y="96" width="1362.5" height="24" class="section section2"></rect><rect x="0" y="120" width="1362.5" height="24" class="section section2"></rect><rect x="0" y="168" width="1362.5" height="24" class="section section3"></rect><rect x="0" y="144" width="1362.5" height="24" class="section section2"></rect><rect x="0" y="192" width="1362.5" height="24" class="section section0"></rect></g><g><rect id="bre-d05-1-m0" rx="3" ry="3" x="75" y="50" width="100" height="20" transform-origin="125px 60px" class="task task0"></rect><rect id="bre-d05-1-m1" rx="3" ry="3" x="125" y="74" width="400" height="20" transform-origin="325px 84px" class="task task1"></rect><rect id="bre-d05-1-m2" rx="3" ry="3" x="325" y="98" width="250" height="20" transform-origin="450px 108px" class="task task2"></rect><rect id="bre-d05-1-m3" rx="3" ry="3" x="475" y="122" width="400" height="20" transform-origin="675px 132px" class="task task2"></rect><rect id="bre-d05-1-m5" rx="3" ry="3" x="525" y="170" width="600" height="20" transform-origin="825px 180px" class="task task3"></rect><rect id="bre-d05-1-m4" rx="3" ry="3" x="625" y="146" width="400" height="20" transform-origin="825px 156px" class="task task2"></rect><rect id="bre-d05-1-m6" rx="3" ry="3" x="1025" y="194" width="300" height="20" transform-origin="1175px 204px" class="task task0"></rect><text id="bre-d05-1-m0-text" font-size="11" x="180" y="63.5" class="taskTextOutsideRight taskTextOutside0  width-203.48974609375">M0 Repo, build, CI, conformance harness      </text><text id="bre-d05-1-m1-text" font-size="11" x="325" y="87.5" class="taskText taskText1  width-225.609375">M1 bre-engine-core (BEL, compiler, evaluator) </text><text id="bre-d05-1-m2-text" font-size="11" x="450" y="111.5" class="taskText taskText2  width-183.609375">M2 Walking skeleton (compact mode)           </text><text id="bre-d05-1-m3-text" font-size="11" x="675" y="135.5" class="taskText taskText2  width-165.734375">M3 Control plane and governance              </text><text id="bre-d05-1-m5-text" font-size="11" x="825" y="183.5" class="taskText taskText3  width-98.453125">M5 Rule Studio web                           </text><text id="bre-d05-1-m4-text" font-size="11" x="825" y="159.5" class="taskText taskText2  width-172.4375">M4 Kafka-first data plane and scale          </text><text id="bre-d05-1-m6-text" font-size="11" x="1175" y="207.5" class="taskText taskText0  width-180.796875">M6 Reference policy, hardening, pilot        </text></g><g><text dy="0em" x="10" y="62" font-size="11" class="sectionTitle sectionTitle0"><tspan alignment-baseline="central" x="10">Foundations</tspan></text><text dy="0em" x="10" y="86" font-size="11" class="sectionTitle sectionTitle1"><tspan alignment-baseline="central" x="10">Engine</tspan></text><text dy="0em" x="10" y="134" font-size="11" class="sectionTitle sectionTitle2"><tspan alignment-baseline="central" x="10">Platform</tspan></text><text dy="0em" x="10" y="182" font-size="11" class="sectionTitle sectionTitle3"><tspan alignment-baseline="central" x="10">Studio</tspan></text><text dy="0em" x="10" y="206" font-size="11" class="sectionTitle sectionTitle0"><tspan alignment-baseline="central" x="10">Pilot</tspan></text></g><g class="today"><line x1="88" x2="88" y1="25" y2="243" class="today"></line></g><text x="700" y="25" class="titleText">Phase 1 build plan (indicative, kickoff 2026-10-05)</text></svg></div><figcaption><b>Reading it:</b> each bar is a milestone on an indicative calendar starting 2026-10-05. The bars overlap on purpose: the studio and the scale work run alongside the control plane once the engine and the walking skeleton exist.</figcaption></figure>
+<p><em>The dates are indicative, assuming a team as in §7 starting 2026-10-05. Milestones overlap by design; the critical path is §6.</em></p>
+<h3 id="m0-foundations-weeks-1-2">M0 · Foundations (weeks 1–2)</h3>
+<p><strong>Goal:</strong> a repository in which correct work is easy and incorrect work fails CI.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Task</th>
+<th>Done when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M0-01</td>
+<td><code>git init</code> in <code>BRE/</code>; Gradle 9.6 wrapper; <code>settings.gradle.kts</code> with every module from LLD §1.1 as an empty shell</td>
+<td><code>./gradlew build</code> passes on an empty skeleton</td>
+</tr>
+<tr>
+<td>M0-02</td>
+<td><code>build-logic</code> convention plugins: Java 25 toolchain, Spotless, Error Prone, JaCoCo, CycloneDX</td>
+<td>A Java 25 toolchain is auto-provisioned; formatting violations fail the build</td>
+</tr>
+<tr>
+<td>M0-03</td>
+<td>ArchUnit rules from LLD §1.2: engine purity, no clock or randomness in the engine, no fact values in logs, no cross-service internals</td>
+<td>Each rule has a deliberately failing fixture that proves it fires</td>
+</tr>
+<tr>
+<td>M0-04</td>
+<td><code>tests/engine-conformance</code>: JSON vector format plus a JUnit runner. Import <strong>every LLD §13 vector</strong>, and the 00 §3.14 PSF example, as data.</td>
+<td>The runner executes them all, and all fail with &quot;engine not implemented&quot;</td>
+</tr>
+<tr>
+<td>M0-05</td>
+<td>Fail-closed property-test harness (jqwik), with a fake engine to prove it can catch a fail-open</td>
+<td>It fails on a deliberately fail-open stub</td>
+</tr>
+<tr>
+<td>M0-06</td>
+<td>GitHub Actions pipelines (PR, nightly), PR template, CODEOWNERS, ADR folder seeded with ADR-001..015</td>
+<td>A PR shows every check</td>
+</tr>
+<tr>
+<td>M0-07</td>
+<td><code>docs/</code> in the repo links to Draft 2. <code>CONTRIBUTING.md</code> holds the Definition of Done (§8).</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Exit:</strong> green CI on the skeleton; the conformance runner lists every vector as pending.</p>
+<h3 id="m1-rule-engine-bre-engine-core-weeks-2-9-the-critical-core">M1 · Rule engine <code>bre-engine-core</code> (weeks 2–9): the critical core</h3>
+<p><strong>Goal:</strong> a pure, deterministic, fail-closed engine that passes the whole specification.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Task</th>
+<th>Spec</th>
+<th>Done when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M1-01</td>
+<td>Value model (<code>DecimalV</code>, <code>Missing</code>, …), decimal semantics (MathContext, division scale 10 HALF_EVEN, <code>round</code> modes), date semantics (<code>java.time.Period</code>)</td>
+<td>LLD §3.4–3.7, S10</td>
+<td>Decimal and date vectors pass</td>
+</tr>
+<tr>
+<td>M1-02</td>
+<td>Lexer and hand-written recursive-descent parser for BEL; unary-test parser; positioned error messages</td>
+<td>LLD §3.1–3.3</td>
+<td>Grammar vectors pass; Jazzer runs 1 h with no crash</td>
+</tr>
+<tr>
+<td>M1-03</td>
+<td>Binder and type checker: scopes, scope collections, result references, namespaces (<code>param.</code>, <code>list.</code>), protected-field detection</td>
+<td>LLD §3.8, §4.3, S13</td>
+<td><code>BEL-0xx</code> diagnostic vectors pass</td>
+</tr>
+<tr>
+<td>M1-04</td>
+<td>Variable and result-reference DAG, cycle detection, topological order</td>
+<td>LLD §4.2</td>
+<td>Cycle vectors pass</td>
+</tr>
+<tr>
+<td>M1-05</td>
+<td>Lowering to a closure tree; fuel meter; list-size cap; closed function registry</td>
+<td>LLD §3.9–3.10, §4.4</td>
+<td>Function and fuel vectors pass</td>
+</tr>
+<tr>
+<td>M1-06</td>
+<td>Three-valued logic and missing-value semantics: strict aggregates; fail-closed filters; <code>if</code> with an unknown condition → missing</td>
+<td>LLD §3.5, S1–S3</td>
+<td>S1, S2 and S3 vectors pass</td>
+</tr>
+<tr>
+<td>M1-07</td>
+<td>Components: rules (<code>when</code>/<code>check</code>/<code>onFail</code>/<code>onMissing</code>/<code>measure</code>/<code>outputs</code>), decision tables with every hit policy, scorecards with adverse reasons</td>
+<td>LLD §4.6, S5, S9, S11</td>
+<td>Component vectors pass</td>
+</tr>
+<tr>
+<td>M1-08</td>
+<td>Flow execution, per-entity iteration, aggregation (WORST, ALL_MUST_PASS, THRESHOLD, NONE), knockout skipping</td>
+<td>LLD §4.5, §4.7, S6, S7, S12</td>
+<td>Aggregation vectors pass</td>
+</tr>
+<tr>
+<td>M1-09</td>
+<td>Decision precedence, <code>stpEligible</code>, deviation coverage, authority resolution (HIGHEST_ONLY / EACH), customer-reason selection, champion/challenger hashing</td>
+<td>LLD §4.8–4.11, S8</td>
+<td>Decision and deviation vectors pass; <strong>fail-closed property test passes at 10⁶ cases</strong></td>
+</tr>
+<tr>
+<td>M1-10</td>
+<td>Static checks: decision-table overlap and gap analysis (interval and enumerated domains), unreachable rows, unused variables, protected-attribute use, unknown references, cost</td>
+<td>LLD §4.13</td>
+<td><code>CHK-0xx</code> vectors pass</td>
+</tr>
+<tr>
+<td>M1-11</td>
+<td>Explanation trace recorder (on by request, zero cost when off)</td>
+<td>LLD §4.12</td>
+<td>The trace's final decision always equals the decision</td>
+</tr>
+<tr>
+<td>M1-12</td>
+<td><code>bre-ir-json</code>: IR codec, PSF YAML ↔ IR, BRE-JCS canonical JSON, IR JSON Schema validation</td>
+<td>LLD §2.2–2.5</td>
+<td>Round-trip tests; the 00 §3.14 PSF compiles and evaluates</td>
+</tr>
+<tr>
+<td>M1-13</td>
+<td><code>bre-bundle</code>: bundle format, SHA-256 hash, Ed25519 sign and verify, trust store; load-time self-test</td>
+<td>LLD §2.6, §8.6</td>
+<td>A tampered byte fails verification; rebuilds are byte-identical</td>
+</tr>
+<tr>
+<td>M1-14</td>
+<td><code>bre-fact-model</code>: canonical fact JSON Schema v1, single-pass <code>FactReader</code>, classification tags, prohibited-data detector (raw Aadhaar, raw PAN)</td>
+<td>00 §3.9, LLD §9.1</td>
+<td>Schema vectors pass; raw Aadhaar is rejected</td>
+</tr>
+<tr>
+<td>M1-15</td>
+<td><code>tools/bre-cli</code>: `psf lint</td>
+<td>compile</td>
+<td>test</td>
+</tr>
+<tr>
+<td>M1-16</td>
+<td>JMH benchmarks: 100-rule policy; 1,000-rule, 40-member group</td>
+<td>Arch §6.1.6, §15.1</td>
+<td>Evaluation p99 ≤ 0.5 ms (100 rules) and ≤ 50 ms (G40), with thresholds in CI</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Exit:</strong></p>
+<ol>
+<li><strong>100% of the conformance vectors pass.</strong></li>
+<li>The fail-closed property test passes.</li>
+<li>Jazzer finds nothing in a 1-hour run.</li>
+<li>The JMH budgets are met.</li>
+<li><code>bre-cli</code> compiles, tests and bundles the sample MFI policy.</li>
+</ol>
+<h3 id="m2-walking-skeleton-compact-mode-weeks-6-10">M2 · Walking skeleton, compact mode (weeks 6–10)</h3>
+<p><strong>Goal:</strong> one real decision, end to end, durable and replayable, on a laptop.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Task</th>
+<th>Done when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M2-01</td>
+<td><code>bre-platform-common</code>: tenant context, UUIDv7 (with locator bits), problem+json, OTel helpers, PII log guard</td>
+<td>Unit tests pass</td>
+</tr>
+<tr>
+<td>M2-02</td>
+<td>Flyway migrations for the <code>bre_ctl</code> subset (tenants, policies, versions, bundles, deployments, active_pointers) and <code>bre_dec</code> (decisions, decision_facts, idempotency_keys, outbox), with partitioning as in LLD §5</td>
+<td>Migrations apply on embedded PostgreSQL 17</td>
+</tr>
+<tr>
+<td>M2-03</td>
+<td><code>policy-registry</code> (minimal): import PSF → compile → auto-approve (DEV only) → build and sign bundle → create deployment → active pointer; <code>GET /v1/active-pointers</code> with ETag and long-poll</td>
+<td>A policy goes live in DEV with one API call</td>
+</tr>
+<tr>
+<td>M2-04</td>
+<td><code>decision-service</code>: <code>POST /v1/decisions</code> and <code>GET /v1/decisions/{id}</code>; policy resolution and pinning; <code>PointerWatcher</code> and <code>BundleCache</code> with verify and atomic swap; <code>OutboxDecisionLog</code> (PostgreSQL-first); PostgreSQL <code>IdempotencyStore</code></td>
+<td>The decision is durable before the 200; a retry returns the same <code>decisionId</code></td>
+</tr>
+<tr>
+<td>M2-05</td>
+<td><code>GET /v1/decisions/{id}/explanation</code> by replay</td>
+<td>The replay equals the stored outcome</td>
+</tr>
+<tr>
+<td>M2-06</td>
+<td>Facts encryption with <strong>local dev keys</strong> behind <code>KmsPort</code>; masked view</td>
+<td>Facts are unreadable in the database without the key</td>
+</tr>
+<tr>
+<td>M2-07</td>
+<td><code>tools/devstack</code>: one command; seeds a demo tenant and the MFI JLG sample policy</td>
+<td>A fresh clone reaches a first decision with one command</td>
+</tr>
+<tr>
+<td>M2-08</td>
+<td>Smoke load test (Gatling) at 500 decisions/s locally; first latency profile</td>
+<td>A report is stored in CI artefacts</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Exit (demo):</strong></p>
+<ol>
+<li>A 5-member JLG group application gets a correct <code>APPROVE_WITH_DEVIATION</code>.</li>
+<li>The retry is idempotent.</li>
+<li>The explanation replays.</li>
+<li>Restarting the service loses nothing.</li>
+<li>A policy change via the registry takes effect without a restart.</li>
+</ol>
+<h3 id="m3-control-plane-and-governance-weeks-9-16">M3 · Control plane and governance (weeks 9–16)</h3>
+<p><strong>Goal:</strong> the complete authoring-to-production lifecycle with maker-checker, multi-tenancy and audit.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Task</th>
+<th>Done when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M3-01</td>
+<td>Full <code>bre_ctl</code> schema (LLD §5.2) including RLS, the hash-chained <code>audit_log</code> and the governance overrides</td>
+<td>The RLS cross-tenant test suite passes</td>
+</tr>
+<tr>
+<td>M3-02</td>
+<td><code>studio-service</code>: policies and versions lifecycle (<code>DRAFT → IN_REVIEW → APPROVED</code>, request changes, discard, archive), clone, PSF import/export, semantic diff</td>
+<td>PRD FR-LIFE-001..003, FR-AUTH-008/009 ACs pass</td>
+</tr>
+<tr>
+<td>M3-03</td>
+<td>Shared assets with maker-checker and effective dating: parameter sets (including <code>REGULATORY</code> tags), reference lists, reason codes, authority matrices (routing mode pinned), fact schemas</td>
+<td>FR-MODEL-003/007/008, FR-DEV-002 ACs pass</td>
+</tr>
+<tr>
+<td>M3-04</td>
+<td>Test cases, coverage, submit gates (tests, coverage, static checks, change note, committee reference); simulation API with trace; batch simulation</td>
+<td>FR-TEST-001..005, FR-TEST-010 ACs pass</td>
+</tr>
+<tr>
+<td>M3-05</td>
+<td>Segregation of duties: reviewer ≠ editor; deployment approver ≠ author or reviewer; <code>minPolicyReviewers</code> and <code>minDeploymentApprovers[env]</code></td>
+<td>FR-LIFE-003/006 ACs pass</td>
+</tr>
+<tr>
+<td>M3-06</td>
+<td>Registry: deployments with per-environment approvals, scheduling at <code>effectiveFrom</code>, uniqueness of the ACTIVE CHAMPION, rollback, EXPEDITED with a PIR task, signed manifests, serving heartbeat and rollout status</td>
+<td>FR-LIFE-005..011 ACs pass; <strong>rollback converges in ≤ 30 s across 3 pods</strong></td>
+</tr>
+<tr>
+<td>M3-07</td>
+<td>Bundle export and import between installations (ORIGIN/IMPORT signatures)</td>
+<td>A tampered bundle is rejected on import</td>
+</tr>
+<tr>
+<td>M3-08</td>
+<td><code>tenant-admin-service</code>: tenants, environments, settings, quotas, cell assignment (single cell for now)</td>
+<td>FR-ADM-001/003/005 ACs pass</td>
+</tr>
+<tr>
+<td>M3-09</td>
+<td>Identity: OIDC resource server for users (Keycloak in CI) and OAuth2 client credentials for systems; dev JWT locally; MFA policy hook</td>
+<td>FR-INT-008 ACs pass</td>
+</tr>
+<tr>
+<td>M3-10</td>
+<td><code>bre.studio.audit.v1</code> events (outbox in compact mode)</td>
+<td>FR-AUD-005 AC passes</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Exit (demo):</strong> PRD journey <strong>J1</strong> runs end to end through the APIs. Three distinct users take the policy from draft to PROD to rollback, and the audit trail shows every step with diffs.</p>
+<h3 id="m4-kafka-first-data-plane-and-production-scale-weeks-12-20">M4 · Kafka-first data plane and production scale (weeks 12–20)</h3>
+<p><strong>Goal:</strong> the production data path, proven at NFR scale on real infrastructure.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Task</th>
+<th>Done when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M4-01</td>
+<td><code>KafkaDecisionLog</code>: <code>acks=all</code>, idempotent producer, protobuf <code>recorded.v1</code> (CloudEvents binary), <code>delivery.timeout</code> aligned with the API deadline; fail-closed 503 when Kafka is unavailable</td>
+<td>Tests on the embedded KRaft broker; a broker-kill test</td>
+</tr>
+<tr>
+<td>M4-02</td>
+<td><code>decision-sink</code>: Kafka → hot store (daily partitions × tenant hash; facts table with 14-day retention), de-duplication on <code>(tenant_id, request_id)</code>; partition-maintenance job</td>
+<td>The sink catches up after a 1-hour outage with no loss</td>
+</tr>
+<tr>
+<td>M4-03</td>
+<td>Archive writer: Parquet + zstd, hourly manifests with checksums, Object Lock on S3/MinIO; filesystem adapter in dev</td>
+<td>Archive files validate; Object Lock is verified on MinIO</td>
+</tr>
+<tr>
+<td>M4-04</td>
+<td>Envelope encryption with real KMS/Vault adapters; per-principal keys; crypto-shredding endpoint (<code>POST /v1/admin/erasures</code>)</td>
+<td>Shredded facts are undecryptable; the decision metadata survives</td>
+</tr>
+<tr>
+<td>M4-05</td>
+<td>Valkey adapters for idempotency and rate limits; gateway token buckets; adaptive concurrency; weighted fair share; priority classes</td>
+<td>A noisy-neighbour test keeps the other tenant within SLO</td>
+</tr>
+<tr>
+<td>M4-06</td>
+<td><code>decision-worker</code> (async ingress <code>POST /v1/decisions:async</code> + Kafka consumer, DLQ, idempotent) and bulk jobs</td>
+<td>FR-EXEC-009/010 ACs pass (pulled forward from Phase 2 because the infrastructure exists)</td>
+</tr>
+<tr>
+<td>M4-07</td>
+<td>Replay-verification job (≥ 10,000/day), outcome guardrails, drift and ERROR-rate monitors</td>
+<td>An injected mismatch alerts</td>
+</tr>
+<tr>
+<td>M4-08</td>
+<td>Observability: OpenTelemetry traces, metrics and logs; Grafana dashboards; SLOs with burn-rate alerts</td>
+<td>The dashboards show a load test live</td>
+</tr>
+<tr>
+<td>M4-09</td>
+<td>Helm charts per cell, Argo CD, Strimzi (Kafka), CloudNativePG, PDBs, topology spread, HPA/KEDA</td>
+<td>A cell deploys from Git</td>
+</tr>
+<tr>
+<td>M4-10</td>
+<td><strong>PERF cell load and chaos tests:</strong> NFR-PERF-01/02, NFR-SCALE-01/02, broker loss, AZ loss, hot store down, registry down, KMS down</td>
+<td>The targets are met, or the gaps are documented with fixes planned</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Exit:</strong> a production-like cell sustains <strong>5,000 decisions/s at p99 ≤ 100 ms</strong>. The chaos suite shows RPO 0 for acknowledged decisions. The convergence SLO holds under load.</p>
+<h3 id="m5-rule-studio-web-weeks-10-22-in-parallel">M5 · Rule Studio web (weeks 10–22, in parallel)</h3>
+<p><strong>Goal:</strong> a business user authors, tests, submits and deploys policy with no engineering help (AC-AUTH-001).</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Task</th>
+<th>Done when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M5-01</td>
+<td>App shell: React + TypeScript + Vite, routing, OIDC login (<code>oidc-client-ts</code>), role-aware navigation, masking everywhere</td>
+<td>Login works and roles gate the screens</td>
+</tr>
+<tr>
+<td>M5-02</td>
+<td>Monaco BEL language: Monarch syntax highlighting; diagnostics and autocomplete from the backend compile API (debounced, ≤ 500 ms); fact-path browser</td>
+<td>FR-AUTH-002/003/004 ACs pass</td>
+</tr>
+<tr>
+<td>M5-03</td>
+<td>Rule and variable editors; decision-table grid with gap and overlap highlighting; scorecard editor (Phase 2 flag); flow editor</td>
+<td>FR-AUTH-005/007 ACs pass</td>
+</tr>
+<tr>
+<td>M5-04</td>
+<td>PSF diff (Monaco diff editor), version history, clone</td>
+<td>FR-AUTH-008/009 ACs pass</td>
+</tr>
+<tr>
+<td>M5-05</td>
+<td>Test runner with coverage; simulation console with a trace view; batch simulation upload</td>
+<td>FR-TEST-001..004/010 ACs pass</td>
+</tr>
+<tr>
+<td>M5-06</td>
+<td>Review inbox (comments on rules and rows), submit and approve; deployment console with per-pod convergence; rollback button</td>
+<td>J1 can be done entirely in the UI</td>
+</tr>
+<tr>
+<td>M5-07</td>
+<td>Assets screens: parameters (regulatory register), lists, reason codes, authority matrix</td>
+<td>Maker-checker is visible in the UI</td>
+</tr>
+<tr>
+<td>M5-08</td>
+<td>Decision lookup (masked; unmask with a reason), explanation viewer, audit trail</td>
+<td>J7 and J8 can be done in the UI</td>
+</tr>
+<tr>
+<td>M5-09</td>
+<td>Playwright end-to-end tests for J1, J3, J4, J7 and J8; an axe accessibility audit</td>
+<td>Green in CI</td>
+</tr>
+<tr>
+<td>M5-10</td>
+<td>Usability sessions with 3 or more credit-policy analysts</td>
+<td>RK1 assessed; fixes scheduled</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Exit:</strong> a policy analyst with no engineering access completes J1 in the UI. This is the first point at which K2, &quot;changes made with no engineering involvement&quot;, can be measured.</p>
+<h3 id="m6-reference-policy-hardening-and-pilot-weeks-20-26">M6 · Reference policy, hardening and pilot (weeks 20–26)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Task</th>
+<th>Done when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M6-01</td>
+<td>Author the <strong>complete MFI JLG/SHG reference policy</strong> (PRD §5.2, M1–M18; sourcing, KYC, credit underwriting and pre-disbursal) in PSF, with full test cases. This is the acceptance suite.</td>
+<td>Every test passes; coverage ≥ 90%</td>
+</tr>
+<tr>
+<td>M6-02</td>
+<td>Security: threat-model review, an external pen test, a secrets audit, SBOM review, an expression-safety campaign (Jazzer for 24 h)</td>
+<td>No open critical or high findings</td>
+</tr>
+<tr>
+<td>M6-03</td>
+<td>DR drill: region failover of the data plane and control-plane restore; backup restore including decryption</td>
+<td>Evidence recorded against NFR-DR-01/02</td>
+</tr>
+<tr>
+<td>M6-04</td>
+<td>Runbooks: incident, rollback, key rotation, cell add, tenant onboarding; the on-call rota</td>
+<td>Reviewed by SRE</td>
+</tr>
+<tr>
+<td>M6-05</td>
+<td>Integration guide and sandbox tenant for the pilot's LOS team; fact-schema validation CLI for their CI</td>
+<td>The pilot integrator gets a first sandbox decision within 1 hour</td>
+</tr>
+<tr>
+<td>M6-06</td>
+<td><strong>Pilot parallel run:</strong> at least 4 weeks of shadow or parallel decisions against the pilot lender's documented policy; every difference explained</td>
+<td>PRD §12.1 exit criterion 3</td>
+</tr>
+<tr>
+<td>M6-07</td>
+<td>Compliance sign-off on the regulatory parameters and the PRD §10 controls</td>
+<td>Signed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Exit = PRD §12.1 Phase 1 exit criteria.</strong></p>
+<hr />
+<h2 id="6-critical-path-and-dependencies">6. Critical path and dependencies</h2>
+<p class="meaning"><b>What this means:</b> Which milestones gate which, and the two external dependencies that must be secured early: a production-like cluster and a pilot lender.</p>
+
+<figure class="diagram"><div class="fig-head"><div class="fig-kick">Diagram 2 · flow · 6. Critical path and dependencies</div><button class="fig-zoom" type="button" title="Show this diagram at natural size">full size ↔</button></div><div class="fig-scroll" style="--natw:1506px"><svg role="img" aria-label="6. Critical path and dependencies (flow diagram)" id="bre-d05-2" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 1506.078125px;" viewBox="0 0 1506.078125 312.125" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#bre-d05-2{font-family:Arial,Helvetica,'Liberation Sans',sans-serif;font-size:13px;fill:var(--ink);}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#bre-d05-2 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#bre-d05-2 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#bre-d05-2 .error-icon{fill:var(--stripe);}#bre-d05-2 .error-text{fill:var(--ink);stroke:var(--ink);}#bre-d05-2 .edge-thickness-normal{stroke-width:1px;}#bre-d05-2 .edge-thickness-thick{stroke-width:3.5px;}#bre-d05-2 .edge-pattern-solid{stroke-dasharray:0;}#bre-d05-2 .edge-thickness-invisible{stroke-width:0;fill:none;}#bre-d05-2 .edge-pattern-dashed{stroke-dasharray:3;}#bre-d05-2 .edge-pattern-dotted{stroke-dasharray:2;}#bre-d05-2 .marker{fill:var(--faint);stroke:var(--faint);}#bre-d05-2 .marker.cross{stroke:var(--faint);}#bre-d05-2 svg{font-family:Arial,Helvetica,'Liberation Sans',sans-serif;font-size:13px;}#bre-d05-2 p{margin:0;}#bre-d05-2 .label{font-family:Arial,Helvetica,'Liberation Sans',sans-serif;color:var(--ink);}#bre-d05-2 .cluster-label text{fill:var(--ink);}#bre-d05-2 .cluster-label span{color:var(--ink);}#bre-d05-2 .cluster-label span p{background-color:transparent;}#bre-d05-2 .label text,#bre-d05-2 span{fill:var(--ink);color:var(--ink);}#bre-d05-2 .node rect,#bre-d05-2 .node circle,#bre-d05-2 .node ellipse,#bre-d05-2 .node polygon,#bre-d05-2 .node path{fill:var(--card-2);stroke:var(--accent);stroke-width:1px;}#bre-d05-2 .rough-node .label text,#bre-d05-2 .node .label text,#bre-d05-2 .image-shape .label,#bre-d05-2 .icon-shape .label{text-anchor:middle;}#bre-d05-2 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#bre-d05-2 .rough-node .label,#bre-d05-2 .node .label,#bre-d05-2 .image-shape .label,#bre-d05-2 .icon-shape .label{text-align:center;}#bre-d05-2 .node.clickable{cursor:pointer;}#bre-d05-2 .root .anchor path{fill:var(--faint)!important;stroke-width:0;stroke:var(--faint);}#bre-d05-2 .arrowheadPath{fill:#e3e0d9;}#bre-d05-2 .edgePaths .path{stroke:var(--faint);stroke-width:1px;}#bre-d05-2 .flowchart-link{stroke:var(--faint);fill:none;}#bre-d05-2 .edgeLabel{background-color:var(--card);text-align:center;}#bre-d05-2 .edgeLabel p{background-color:var(--card);}#bre-d05-2 .edgeLabel rect{opacity:0.5;background-color:var(--card);fill:var(--card);}#bre-d05-2 .labelBkg{background-color:rgba(28, 31, 38, 0.5);}#bre-d05-2 .cluster rect{fill:var(--stripe);stroke:var(--line-2);stroke-width:1px;}#bre-d05-2 .cluster text{fill:var(--ink);}#bre-d05-2 .cluster span{color:var(--ink);}#bre-d05-2 .node .collapsed-indicator{fill:var(--line-2);stroke:none;opacity:0.6;}#bre-d05-2 .node .collapsed-separator{stroke:var(--line-2);stroke-width:0.75px;}#bre-d05-2 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Arial,Helvetica,'Liberation Sans',sans-serif;font-size:12px;background:var(--stripe);border:1px solid var(--line-2);border-radius:2px;pointer-events:none;z-index:100;}#bre-d05-2 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:var(--ink);}#bre-d05-2 rect.text{fill:none;stroke-width:0;}#bre-d05-2 .icon-shape,#bre-d05-2 .image-shape{background-color:var(--card);text-align:center;}#bre-d05-2 .icon-shape p,#bre-d05-2 .image-shape p{background-color:var(--card);padding:2px;}#bre-d05-2 .icon-shape .label rect,#bre-d05-2 .image-shape .label rect{opacity:0.5;background-color:var(--card);fill:var(--card);}#bre-d05-2 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#bre-d05-2 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#bre-d05-2 .node .neo-node{stroke:var(--accent);}#bre-d05-2 [data-look="neo"].node rect,#bre-d05-2 [data-look="neo"].cluster rect,#bre-d05-2 [data-look="neo"].node polygon{stroke:url(#bre-d05-2-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#bre-d05-2 [data-look="neo"].swimlane.cluster rect{filter:none;}#bre-d05-2 [data-look="neo"].node path{stroke:url(#bre-d05-2-gradient);stroke-width:1px;}#bre-d05-2 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#bre-d05-2 [data-look="neo"].node .neo-line path{stroke:var(--accent);filter:none;}#bre-d05-2 [data-look="neo"].node circle{stroke:url(#bre-d05-2-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#bre-d05-2 [data-look="neo"].node circle .state-start{fill:#000000;}#bre-d05-2 [data-look="neo"].icon-shape .icon{fill:url(#bre-d05-2-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#bre-d05-2 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#bre-d05-2-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#bre-d05-2 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker id="bre-d05-2_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="bre-d05-2_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="bre-d05-2_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="bre-d05-2_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="bre-d05-2_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="bre-d05-2_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="bre-d05-2_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="bre-d05-2_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="bre-d05-2_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="bre-d05-2_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="bre-d05-2_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="bre-d05-2_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path d="M149.234,204.375L153.401,204.375C157.568,204.375,165.901,204.375,173.568,204.375C181.234,204.375,188.234,204.375,191.734,204.375L195.234,204.375" id="bre-d05-2-L_M0_M1_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_M0_M1_0" data-points="W3sieCI6MTQ5LjIzNDM3NSwieSI6MjA0LjM3NX0seyJ4IjoxNzQuMjM0Mzc1LCJ5IjoyMDQuMzc1fSx7IngiOjE5OS4yMzQzNzUsInkiOjIwNC4zNzV9XQ==" data-look="classic" marker-end="url(#bre-d05-2_flowchart-v2-pointEnd)"></path><path d="M312.745,182.625L321.171,178.458C329.596,174.292,346.446,165.958,363.17,161.792C379.893,157.625,396.49,157.625,404.788,157.625L413.086,157.625" id="bre-d05-2-L_M1_M2_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_M1_M2_0" data-points="W3sieCI6MzEyLjc0NTQwNDQxMTc2NDcsInkiOjE4Mi42MjV9LHsieCI6MzYzLjI5Njg3NSwieSI6MTU3LjYyNX0seyJ4Ijo0MTcuMDg1OTM3NSwieSI6MTU3LjYyNX1d" data-look="classic" marker-end="url(#bre-d05-2_flowchart-v2-pointEnd)"></path><path d="M536.062,135.875L553.109,125.354C570.156,114.833,604.25,93.792,632.441,83.271C660.633,72.75,682.922,72.75,694.066,72.75L705.211,72.75" id="bre-d05-2-L_M2_M3_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_M2_M3_0" data-points="W3sieCI6NTM2LjA2MTk1OTIyMzEyMjIsInkiOjEzNS44NzV9LHsieCI6NjM4LjM0Mzc1LCJ5Ijo3Mi43NX0seyJ4Ijo3MDkuMjEwOTM3NSwieSI6NzIuNzV9XQ==" data-look="classic" marker-end="url(#bre-d05-2_flowchart-v2-pointEnd)"></path><path d="M521.238,179.375L540.755,200.167C560.273,220.958,599.308,262.542,642.887,283.333C686.466,304.125,734.589,304.125,782.711,304.125C830.833,304.125,878.956,304.125,912.749,302.272C946.542,300.418,966.005,296.712,975.737,294.859L985.469,293.005" id="bre-d05-2-L_M2_M4_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_M2_M4_0" data-points="W3sieCI6NTIxLjIzNzYxNDY1NDQzNjgsInkiOjE3OS4zNzV9LHsieCI6NjM4LjM0Mzc1LCJ5IjozMDQuMTI1fSx7IngiOjc4Mi43MTA5Mzc1LCJ5IjozMDQuMTI1fSx7IngiOjkyNy4wNzgxMjUsInkiOjMwNC4xMjV9LHsieCI6OTg5LjM5ODQzNzUsInkiOjI5Mi4yNTY5NTM5MTE0OTMyN31d" data-look="classic" marker-end="url(#bre-d05-2_flowchart-v2-pointEnd)"></path><path d="M856.211,55.822L868.022,53.102C879.833,50.381,903.456,44.941,918.767,42.22C934.078,39.5,941.078,39.5,944.578,39.5L948.078,39.5" id="bre-d05-2-L_M3_M5b_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_M3_M5b_0" data-points="W3sieCI6ODU2LjIxMDkzNzUsInkiOjU1LjgyMTgxMTI0NTE5NzI1fSx7IngiOjkyNy4wNzgxMjUsInkiOjM5LjV9LHsieCI6OTUyLjA3ODEyNSwieSI6MzkuNX1d" data-look="classic" marker-end="url(#bre-d05-2_flowchart-v2-pointEnd)"></path><path d="M312.745,226.125L321.171,230.292C329.596,234.458,346.446,242.792,358.372,246.958C370.297,251.125,377.297,251.125,380.797,251.125L384.297,251.125" id="bre-d05-2-L_M1_M5a_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_M1_M5a_0" data-points="W3sieCI6MzEyLjc0NTQwNDQxMTc2NDcsInkiOjIyNi4xMjV9LHsieCI6MzYzLjI5Njg3NSwieSI6MjUxLjEyNX0seyJ4IjozODguMjk2ODc1LCJ5IjoyNTEuMTI1fV0=" data-look="classic" marker-end="url(#bre-d05-2_flowchart-v2-pointEnd)"></path><path d="M856.211,89.678L868.022,92.398C879.833,95.119,903.456,100.559,940.1,103.28C976.745,106,1026.411,106,1076.078,106C1125.745,106,1175.411,106,1203.761,106.785C1232.11,107.569,1239.142,109.138,1242.658,109.923L1246.174,110.708" id="bre-d05-2-L_M3_M6_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_M3_M6_0" data-points="W3sieCI6ODU2LjIxMDkzNzUsInkiOjg5LjY3ODE4ODc1NDgwMjc1fSx7IngiOjkyNy4wNzgxMjUsInkiOjEwNn0seyJ4IjoxMDc2LjA3ODEyNSwieSI6MTA2fSx7IngiOjEyMjUuMDc4MTI1LCJ5IjoxMDZ9LHsieCI6MTI1MC4wNzgxMjUsInkiOjExMS41Nzg4NTkwNjA0MDI2OX1d" data-look="classic" marker-end="url(#bre-d05-2_flowchart-v2-pointEnd)"></path><path d="M1162.758,275.75L1173.145,275.75C1183.531,275.75,1204.305,275.75,1233.302,258.7C1262.3,241.651,1299.522,207.551,1318.133,190.502L1336.744,173.452" id="bre-d05-2-L_M4_M6_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_M4_M6_0" data-points="W3sieCI6MTE2Mi43NTc4MTI1LCJ5IjoyNzUuNzV9LHsieCI6MTIyNS4wNzgxMjUsInkiOjI3NS43NX0seyJ4IjoxMzM5LjY5MzUwOTYxNTM4NDUsInkiOjE3MC43NX1d" data-look="classic" marker-end="url(#bre-d05-2_flowchart-v2-pointEnd)"></path><path d="M1200.078,39.5L1204.245,39.5C1208.411,39.5,1216.745,39.5,1237.349,50.504C1257.953,61.508,1290.827,83.517,1307.264,94.521L1323.702,105.525" id="bre-d05-2-L_M5b_M6_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_M5b_M6_0" data-points="W3sieCI6MTIwMC4wNzgxMjUsInkiOjM5LjV9LHsieCI6MTIyNS4wNzgxMjUsInkiOjM5LjV9LHsieCI6MTMyNy4wMjU0OTM0MjEwNTI3LCJ5IjoxMDcuNzV9XQ==" data-look="classic" marker-end="url(#bre-d05-2_flowchart-v2-pointEnd)"></path><path d="M902.078,237.625L906.245,237.625C910.411,237.625,918.745,237.625,932.932,240.189C947.119,242.753,967.159,247.881,977.179,250.445L987.2,253.008" id="bre-d05-2-L_INFRA_M4_0" class="edge-thickness-normal edge-pattern-dotted edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_INFRA_M4_0" data-points="W3sieCI6OTAyLjA3ODEyNSwieSI6MjM3LjYyNX0seyJ4Ijo5MjcuMDc4MTI1LCJ5IjoyMzcuNjI1fSx7IngiOjk5MS4wNzQ4NDYzMTE0NzU0LCJ5IjoyNTR9XQ==" data-look="classic" marker-end="url(#bre-d05-2_flowchart-v2-pointEnd)"></path><path d="M1200.078,172.5L1204.245,172.5C1208.411,172.5,1216.745,172.5,1224.427,171.715C1232.11,170.931,1239.142,169.362,1242.658,168.577L1246.174,167.792" id="bre-d05-2-L_PILOT_M6_0" class="edge-thickness-normal edge-pattern-dotted edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_PILOT_M6_0" data-points="W3sieCI6MTIwMC4wNzgxMjUsInkiOjE3Mi41fSx7IngiOjEyMjUuMDc4MTI1LCJ5IjoxNzIuNX0seyJ4IjoxMjUwLjA3ODEyNSwieSI6MTY2LjkyMTE0MDkzOTU5NzN9XQ==" data-look="classic" marker-end="url(#bre-d05-2_flowchart-v2-pointEnd)"></path></g><g class="edgeLabels"><g class="edgeLabel"><g class="label" data-id="L_M0_M1_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_M1_M2_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_M2_M3_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_M2_M4_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_M3_M5b_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_M1_M5a_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_M3_M6_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_M4_M6_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_M5b_M6_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_INFRA_M4_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_PILOT_M6_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default" id="bre-d05-2-flowchart-M0-0" data-look="classic" transform="translate(78.6171875, 204.375)"><rect class="basic label-container" style="" x="-70.6171875" y="-21.75" width="141.234375" height="43.5"></rect><g class="label" style="" transform="translate(-46.6171875, -9.75)"><rect></rect><foreignObject width="93.234375" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>M0 Foundations</p></span></div></foreignObject></g></g><g class="node default" id="bre-d05-2-flowchart-M1-1" data-look="classic" transform="translate(268.765625, 204.375)"><rect class="basic label-container" style="" x="-69.53125" y="-21.75" width="139.0625" height="43.5"></rect><g class="label" style="" transform="translate(-45.53125, -9.75)"><rect></rect><foreignObject width="91.0625" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>M1 Engine core</p></span></div></foreignObject></g></g><g class="node default" id="bre-d05-2-flowchart-M2-3" data-look="classic" transform="translate(500.8203125, 157.625)"><rect class="basic label-container" style="" x="-83.734375" y="-21.75" width="167.46875" height="43.5"></rect><g class="label" style="" transform="translate(-59.734375, -9.75)"><rect></rect><foreignObject width="119.46875" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>M2 Walking skeleton</p></span></div></foreignObject></g></g><g class="node default" id="bre-d05-2-flowchart-M3-5" data-look="classic" transform="translate(782.7109375, 72.75)"><rect class="basic label-container" style="" x="-73.5" y="-21.75" width="147" height="43.5"></rect><g class="label" style="" transform="translate(-49.5, -9.75)"><rect></rect><foreignObject width="99" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>M3 Control plane</p></span></div></foreignObject></g></g><g class="node default" id="bre-d05-2-flowchart-M4-7" data-look="classic" transform="translate(1076.078125, 275.75)"><rect class="basic label-container" style="" x="-86.6796875" y="-21.75" width="173.359375" height="43.5"></rect><g class="label" style="" transform="translate(-62.6796875, -9.75)"><rect></rect><foreignObject width="125.359375" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>M4 Kafka-first + scale</p></span></div></foreignObject></g></g><g class="node default" id="bre-d05-2-flowchart-M5b-9" data-look="classic" transform="translate(1076.078125, 39.5)"><rect class="basic label-container" style="" x="-124" y="-31.5" width="248" height="63"></rect><g class="label" style="" transform="translate(-100, -19.5)"><rect></rect><foreignObject width="200" height="39"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;"><span class="nodeLabel"><p>M5 Studio: review, deploy, audit screens</p></span></div></foreignObject></g></g><g class="node default" id="bre-d05-2-flowchart-M5a-11" data-look="classic" transform="translate(500.8203125, 251.125)"><rect class="basic label-container" style="" x="-112.5234375" y="-21.75" width="225.046875" height="43.5"></rect><g class="label" style="" transform="translate(-88.5234375, -9.75)"><rect></rect><foreignObject width="177.046875" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>M5 Studio: editors, diagnostics</p></span></div></foreignObject></g></g><g class="node default" id="bre-d05-2-flowchart-M6-13" data-look="classic" transform="translate(1374.078125, 139.25)"><rect class="basic label-container" style="" x="-124" y="-31.5" width="248" height="63"></rect><g class="label" style="" transform="translate(-100, -19.5)"><rect></rect><foreignObject width="200" height="39"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;"><span class="nodeLabel"><p>M6 Reference policy, hardening, pilot</p></span></div></foreignObject></g></g><g class="node default" id="bre-d05-2-flowchart-INFRA-18" data-look="classic" transform="translate(782.7109375, 237.625)"><rect class="basic label-container" style="" x="-119.3671875" y="-21.75" width="238.734375" height="43.5"></rect><g class="label" style="" transform="translate(-95.3671875, -9.75)"><rect></rect><foreignObject width="190.734375" height="19.5"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>PERF cluster ready (by week 14)</p></span></div></foreignObject></g></g><g class="node default" id="bre-d05-2-flowchart-PILOT-20" data-look="classic" transform="translate(1076.078125, 172.5)"><rect class="basic label-container" style="" x="-124" y="-31.5" width="248" height="63"></rect><g class="label" style="" transform="translate(-100, -19.5)"><rect></rect><foreignObject width="200" height="39"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;"><span class="nodeLabel"><p>Pilot lender data + policy team (by week 18)</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="bre-d05-2-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="bre-d05-2-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="bre-d05-2-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#61afef" stop-opacity="1"></stop><stop offset="100%" stop-color="#39404e" stop-opacity="1"></stop></linearGradient></svg></div><figcaption><b>Reading it:</b> follow the arrows to see what each milestone needs before it can finish. Solid arrows are internal dependencies; dashed arrows are external ones that must be arranged in advance.</figcaption></figure>
+<ul>
+<li><strong>Critical path:</strong> M0 → M1 → M2 → M3 → M6. A slip in the engine moves everything, which is why it gets the strongest engineers and starts in week 2.</li>
+<li><strong>External dependencies</strong> (the dashed lines) must be secured early:
+<ul>
+<li>a production-like cluster for M4, by week 14;</li>
+<li>a pilot lender with a documented policy and anonymised historical applications, by week 18.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<span class="kicker">PART 3 — HOW WE WORK</span>
+<h2 id="7-team-and-ways-of-working">7. Team and ways of working</h2>
+<p class="meaning"><b>What this means:</b> The team needed for Phase 1, the effort estimate, how building together with Claude Code works, and the sprint cadence.</p>
+
+<h3 id="7-1-proposed-team-for-phase-1">7.1 Proposed team for Phase 1</h3>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Count</th>
+<th>Owns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tech lead / architect</td>
+<td>1</td>
+<td>Architecture, ADRs, engine design reviews, critical-path decisions</td>
+</tr>
+<tr>
+<td>Backend engineers, engine</td>
+<td>3</td>
+<td>M1 (BEL, compiler, evaluator, static checks), <code>bre-cli</code>, conformance</td>
+</tr>
+<tr>
+<td>Backend engineers, platform</td>
+<td>2</td>
+<td>M2, M3, M4 services</td>
+</tr>
+<tr>
+<td>Frontend engineers</td>
+<td>2</td>
+<td>M5 Rule Studio</td>
+</tr>
+<tr>
+<td>SRE / platform engineer</td>
+<td>1</td>
+<td>CI, Helm, Argo CD, Kafka and PostgreSQL operators, observability, PERF cell, DR</td>
+</tr>
+<tr>
+<td>QA / performance engineer (SDET)</td>
+<td>1</td>
+<td>E2E journeys, Gatling, chaos, Playwright</td>
+</tr>
+<tr>
+<td>Security engineer</td>
+<td>0.5</td>
+<td>Threat model, fuzzing, key management, pen-test coordination</td>
+</tr>
+<tr>
+<td>Product owner</td>
+<td>1</td>
+<td>Backlog, acceptance, pilot relationship</td>
+</tr>
+<tr>
+<td>Credit-policy SME (pilot lender or in-house)</td>
+<td>0.5</td>
+<td>Reference policy, test cases, usability sessions</td>
+</tr>
+<tr>
+<td>UX designer</td>
+<td>0.5</td>
+<td>Studio flows and usability</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Effort estimate for Phase 1:</strong> about 140 engineer-weeks (M0 ≈ 4, M1 ≈ 24, M2 ≈ 8, M3 ≈ 24, M4 ≈ 28, M5 ≈ 30, M6 ≈ 22). That fits the team above over about 26 weeks with healthy slack.</p>
+<h3 id="7-2-building-it-together-claude-code-you">7.2 Building it together (Claude Code + you)</h3>
+<p>The plan also works with me implementing and you reviewing:</p>
+<ul>
+<li>I build milestone by milestone in <code>BRE/</code>, starting with M0 and M1.</li>
+<li>Each milestone ends with a <strong>demonstrated run and a written report</strong>: what works, what was verified, what is not done.</li>
+<li>Independent modules (for example the fact model, the bundle library and the CLI) can be built in parallel by sub-agents. The engine core stays single-owner for coherence.</li>
+<li>Nothing is pushed to a remote, and no external service is touched, without your go-ahead.</li>
+<li>Real-infrastructure work (M4-09/10, M6-02/03/06) needs environments and people that a local session does not have. Those tasks need your team and your infrastructure decision (§11).</li>
+</ul>
+<h3 id="7-3-cadence">7.3 Cadence</h3>
+<p>Two-week sprints, each ending in a live demo of the running system. Every milestone has an exit review against its &quot;Done when&quot; column. ADRs are written for any change to a Draft 2 decision, and <code>00</code> is updated first.</p>
+<hr />
+<h2 id="8-definition-of-done-every-task">8. Definition of Done (every task)</h2>
+<p class="meaning"><b>What this means:</b> The checklist every task must meet, including that it has actually been run end to end.</p>
+
+<ol>
+<li>The code follows the Draft 2 specification. Any deviation is recorded in an ADR, and <code>00</code> is updated.</li>
+<li>There are unit tests. Engine work has conformance vectors and property tests where the behaviour is algebraic.</li>
+<li>CI is green: ArchUnit, formatting, Error Prone, coverage gate, JMH thresholds, SBOM and licence scan.</li>
+<li><strong>The work has been run end to end in <code>devstack</code></strong> (from M2 onwards), and the PR description says how.</li>
+<li>There are no secrets, PII or fact values in logs or test fixtures (synthetic fixtures only, LLD §9.7).</li>
+<li>API, event or schema changes are reflected in <code>bre-contracts</code>, with breaking-change checks passing.</li>
+<li>User-visible behaviour has an entry in the Authoring Guide or the integration guide.</li>
+</ol>
+<hr />
+<h2 id="9-test-strategy-by-layer">9. Test strategy by layer</h2>
+<p class="meaning"><b>What this means:</b> Which kinds of tests run, with which tools, how often, and what each must achieve before work can merge or ship.</p>
+
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Tool</th>
+<th>Runs</th>
+<th>Gate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Unit</td>
+<td>JUnit 5, AssertJ</td>
+<td>Every PR</td>
+<td>Coverage ≥ 85% on <code>libs/</code></td>
+</tr>
+<tr>
+<td>Engine conformance</td>
+<td>JSON vectors + JUnit runner</td>
+<td>Every PR</td>
+<td>100% pass</td>
+</tr>
+<tr>
+<td>Property-based</td>
+<td>jqwik (fail-closed, decimal algebra, aggregation monotonicity)</td>
+<td>Every PR</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>Fuzzing</td>
+<td>Jazzer (BEL parser, type checker, PSF decoder)</td>
+<td>Nightly (1 h); 24 h before release</td>
+<td>No crash, hang or exception escape</td>
+</tr>
+<tr>
+<td>Integration</td>
+<td>embedded-postgres, embedded Kafka KRaft; Testcontainers in CI</td>
+<td>PR (embedded), nightly (Testcontainers)</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>Contract</td>
+<td>OpenAPI and JSON Schema validation, buf breaking check, AsyncAPI validation</td>
+<td>Every PR</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>End-to-end journeys</td>
+<td>API scripts for J1–J8; Playwright for the UI</td>
+<td>Nightly</td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>Performance</td>
+<td>JMH (engine), Gatling (API)</td>
+<td>PR smoke; weekly on the PERF cell</td>
+<td>NFR thresholds</td>
+</tr>
+<tr>
+<td>Chaos</td>
+<td>Chaos Mesh on the PERF cell (failure modes from Architecture §10.1)</td>
+<td>Each milestone from M4</td>
+<td>RPO/RTO met</td>
+</tr>
+<tr>
+<td>Security</td>
+<td>Dependency scan, ZAP baseline, cross-tenant RLS suite, expression-safety suite</td>
+<td>PR + nightly</td>
+<td>No high or critical findings</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<span class="kicker">PART 4 — RISKS AND DECISIONS</span>
+<h2 id="10-build-risks-and-mitigations">10. Build risks and mitigations</h2>
+<p class="meaning"><b>What this means:</b> What could slow or derail the build, and how each risk is reduced.</p>
+
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Risk</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BR1</td>
+<td>BEL takes longer than planned, or has semantic bugs</td>
+<td>Conformance vectors before code (P1); hand-written parser with a small grammar; property tests and fuzzing; senior engineers on M1; the tech lead reviews every semantic decision against 00 S1–S13</td>
+</tr>
+<tr>
+<td>BR2</td>
+<td>Some library does not yet support Java 25 or Spring Boot 4 (for example Error Prone or JaCoCo versions)</td>
+<td>Verify in M0-02. Fall back per tool, for example running Error Prone on the newest JDK it supports while targeting 25. Avoid Lombok entirely: records cover it.</td>
+</tr>
+<tr>
+<td>BR3</td>
+<td>No Docker locally</td>
+<td>Embedded PostgreSQL and Kafka for local tests; Testcontainers in CI; a real cluster for M4</td>
+</tr>
+<tr>
+<td>BR4</td>
+<td>Production-scale numbers cannot be proven without real infrastructure</td>
+<td>The infrastructure decision (§11) by week 8; the PERF cell ready by week 14</td>
+</tr>
+<tr>
+<td>BR5</td>
+<td>Studio usability falls short of business users (PRD RK1)</td>
+<td>Usability sessions in M5; decision tables preferred over free-form BEL; strong autocomplete</td>
+</tr>
+<tr>
+<td>BR6</td>
+<td>No pilot lender in time</td>
+<td>Start the pilot search now; the synthetic reference policy and fixtures make M0–M5 independent of the pilot</td>
+</tr>
+<tr>
+<td>BR7</td>
+<td>Scope creep from Phase 2/3 into Phase 1</td>
+<td>The PRD phase column is the contract. Anything pulled forward (such as M4-06) is a deliberate, recorded decision.</td>
+</tr>
+<tr>
+<td>BR8</td>
+<td>&quot;It compiles but never ran&quot;</td>
+<td>P3: every milestone exit is a demo of a running system, and <code>devstack</code> from M2 makes running cheap</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="11-decisions-needed">11. Decisions needed</h2>
+<p class="meaning"><b>What this means:</b> The choices needed from you, the default taken if none is made, and when each is needed.</p>
+
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Decision</th>
+<th>Default if not decided</th>
+<th>Needed by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BD1</td>
+<td><strong>Who builds:</strong> Claude Code with you reviewing (§7.2), a team (§7.1), or both</td>
+<td>I start M0 and M1 in <code>BRE/</code>; the plan doubles as the team roadmap</td>
+<td>Now</td>
+</tr>
+<tr>
+<td>BD2</td>
+<td><strong>Repository:</strong> <code>BRE/</code> as the git root of <code>bre-platform</code>; private GitHub repository under which account or organisation</td>
+<td>Local git only until you say otherwise</td>
+<td>Now (local); M0-06 (remote)</td>
+</tr>
+<tr>
+<td>BD3</td>
+<td><strong>Product name and Java package root</strong> (<code>dev.bre</code> is a placeholder)</td>
+<td>Keep <code>dev.bre</code>; rename mechanically later</td>
+<td>Before M2</td>
+</tr>
+<tr>
+<td>BD4</td>
+<td><strong>Infrastructure for DEV, UAT and PERF:</strong> which cloud (India region) or on-prem Kubernetes</td>
+<td>—</td>
+<td>Week 8 (for M4)</td>
+</tr>
+<tr>
+<td>BD5</td>
+<td><strong>Licence:</strong> proprietary or open source</td>
+<td>Proprietary, all rights reserved</td>
+<td>Before the first external share</td>
+</tr>
+<tr>
+<td>BD6</td>
+<td><strong>Pilot lender</strong></td>
+<td>Synthetic reference policy until one is found</td>
+<td>Week 18</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="12-after-phase-1-outline">12. After Phase 1 (outline)</h2>
+<p class="meaning"><b>What this means:</b> What Phases 2 and 3 add, at outline level.</p>
+
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Weeks (indicative)</th>
+<th>Scope (PRD §12.2–12.3)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>2: Retail and MSME, evidence</strong></td>
+<td>27–42</td>
+<td>Retail and MSME catalogues and reference policies; COLLATERAL scope; scorecards and the model register; back-test, impact analysis and shadow; gRPC; compact-mode packaging for on-prem; cell moves; BYOK; drift and deviation MIS; analytics feed; decision dossier; erasure handling</td>
+</tr>
+<tr>
+<td><strong>3: Scale-out product</strong></td>
+<td>43–60</td>
+<td>Champion/challenger and the performance-outcomes feed; starter packs; Fact Connectors (bureau, KYC, AA) as a separate component; DMN import/export; embedded SDK; webhooks; model monitoring; two-region active-active as the SaaS default; tenant offboarding</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="13-the-first-two-weeks-concretely">13. The first two weeks, concretely</h2>
+<p class="meaning"><b>What this means:</b> A day-by-day plan for the first two weeks, so work can start immediately.</p>
+
+<table>
+<thead>
+<tr>
+<th>Day</th>
+<th>Work</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>M0-01, M0-02: repository, wrapper, convention plugins, JDK 25 toolchain</td>
+<td>A green empty build</td>
+</tr>
+<tr>
+<td>2</td>
+<td>M0-03: ArchUnit rules with failing fixtures</td>
+<td>Purity rules enforced</td>
+</tr>
+<tr>
+<td>3–4</td>
+<td>M0-04: conformance vector format; import every LLD §13 vector and the 00 §3.14 PSF</td>
+<td>Every vector pending</td>
+</tr>
+<tr>
+<td>5</td>
+<td>M0-05, M0-06: property harness; CI pipelines</td>
+<td>PR checks visible</td>
+</tr>
+<tr>
+<td>6–7</td>
+<td>M1-01: value model, decimal, dates</td>
+<td>Decimal and date vectors green</td>
+</tr>
+<tr>
+<td>8–10</td>
+<td>M1-02: lexer, parser, unary tests, error positions; first Jazzer run</td>
+<td>Grammar vectors green</td>
+</tr>
+</tbody>
+</table>
+<p>At the end of week 2, the report shows the first passing conformance vectors, the CI pipeline and the plan for weeks 3–4.</p>
+<nav class="docnav"><a href="04_Rule_Authoring_Guide.html">← 04 · Authoring Guide</a><a href="BRE_TRD_v1.0.html">BRE TRD v1.0 →</a></nav>
+
+</div>
+</div>
+<div class="doc-foot">Rendered from <code>docs/BRE_PRD/draft2/05_Build_Plan.md</code> · generated with the html-creator template (Trustt Design Constitution, IDE Dark) · 2026-10-01. The markdown file is the source of truth; regenerate with <code>docs/BRE_PRD/.build/build_html.py</code>.</div>
+<button id="totop" title="Back to top" aria-label="Back to top">↑</button>
+
+<script>
+/* Interactivity layer — TOC build + scroll-spy, heading anchors, code copy, back-to-top.
+   Pure vanilla, no dependencies, works from file:// */
+(function(){
+  var headings=[].slice.call(document.querySelectorAll('.wrap h2, .wrap h3'));
+  var rail=document.getElementById('toc-rail'), inline=document.getElementById('toc-inline-body');
+  headings.forEach(function(h,i){
+    if(!h.id){h.id='s-'+i+'-'+h.textContent.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}
+    var a=document.createElement('a');a.href='#'+h.id;a.textContent=h.textContent;
+    if(h.tagName==='H3')a.className='lvl3';
+    rail.appendChild(a);
+    if(inline)inline.appendChild(a.cloneNode(true));
+    var an=document.createElement('a');an.className='hanchor';an.href='#'+h.id;an.textContent='#';
+    an.setAttribute('aria-label','Link to '+h.textContent);h.appendChild(an);
+  });
+  /* scroll-spy */
+  var links=[].slice.call(rail.querySelectorAll('a'));
+  function spy(){
+    var y=window.scrollY+90,cur=null;
+    headings.forEach(function(h){if(h.offsetTop<=y)cur=h.id});
+    links.forEach(function(l){l.classList.toggle('active',l.getAttribute('href')==='#'+cur)});
+  }
+  window.addEventListener('scroll',spy,{passive:true});spy();
+  /* code copy */
+  [].slice.call(document.querySelectorAll('pre')).forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';b.textContent='copy';
+    b.addEventListener('click',function(){
+      var t=(pre.querySelector('code')||pre).innerText;
+      (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){
+        b.textContent='copied';b.classList.add('done');
+        setTimeout(function(){b.textContent='copy';b.classList.remove('done')},1600);
+      }).catch(function(){});
+    });
+    pre.appendChild(b);
+  });
+  /* plain / engineer mode toggle — appears only if the document uses the classes */
+  var mt=document.getElementById('modetoggle');
+  if(mt && document.querySelector('.eng-only,.plain-only')){
+    var eng=false;
+    function paint(){
+      document.body.classList.toggle('mode-eng',eng);
+      document.body.classList.toggle('mode-plain',!eng);
+      mt.innerHTML=eng?'plain / <span class="on">engineer</span>':'<span class="on">plain</span> / engineer';
+    }
+    mt.style.display='inline-block';paint();
+    mt.addEventListener('click',function(){eng=!eng;paint()});
+  }
+  /* back to top */
+  var tt=document.getElementById('totop');
+  window.addEventListener('scroll',function(){tt.classList.toggle('show',window.scrollY>600)},{passive:true});
+  tt.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'})});
+})();
+</script>
+<script>
+/* Wide diagrams: toggle between fit-to-width and natural size (scrollable). Vanilla, file:// safe. */
+[].slice.call(document.querySelectorAll('.fig-zoom')).forEach(function(b){
+  b.addEventListener('click',function(){var f=b.closest('figure');var z=f.classList.toggle('zoomed');
+    b.textContent=z?'fit to width':'full size ↔';});
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+[
+  {
+    "id": "S1-01",
+    "description": "rule when is unknown: the result comes from onMissing (default REFER -> DATA_MISSING), never NOT_APPLICABLE by itself (S1); only a FALSE when may yield NOT_APPLICABLE",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {}
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "S1_WHEN_RULE",
+          "scope": "MEMBER",
+          "when": "member.x > 0",
+          "check": "true",
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "status": "DATA_MISSING"
+    }
+  },
+  {
+    "id": "S1-02",
+    "description": "rule when is FALSE: the rule is NOT_APPLICABLE and check is never evaluated (evalRule returns NA before reaching check)",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "member": {
+        "x": "-1"
+      }
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "S1_WHEN_RULE",
+          "scope": "MEMBER",
+          "when": "member.x > 0",
+          "check": "true",
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "status": "NOT_APPLICABLE"
+    }
+  }
+]

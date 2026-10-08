@@ -1,0 +1,46 @@
+[
+  {
+    "id": "S10-01a",
+    "description": "ageInYears(dob 2004-02-29, 2026-02-28) is 21: Period.between(dob, d).getYears(), so the leap-day birthday has not yet completed on 28 February of a non-leap year (3.7)",
+    "asOf": "2026-10-01",
+    "expr": "ageInYears(date(\"2004-02-29\"), date(\"2026-02-28\"))",
+    "expect": {
+      "value": {
+        "int": 21
+      }
+    }
+  },
+  {
+    "id": "S10-01b",
+    "description": "ageInYears(dob 2004-02-29, 2026-03-01) is 22: one day later the leap-day birthday has completed, and the result is an Integer, not a Decimal (3.7, 3.9)",
+    "asOf": "2026-10-01",
+    "expr": "ageInYears(date(\"2004-02-29\"), date(\"2026-03-01\"))",
+    "expect": {
+      "value": {
+        "int": 22
+      }
+    }
+  },
+  {
+    "id": "S10-02a",
+    "description": "monthsBetween(2026-01-31, 2026-02-28) is 0: Period.between(a, b).toTotalMonths() counts only completed months, and 31 January to 28 February is not a completed month (3.7)",
+    "asOf": "2026-10-01",
+    "expr": "monthsBetween(date(\"2026-01-31\"), date(\"2026-02-28\"))",
+    "expect": {
+      "value": {
+        "int": 0
+      }
+    }
+  },
+  {
+    "id": "S10-02b",
+    "description": "addMonths(2026-01-31, 1) is 2026-02-28: d.plusMonths(n) clamped to the end of the month, so the result is a Date and never an invalid 31 February (3.7)",
+    "asOf": "2026-10-01",
+    "expr": "addMonths(date(\"2026-01-31\"), 1)",
+    "expect": {
+      "value": {
+        "date": "2026-02-28"
+      }
+    }
+  }
+]

@@ -1,0 +1,274 @@
+[
+  {
+    "id": "S5-01",
+    "description": "`-` matches only a present value, deliberately unlike FEEL: with rows [in [\"A\",\"B\"] -> PASS] and [- -> REFER] and the input missing, no row matches, so the table's onMissing applies and the result is DATA_MISSING with the derived reason code",
+    "asOf": "2026-10-01",
+    "scope": "GROUP",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001"
+      }
+    },
+    "policy": {
+      "decisionTables": [
+        {
+          "code": "GRP_VRM_CATEGORY",
+          "name": "Village risk category",
+          "scope": "GROUP",
+          "hitPolicy": {
+            "kind": "FIRST"
+          },
+          "inputs": [
+            {
+              "name": "vrm",
+              "expr": "group.villageRiskCategory"
+            }
+          ],
+          "outputs": [],
+          "rows": [
+            {
+              "when": [
+                "in [\"A\",\"B\"]"
+              ],
+              "then": {
+                "status": "PASS"
+              }
+            },
+            {
+              "when": [
+                "-"
+              ],
+              "then": {
+                "status": "REFER",
+                "reasonCode": "POL_VRM_UNKNOWN"
+              }
+            }
+          ],
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "status": "DATA_MISSING",
+      "reasonCode": "DATA_MISSING_GROUP_VILLAGE_RISK_CATEGORY"
+    }
+  },
+  {
+    "id": "S5-02",
+    "description": "a `missing` cell is the only test that matches a missing input: inserting [missing -> REFER(DATA_VRM_MISSING)] above the `-` row makes the FIRST-hit table return REFER with reason DATA_VRM_MISSING instead of falling through to onMissing",
+    "asOf": "2026-10-01",
+    "scope": "GROUP",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001"
+      }
+    },
+    "policy": {
+      "decisionTables": [
+        {
+          "code": "GRP_VRM_CATEGORY",
+          "name": "Village risk category",
+          "scope": "GROUP",
+          "hitPolicy": {
+            "kind": "FIRST"
+          },
+          "inputs": [
+            {
+              "name": "vrm",
+              "expr": "group.villageRiskCategory"
+            }
+          ],
+          "outputs": [],
+          "rows": [
+            {
+              "when": [
+                "in [\"A\",\"B\"]"
+              ],
+              "then": {
+                "status": "PASS"
+              }
+            },
+            {
+              "when": [
+                "missing"
+              ],
+              "then": {
+                "status": "REFER",
+                "reasonCode": "DATA_VRM_MISSING"
+              }
+            },
+            {
+              "when": [
+                "-"
+              ],
+              "then": {
+                "status": "REFER",
+                "reasonCode": "POL_VRM_UNKNOWN"
+              }
+            }
+          ],
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "status": "REFER",
+      "reasonCode": "DATA_VRM_MISSING"
+    }
+  },
+  {
+    "id": "S5-03a",
+    "description": "`-, missing` always matches: a single row [-, missing -> PASS] matches a missing input, because a comma-separated cell matches when some test matches and `missing` matches the missing input",
+    "asOf": "2026-10-01",
+    "scope": "GROUP",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001"
+      }
+    },
+    "policy": {
+      "decisionTables": [
+        {
+          "code": "GRP_VRM_CATEGORY",
+          "name": "Village risk category",
+          "scope": "GROUP",
+          "hitPolicy": {
+            "kind": "FIRST"
+          },
+          "inputs": [
+            {
+              "name": "vrm",
+              "expr": "group.villageRiskCategory"
+            }
+          ],
+          "outputs": [],
+          "rows": [
+            {
+              "when": [
+                "-, missing"
+              ],
+              "then": {
+                "status": "PASS"
+              }
+            }
+          ],
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "status": "PASS"
+    }
+  },
+  {
+    "id": "S5-03b",
+    "description": "`-, missing` always matches: the same single row [-, missing -> PASS] also matches the present value \"Z\", which no other cell in the table would match",
+    "asOf": "2026-10-01",
+    "scope": "GROUP",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "villageRiskCategory": "Z"
+      }
+    },
+    "policy": {
+      "decisionTables": [
+        {
+          "code": "GRP_VRM_CATEGORY",
+          "name": "Village risk category",
+          "scope": "GROUP",
+          "hitPolicy": {
+            "kind": "FIRST"
+          },
+          "inputs": [
+            {
+              "name": "vrm",
+              "expr": "group.villageRiskCategory"
+            }
+          ],
+          "outputs": [],
+          "rows": [
+            {
+              "when": [
+                "-, missing"
+              ],
+              "then": {
+                "status": "PASS"
+              }
+            }
+          ],
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "status": "PASS"
+    }
+  },
+  {
+    "id": "S5-04",
+    "description": "a gap reached with every input present is ERROR EVAL_TABLE_NO_MATCH, never onMissing: rows [in [\"A\",\"B\"]] and [= \"C\"] with input \"F\" leave no matching row, a gap CHK-002 should already have rejected at compile time",
+    "asOf": "2026-10-01",
+    "scope": "GROUP",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "villageRiskCategory": "F"
+      }
+    },
+    "policy": {
+      "decisionTables": [
+        {
+          "code": "GRP_VRM_CATEGORY",
+          "name": "Village risk category",
+          "scope": "GROUP",
+          "hitPolicy": {
+            "kind": "FIRST"
+          },
+          "inputs": [
+            {
+              "name": "vrm",
+              "expr": "group.villageRiskCategory"
+            }
+          ],
+          "outputs": [],
+          "rows": [
+            {
+              "when": [
+                "in [\"A\",\"B\"]"
+              ],
+              "then": {
+                "status": "PASS"
+              }
+            },
+            {
+              "when": [
+                "= \"C\""
+              ],
+              "then": {
+                "status": "DEVIATION",
+                "deviationType": "VRM_CATEGORY_C",
+                "reasonCode": "POL_VRM_C"
+              }
+            }
+          ],
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ]
+    },
+    "expect": {
+      "status": "ERROR",
+      "error": "EVAL_TABLE_NO_MATCH"
+    }
+  }
+]

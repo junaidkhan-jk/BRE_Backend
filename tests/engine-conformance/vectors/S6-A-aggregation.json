@@ -1,0 +1,500 @@
+[
+  {
+    "id": "S6-01a",
+    "description": "WORST over [PASS, DATA_MISSING, DEVIATION] is DATA_MISSING: severity is FAIL 6 > ERROR 5 > DATA_MISSING 4 > REFER 3 > DEVIATION 2 > PASS 1 > NOT_APPLICABLE 0, so a missing fact outranks a deviation",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "memberPartyRefs": [
+          "P-0001",
+          "P-0002",
+          "P-0003"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0001",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0002",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {}
+        },
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "5000"
+          }
+        }
+      ]
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "MFI_INCOME_FLOOR",
+          "name": "Member net monthly income above the floor",
+          "scope": "MEMBER",
+          "when": "member.proposedAmount > 0",
+          "check": "member.income.monthlyNet >= 10000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INCOME_FLOOR",
+            "deviationType": "INCOME_FLOOR",
+            "measure": "member.income.monthlyNet",
+            "worseWhen": "LOWER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INCOME_FLOOR",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "DATA_MISSING",
+          "ref": "MFI_INCOME_FLOOR"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S6-01b",
+    "description": "WORST over [ERROR, FAIL] is FAIL: FAIL has severity 6 and ERROR 5, so an evaluation error does not mask a policy failure",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "memberPartyRefs": [
+          "P-0001",
+          "P-0002"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0001",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "0",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0002",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "100"
+          }
+        }
+      ]
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "MFI_INSTALMENT_RATIO",
+          "name": "Member income covers at least a tenth of the proposed amount",
+          "scope": "MEMBER",
+          "check": "member.income.monthlyNet / member.proposedAmount >= 0.1",
+          "onFail": {
+            "status": "FAIL",
+            "reasonCode": "AFF_RATIO_LOW"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INSTALMENT_RATIO",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "FAIL",
+          "ref": "MFI_INSTALMENT_RATIO"
+        }
+      ]
+    }
+  },
+  {
+    "id": "S6-01c",
+    "description": "WORST over [NOT_APPLICABLE, NOT_APPLICABLE] is NOT_APPLICABLE: NOT_APPLICABLE entities are dropped from E' first, and an empty E' aggregates to NOT_APPLICABLE",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "memberPartyRefs": [
+          "P-0001",
+          "P-0002"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0001",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "0",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0002",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "0",
+          "income": {
+            "monthlyNet": "5000"
+          }
+        }
+      ]
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "MFI_INCOME_FLOOR",
+          "name": "Member net monthly income above the floor",
+          "scope": "MEMBER",
+          "when": "member.proposedAmount > 0",
+          "check": "member.income.monthlyNet >= 10000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INCOME_FLOOR",
+            "deviationType": "INCOME_FLOOR",
+            "measure": "member.income.monthlyNet",
+            "worseWhen": "LOWER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INCOME_FLOOR",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "NOT_APPLICABLE",
+          "ref": "MFI_INCOME_FLOOR"
+        }
+      ]
+    }
+  },
+  {
+    "id": "A-01a",
+    "description": "ALL_MUST_PASS over [PASS, NOT_APPLICABLE, PASS] is PASS: NOT_APPLICABLE entities leave E' before the all-PASS test, so a member whose `when` is FALSE does not block the step",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "memberPartyRefs": [
+          "P-0001",
+          "P-0002",
+          "P-0003"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0001",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0002",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "0",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0003",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "15000"
+          }
+        }
+      ]
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "MFI_INCOME_FLOOR",
+          "name": "Member net monthly income above the floor",
+          "scope": "MEMBER",
+          "when": "member.proposedAmount > 0",
+          "check": "member.income.monthlyNet >= 10000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INCOME_FLOOR",
+            "deviationType": "INCOME_FLOOR",
+            "measure": "member.income.monthlyNet",
+            "worseWhen": "LOWER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INCOME_FLOOR",
+                "aggregate": {
+                  "kind": "ALL_MUST_PASS"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "PASS",
+          "ref": "MFI_INCOME_FLOOR"
+        }
+      ]
+    }
+  },
+  {
+    "id": "A-01b",
+    "description": "ALL_MUST_PASS over [PASS, DEVIATION] is FAIL, not DEVIATION: the rule is strict, so nobody may approve around it, and any entity in {FAIL, REFER, DEVIATION} makes the step FAIL",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "memberPartyRefs": [
+          "P-0001",
+          "P-0002"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0001",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0002",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "5000"
+          }
+        }
+      ]
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "MFI_INCOME_FLOOR",
+          "name": "Member net monthly income above the floor",
+          "scope": "MEMBER",
+          "when": "member.proposedAmount > 0",
+          "check": "member.income.monthlyNet >= 10000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INCOME_FLOOR",
+            "deviationType": "INCOME_FLOOR",
+            "measure": "member.income.monthlyNet",
+            "worseWhen": "LOWER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INCOME_FLOOR",
+                "aggregate": {
+                  "kind": "ALL_MUST_PASS"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "FAIL",
+          "ref": "MFI_INCOME_FLOOR"
+        }
+      ]
+    }
+  },
+  {
+    "id": "A-01c",
+    "description": "ALL_MUST_PASS over [PASS, DATA_MISSING] is DATA_MISSING, not FAIL: when only DATA_MISSING or ERROR remain the aggregate keeps them (so the decision is REFER) and never converts them to a DECLINE",
+    "asOf": "2026-10-01",
+    "scope": "MEMBER",
+    "facts": {
+      "group": {
+        "groupRef": "G-0001",
+        "memberPartyRefs": [
+          "P-0001",
+          "P-0002"
+        ]
+      },
+      "parties": [
+        {
+          "partyRef": "P-0001",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {
+            "monthlyNet": "20000"
+          }
+        },
+        {
+          "partyRef": "P-0002",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "proposedAmount": "50000",
+          "income": {}
+        }
+      ]
+    },
+    "policy": {
+      "rules": [
+        {
+          "code": "MFI_INCOME_FLOOR",
+          "name": "Member net monthly income above the floor",
+          "scope": "MEMBER",
+          "when": "member.proposedAmount > 0",
+          "check": "member.income.monthlyNet >= 10000",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INCOME_FLOOR",
+            "deviationType": "INCOME_FLOOR",
+            "measure": "member.income.monthlyNet",
+            "worseWhen": "LOWER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_INCOME_FLOOR",
+                "aggregate": {
+                  "kind": "ALL_MUST_PASS"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "steps": [
+        {
+          "status": "DATA_MISSING",
+          "ref": "MFI_INCOME_FLOOR"
+        }
+      ]
+    }
+  }
+]

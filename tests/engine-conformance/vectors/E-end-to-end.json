@@ -1,0 +1,1588 @@
+[
+  {
+    "id": "E-01",
+    "description": "The 6.2 Decision API request evaluated against the 2.3 example policy: P-0003 carries 95,000 + 70,000 of open unsecured outstanding plus the 50,000 per-member share of 3,00,000, which breaches the 2,00,000 INDEBTEDNESS_CAP, so that member is DEVIATION with measure 215000. 1 of 6 members deviating is 16.6666666667%, below the 20% threshold, so the step falls back to WORST and stays DEVIATION; VRM category B is PASS; the authority amount of 3,00,000 falls in the band up to 10,00,000, so the required level is L2 and the decision is APPROVE_WITH_DEVIATION (6.2, 2.3, 4.7, 4.8, 4.9)",
+    "asOf": "2026-10-01",
+    "params": {
+      "INDEBTEDNESS_CAP": "200000.00",
+      "GROUP_DEVIATION_SHARE_REFER_PCT": "20"
+    },
+    "lists": {
+      "OPEN_TRADELINE_STATUSES": [
+        "ACTIVE",
+        "OVERDUE",
+        "RESTRUCTURED",
+        "SUIT_FILED"
+      ],
+      "UNSECURED_ACCOUNT_TYPES": [
+        "CONSUMER_LOAN",
+        "CREDIT_CARD",
+        "MFI_JLG",
+        "MFI_SHG",
+        "PERSONAL_LOAN"
+      ]
+    },
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "productCode": "JLG_IGL_24M",
+        "stage": "CREDIT_UW",
+        "segment": null,
+        "channel": "FIELD_APP",
+        "branchCode": "BR-0412",
+        "requestedAmount": "300000.00",
+        "tenureMonths": 24,
+        "repaymentFrequency": "FORTNIGHTLY",
+        "proposedMonthlyInstalment": "15600.00",
+        "purpose": "INCOME_GENERATION"
+      },
+      "group": {
+        "groupRef": "G-88412",
+        "type": "JLG",
+        "formedOn": "2025-11-04",
+        "cycleNumber": 2,
+        "memberPartyRefs": [
+          "P-0001",
+          "P-0002",
+          "P-0003",
+          "P-0004",
+          "P-0005",
+          "P-0006"
+        ],
+        "meetingFrequency": "FORTNIGHTLY",
+        "centreRef": "C-1207",
+        "villageRiskCategory": "B"
+      },
+      "parties": [
+        {
+          "partyRef": "P-0001",
+          "principalRef": "pr_7Hk2q9LmA1",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "dateOfBirth": "1988-03-14",
+          "householdRef": "H-01",
+          "proposedAmount": "50000.00",
+          "proposedMonthlyInstalment": "2600.00",
+          "kyc": {
+            "status": "VERIFIED",
+            "verifiedAt": "2026-09-20T11:02:00+05:30",
+            "method": "OKYC"
+          },
+          "income": {
+            "monthlyNet": "14000.00",
+            "verified": false,
+            "source": "DECLARED"
+          },
+          "declaredObligations": [],
+          "bureauReports": [
+            {
+              "bureau": "BUREAU_A",
+              "scoreType": "MFI_SCORE",
+              "score": 742,
+              "noHit": false,
+              "pulledAt": "2026-09-28T09:40:00+05:30",
+              "tradelines": [
+                {
+                  "lenderRef": "L-17",
+                  "accountType": "MFI_JLG",
+                  "lenderType": "NBFC_MFI",
+                  "ownership": "INDIVIDUAL",
+                  "sanctionedAmount": "60000.00",
+                  "currentBalance": "40000.00",
+                  "instalmentAmount": "2900.00",
+                  "overdueAmount": "0.00",
+                  "status": "ACTIVE",
+                  "openedOn": "2025-06-10",
+                  "reportedOn": "2026-08-31",
+                  "dpdHistory": [
+                    {
+                      "month": "2026-08-01",
+                      "dpd": 0
+                    },
+                    {
+                      "month": "2026-07-01",
+                      "dpd": 0
+                    }
+                  ]
+                }
+              ],
+              "enquiries": [
+                {
+                  "date": "2026-09-28",
+                  "purpose": "MFI",
+                  "amount": "50000.00"
+                }
+              ]
+            }
+          ],
+          "screening": {
+            "sanctionsHit": false,
+            "pepHit": false,
+            "negativeListHit": false
+          }
+        },
+        {
+          "partyRef": "P-0002",
+          "principalRef": "pr_Qz81mWv3Xc",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "dateOfBirth": "1993-07-02",
+          "householdRef": "H-02",
+          "proposedAmount": "50000.00",
+          "proposedMonthlyInstalment": "2600.00",
+          "kyc": {
+            "status": "VERIFIED",
+            "verifiedAt": "2026-09-20T11:15:00+05:30",
+            "method": "OKYC"
+          },
+          "income": {
+            "monthlyNet": "11000.00",
+            "verified": false,
+            "source": "DECLARED"
+          },
+          "declaredObligations": [],
+          "bureauReports": [
+            {
+              "bureau": "BUREAU_A",
+              "scoreType": "MFI_SCORE",
+              "noHit": true,
+              "pulledAt": "2026-09-28T09:41:00+05:30",
+              "tradelines": [],
+              "enquiries": []
+            }
+          ],
+          "screening": {
+            "sanctionsHit": false,
+            "pepHit": false,
+            "negativeListHit": false
+          }
+        },
+        {
+          "partyRef": "P-0003",
+          "principalRef": "pr_Lm40pEr7Tb",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "dateOfBirth": "1985-12-21",
+          "householdRef": "H-03",
+          "proposedAmount": "50000.00",
+          "proposedMonthlyInstalment": "2600.00",
+          "kyc": {
+            "status": "VERIFIED",
+            "verifiedAt": "2026-09-20T11:31:00+05:30",
+            "method": "OKYC"
+          },
+          "income": {
+            "monthlyNet": "18000.00",
+            "verified": false,
+            "source": "DECLARED"
+          },
+          "declaredObligations": [],
+          "bureauReports": [
+            {
+              "bureau": "BUREAU_A",
+              "scoreType": "MFI_SCORE",
+              "score": 701,
+              "noHit": false,
+              "pulledAt": "2026-09-28T09:42:00+05:30",
+              "tradelines": [
+                {
+                  "lenderRef": "L-03",
+                  "accountType": "MFI_JLG",
+                  "lenderType": "NBFC_MFI",
+                  "ownership": "INDIVIDUAL",
+                  "sanctionedAmount": "120000.00",
+                  "currentBalance": "95000.00",
+                  "instalmentAmount": "6100.00",
+                  "overdueAmount": "0.00",
+                  "status": "ACTIVE",
+                  "openedOn": "2025-12-01",
+                  "reportedOn": "2026-08-31",
+                  "dpdHistory": [
+                    {
+                      "month": "2026-08-01",
+                      "dpd": 0
+                    }
+                  ]
+                },
+                {
+                  "lenderRef": "L-22",
+                  "accountType": "PERSONAL_LOAN",
+                  "lenderType": "BANK",
+                  "ownership": "INDIVIDUAL",
+                  "sanctionedAmount": "100000.00",
+                  "currentBalance": "70000.00",
+                  "instalmentAmount": "4700.00",
+                  "overdueAmount": "0.00",
+                  "status": "ACTIVE",
+                  "openedOn": "2025-03-15",
+                  "reportedOn": "2026-08-31",
+                  "dpdHistory": [
+                    {
+                      "month": "2026-08-01",
+                      "dpd": 0
+                    }
+                  ]
+                }
+              ],
+              "enquiries": []
+            }
+          ],
+          "screening": {
+            "sanctionsHit": false,
+            "pepHit": false,
+            "negativeListHit": false
+          }
+        },
+        {
+          "partyRef": "P-0004",
+          "principalRef": "pr_Vn55cRt2Ha",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "dateOfBirth": "1990-01-30",
+          "householdRef": "H-04",
+          "proposedAmount": "50000.00",
+          "proposedMonthlyInstalment": "2600.00",
+          "kyc": {
+            "status": "VERIFIED",
+            "verifiedAt": "2026-09-20T11:44:00+05:30",
+            "method": "OKYC"
+          },
+          "income": {
+            "monthlyNet": "12500.00",
+            "verified": false,
+            "source": "DECLARED"
+          },
+          "declaredObligations": [],
+          "bureauReports": [
+            {
+              "bureau": "BUREAU_A",
+              "scoreType": "MFI_SCORE",
+              "score": 755,
+              "noHit": false,
+              "pulledAt": "2026-09-28T09:43:00+05:30",
+              "tradelines": [
+                {
+                  "lenderRef": "L-17",
+                  "accountType": "MFI_JLG",
+                  "lenderType": "NBFC_MFI",
+                  "ownership": "INDIVIDUAL",
+                  "sanctionedAmount": "40000.00",
+                  "currentBalance": "20000.00",
+                  "instalmentAmount": "1950.00",
+                  "overdueAmount": "0.00",
+                  "status": "ACTIVE",
+                  "openedOn": "2025-08-20",
+                  "reportedOn": "2026-08-31",
+                  "dpdHistory": [
+                    {
+                      "month": "2026-08-01",
+                      "dpd": 0
+                    }
+                  ]
+                }
+              ],
+              "enquiries": []
+            }
+          ],
+          "screening": {
+            "sanctionsHit": false,
+            "pepHit": false,
+            "negativeListHit": false
+          }
+        },
+        {
+          "partyRef": "P-0005",
+          "principalRef": "pr_Bc19yUo6Ke",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "dateOfBirth": "1996-05-09",
+          "householdRef": "H-05",
+          "proposedAmount": "50000.00",
+          "proposedMonthlyInstalment": "2600.00",
+          "kyc": {
+            "status": "VERIFIED",
+            "verifiedAt": "2026-09-20T12:01:00+05:30",
+            "method": "OKYC"
+          },
+          "income": {
+            "monthlyNet": "10500.00",
+            "verified": false,
+            "source": "DECLARED"
+          },
+          "declaredObligations": [],
+          "bureauReports": [
+            {
+              "bureau": "BUREAU_A",
+              "scoreType": "MFI_SCORE",
+              "noHit": true,
+              "pulledAt": "2026-09-28T09:44:00+05:30",
+              "tradelines": [],
+              "enquiries": []
+            }
+          ],
+          "screening": {
+            "sanctionsHit": false,
+            "pepHit": false,
+            "negativeListHit": false
+          }
+        },
+        {
+          "partyRef": "P-0006",
+          "principalRef": "pr_Hy62tIa8Nd",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "dateOfBirth": "1982-09-17",
+          "householdRef": "H-06",
+          "proposedAmount": "50000.00",
+          "proposedMonthlyInstalment": "2600.00",
+          "kyc": {
+            "status": "VERIFIED",
+            "verifiedAt": "2026-09-20T12:14:00+05:30",
+            "method": "OKYC"
+          },
+          "income": {
+            "monthlyNet": "16000.00",
+            "verified": false,
+            "source": "DECLARED"
+          },
+          "declaredObligations": [],
+          "bureauReports": [
+            {
+              "bureau": "BUREAU_A",
+              "scoreType": "MFI_SCORE",
+              "score": 768,
+              "noHit": false,
+              "pulledAt": "2026-09-28T09:45:00+05:30",
+              "tradelines": [
+                {
+                  "lenderRef": "L-09",
+                  "accountType": "CONSUMER_LOAN",
+                  "lenderType": "NBFC",
+                  "ownership": "INDIVIDUAL",
+                  "sanctionedAmount": "30000.00",
+                  "currentBalance": "12000.00",
+                  "instalmentAmount": "2100.00",
+                  "overdueAmount": "0.00",
+                  "status": "ACTIVE",
+                  "openedOn": "2026-01-05",
+                  "reportedOn": "2026-08-31",
+                  "dpdHistory": [
+                    {
+                      "month": "2026-08-01",
+                      "dpd": 0
+                    }
+                  ]
+                }
+              ],
+              "enquiries": []
+            }
+          ],
+          "screening": {
+            "sanctionsHit": false,
+            "pepHit": false,
+            "negativeListHit": false
+          }
+        }
+      ],
+      "households": [
+        {
+          "householdRef": "H-01",
+          "memberPartyRefs": [
+            "P-0001"
+          ],
+          "annualIncome": "210000.00",
+          "monthlyRepaymentObligations": "2900.00"
+        },
+        {
+          "householdRef": "H-02",
+          "memberPartyRefs": [
+            "P-0002"
+          ],
+          "annualIncome": "160000.00",
+          "monthlyRepaymentObligations": "0.00"
+        },
+        {
+          "householdRef": "H-03",
+          "memberPartyRefs": [
+            "P-0003"
+          ],
+          "annualIncome": "276000.00",
+          "monthlyRepaymentObligations": "10800.00"
+        },
+        {
+          "householdRef": "H-04",
+          "memberPartyRefs": [
+            "P-0004"
+          ],
+          "annualIncome": "180000.00",
+          "monthlyRepaymentObligations": "1950.00"
+        },
+        {
+          "householdRef": "H-05",
+          "memberPartyRefs": [
+            "P-0005"
+          ],
+          "annualIncome": "150000.00",
+          "monthlyRepaymentObligations": "0.00"
+        },
+        {
+          "householdRef": "H-06",
+          "memberPartyRefs": [
+            "P-0006"
+          ],
+          "annualIncome": "240000.00",
+          "monthlyRepaymentObligations": "2100.00"
+        }
+      ],
+      "deviationApprovals": [],
+      "consent": {
+        "consentRef": "CNS-2026-55120",
+        "purposeCode": "CREDIT_ASSESSMENT"
+      }
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "MFI_JLG_CREDIT_UW",
+        "version": 3,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW",
+        "segment": null,
+        "description": "JLG credit underwriting policy"
+      },
+      "factSchema": {
+        "code": "lending-facts",
+        "version": "1.0.0"
+      },
+      "assets": {
+        "parameterSet": {
+          "code": "MFI_PARAMS",
+          "version": 7
+        },
+        "referenceLists": [
+          {
+            "code": "OPEN_TRADELINE_STATUSES",
+            "version": 1
+          },
+          {
+            "code": "UNSECURED_ACCOUNT_TYPES",
+            "version": 2
+          }
+        ],
+        "reasonCodes": {
+          "code": "CORE_REASONS",
+          "version": 5
+        },
+        "authorityMatrix": {
+          "code": "MFI_DOP",
+          "version": 3,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            },
+            {
+              "levelCode": "CREDIT_HEAD",
+              "rank": 4
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": "2500000.00",
+              "levelCode": "L3"
+            },
+            {
+              "entryNo": 3,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "2500000.00",
+              "amountUpTo": null,
+              "levelCode": "CREDIT_HEAD"
+            },
+            {
+              "entryNo": 4,
+              "deviationType": "VRM_CATEGORY_C",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": null,
+              "levelCode": "L2"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "coalesce(application.approvedAmount, application.recommendedAmount, application.requestedAmount)",
+        "customerReasonLimit": 4,
+        "fuelLimit": 1000000
+      },
+      "variables": [
+        {
+          "name": "memberUnsecuredOutstanding",
+          "type": "Decimal",
+          "scope": "MEMBER",
+          "expr": "sum(member.bureauReports.tradelines[it.accountType in list.UNSECURED_ACCOUNT_TYPES and it.status in list.OPEN_TRADELINE_STATUSES].currentBalance)",
+          "description": "Outstanding on open unsecured tradelines across all bureau reports of the member"
+        },
+        {
+          "name": "proposedAmount",
+          "type": "Decimal",
+          "scope": "APPLICATION",
+          "expr": "coalesce(application.approvedAmount, application.recommendedAmount, application.requestedAmount)"
+        }
+      ],
+      "rules": [
+        {
+          "code": "MFI_INDEBTEDNESS_CAP",
+          "name": "Member indebtedness within cap",
+          "scope": "MEMBER",
+          "when": "true",
+          "check": "memberUnsecuredOutstanding + proposedAmount / count(group.memberPartyRefs) <= param.INDEBTEDNESS_CAP",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INDEBTEDNESS_CAP",
+            "deviationType": "INDEBTEDNESS_CAP",
+            "measure": "memberUnsecuredOutstanding + proposedAmount / count(group.memberPartyRefs)",
+            "worseWhen": "HIGHER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {
+            "totalIndebtedness": "memberUnsecuredOutstanding + proposedAmount / count(group.memberPartyRefs)"
+          }
+        },
+        {
+          "code": "SCREENING_HIT",
+          "name": "No sanctions, PEP or negative-list hit",
+          "scope": "PARTY",
+          "check": "not (party.screening.sanctionsHit or party.screening.pepHit or party.screening.negativeListHit)",
+          "onFail": {
+            "status": "FAIL",
+            "reasonCode": "KO_SCREENING_HIT"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "decisionTables": [
+        {
+          "code": "GRP_VRM_CATEGORY",
+          "name": "Village risk category",
+          "scope": "GROUP",
+          "hitPolicy": {
+            "kind": "FIRST"
+          },
+          "inputs": [
+            {
+              "name": "vrm",
+              "expr": "group.villageRiskCategory"
+            }
+          ],
+          "outputs": [],
+          "rows": [
+            {
+              "when": [
+                "in [\"A\",\"B\"]"
+              ],
+              "then": {
+                "status": "PASS"
+              }
+            },
+            {
+              "when": [
+                "= \"C\""
+              ],
+              "then": {
+                "status": "DEVIATION",
+                "deviationType": "VRM_CATEGORY_C",
+                "reasonCode": "POL_VRM_C"
+              }
+            },
+            {
+              "when": [
+                "in [\"D\",\"E\"]"
+              ],
+              "then": {
+                "status": "FAIL",
+                "reasonCode": "POL_VRM_DE"
+              }
+            },
+            {
+              "when": [
+                "missing"
+              ],
+              "then": {
+                "status": "REFER",
+                "reasonCode": "DATA_VRM_MISSING"
+              }
+            },
+            {
+              "when": [
+                "-"
+              ],
+              "then": {
+                "status": "REFER",
+                "reasonCode": "POL_VRM_UNKNOWN"
+              }
+            }
+          ],
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ],
+      "scorecards": [
+        {
+          "code": "MFI_APP_SCORE_V1",
+          "name": "MFI application score v1",
+          "scope": "MEMBER",
+          "baseScore": 300,
+          "characteristics": [
+            {
+              "name": "groupCycle",
+              "expr": "group.cycleNumber",
+              "reasonCode": "SC_CYCLE_LOW",
+              "bins": [
+                {
+                  "when": "= 1",
+                  "points": 20
+                },
+                {
+                  "when": "[2..3]",
+                  "points": 45
+                },
+                {
+                  "when": ">= 4",
+                  "points": 70
+                },
+                {
+                  "when": "missing",
+                  "points": 0,
+                  "reasonCode": "SC_CYCLE_MISSING"
+                }
+              ]
+            }
+          ],
+          "adverseReasons": 3,
+          "scaling": {
+            "multiplier": "1",
+            "offset": "0",
+            "scale": 0,
+            "roundingMode": "HALF_UP"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "KNOCKOUT",
+            "knockout": true,
+            "steps": [
+              {
+                "ref": "SCREENING_HIT",
+                "roles": [
+                  "MEMBER"
+                ],
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          },
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "GRP_VRM_CATEGORY",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              },
+              {
+                "ref": "MFI_INDEBTEDNESS_CAP",
+                "aggregate": {
+                  "kind": "THRESHOLD",
+                  "metric": "PERCENT",
+                  "op": ">=",
+                  "value": "param.GROUP_DEVIATION_SHARE_REFER_PCT",
+                  "statuses": [
+                    "DEVIATION"
+                  ],
+                  "result": "REFER"
+                }
+              }
+            ]
+          },
+          {
+            "name": "SCORING",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_APP_SCORE_V1",
+                "aggregate": {
+                  "kind": "NONE"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "decision": "APPROVE_WITH_DEVIATION",
+      "steps": [
+        {
+          "status": "DEVIATION",
+          "reasonCode": "AFF_INDEBTEDNESS_CAP",
+          "entities": [
+            {
+              "entityType": "MEMBER",
+              "entityRef": "P-0003",
+              "status": "DEVIATION",
+              "effectiveStatus": "DEVIATION",
+              "reasonCode": "AFF_INDEBTEDNESS_CAP",
+              "deviationType": "INDEBTEDNESS_CAP",
+              "measure": "215000",
+              "worseWhen": "HIGHER",
+              "requiredLevel": "L2"
+            }
+          ],
+          "ref": "MFI_INDEBTEDNESS_CAP"
+        }
+      ]
+    }
+  },
+  {
+    "id": "E-02",
+    "description": "E-01 re-evaluated with the 6.2 L2 approval in deviationApprovals: the approval covers P-0003 because the measure 215000 equals approvedValue 215000, the entity's effective status becomes PASS with the annotation DEVIATION_APPROVED, and the decision is APPROVE with stpEligible false, because a DEVIATION_APPROVED annotation on a step whose aggregate is not NONE removes straight-through eligibility (6.2, 4.8, 4.9)",
+    "asOf": "2026-10-01",
+    "params": {
+      "INDEBTEDNESS_CAP": "200000.00",
+      "GROUP_DEVIATION_SHARE_REFER_PCT": "20"
+    },
+    "lists": {
+      "OPEN_TRADELINE_STATUSES": [
+        "ACTIVE",
+        "OVERDUE",
+        "RESTRUCTURED",
+        "SUIT_FILED"
+      ],
+      "UNSECURED_ACCOUNT_TYPES": [
+        "CONSUMER_LOAN",
+        "CREDIT_CARD",
+        "MFI_JLG",
+        "MFI_SHG",
+        "PERSONAL_LOAN"
+      ]
+    },
+    "facts": {
+      "application": {
+        "applicationRef": "APP-2026-000123",
+        "productLine": "MFI_JLG",
+        "productCode": "JLG_IGL_24M",
+        "stage": "CREDIT_UW",
+        "segment": null,
+        "channel": "FIELD_APP",
+        "branchCode": "BR-0412",
+        "requestedAmount": "300000.00",
+        "tenureMonths": 24,
+        "repaymentFrequency": "FORTNIGHTLY",
+        "proposedMonthlyInstalment": "15600.00",
+        "purpose": "INCOME_GENERATION"
+      },
+      "group": {
+        "groupRef": "G-88412",
+        "type": "JLG",
+        "formedOn": "2025-11-04",
+        "cycleNumber": 2,
+        "memberPartyRefs": [
+          "P-0001",
+          "P-0002",
+          "P-0003",
+          "P-0004",
+          "P-0005",
+          "P-0006"
+        ],
+        "meetingFrequency": "FORTNIGHTLY",
+        "centreRef": "C-1207",
+        "villageRiskCategory": "B"
+      },
+      "parties": [
+        {
+          "partyRef": "P-0001",
+          "principalRef": "pr_7Hk2q9LmA1",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "dateOfBirth": "1988-03-14",
+          "householdRef": "H-01",
+          "proposedAmount": "50000.00",
+          "proposedMonthlyInstalment": "2600.00",
+          "kyc": {
+            "status": "VERIFIED",
+            "verifiedAt": "2026-09-20T11:02:00+05:30",
+            "method": "OKYC"
+          },
+          "income": {
+            "monthlyNet": "14000.00",
+            "verified": false,
+            "source": "DECLARED"
+          },
+          "declaredObligations": [],
+          "bureauReports": [
+            {
+              "bureau": "BUREAU_A",
+              "scoreType": "MFI_SCORE",
+              "score": 742,
+              "noHit": false,
+              "pulledAt": "2026-09-28T09:40:00+05:30",
+              "tradelines": [
+                {
+                  "lenderRef": "L-17",
+                  "accountType": "MFI_JLG",
+                  "lenderType": "NBFC_MFI",
+                  "ownership": "INDIVIDUAL",
+                  "sanctionedAmount": "60000.00",
+                  "currentBalance": "40000.00",
+                  "instalmentAmount": "2900.00",
+                  "overdueAmount": "0.00",
+                  "status": "ACTIVE",
+                  "openedOn": "2025-06-10",
+                  "reportedOn": "2026-08-31",
+                  "dpdHistory": [
+                    {
+                      "month": "2026-08-01",
+                      "dpd": 0
+                    },
+                    {
+                      "month": "2026-07-01",
+                      "dpd": 0
+                    }
+                  ]
+                }
+              ],
+              "enquiries": [
+                {
+                  "date": "2026-09-28",
+                  "purpose": "MFI",
+                  "amount": "50000.00"
+                }
+              ]
+            }
+          ],
+          "screening": {
+            "sanctionsHit": false,
+            "pepHit": false,
+            "negativeListHit": false
+          }
+        },
+        {
+          "partyRef": "P-0002",
+          "principalRef": "pr_Qz81mWv3Xc",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "dateOfBirth": "1993-07-02",
+          "householdRef": "H-02",
+          "proposedAmount": "50000.00",
+          "proposedMonthlyInstalment": "2600.00",
+          "kyc": {
+            "status": "VERIFIED",
+            "verifiedAt": "2026-09-20T11:15:00+05:30",
+            "method": "OKYC"
+          },
+          "income": {
+            "monthlyNet": "11000.00",
+            "verified": false,
+            "source": "DECLARED"
+          },
+          "declaredObligations": [],
+          "bureauReports": [
+            {
+              "bureau": "BUREAU_A",
+              "scoreType": "MFI_SCORE",
+              "noHit": true,
+              "pulledAt": "2026-09-28T09:41:00+05:30",
+              "tradelines": [],
+              "enquiries": []
+            }
+          ],
+          "screening": {
+            "sanctionsHit": false,
+            "pepHit": false,
+            "negativeListHit": false
+          }
+        },
+        {
+          "partyRef": "P-0003",
+          "principalRef": "pr_Lm40pEr7Tb",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "dateOfBirth": "1985-12-21",
+          "householdRef": "H-03",
+          "proposedAmount": "50000.00",
+          "proposedMonthlyInstalment": "2600.00",
+          "kyc": {
+            "status": "VERIFIED",
+            "verifiedAt": "2026-09-20T11:31:00+05:30",
+            "method": "OKYC"
+          },
+          "income": {
+            "monthlyNet": "18000.00",
+            "verified": false,
+            "source": "DECLARED"
+          },
+          "declaredObligations": [],
+          "bureauReports": [
+            {
+              "bureau": "BUREAU_A",
+              "scoreType": "MFI_SCORE",
+              "score": 701,
+              "noHit": false,
+              "pulledAt": "2026-09-28T09:42:00+05:30",
+              "tradelines": [
+                {
+                  "lenderRef": "L-03",
+                  "accountType": "MFI_JLG",
+                  "lenderType": "NBFC_MFI",
+                  "ownership": "INDIVIDUAL",
+                  "sanctionedAmount": "120000.00",
+                  "currentBalance": "95000.00",
+                  "instalmentAmount": "6100.00",
+                  "overdueAmount": "0.00",
+                  "status": "ACTIVE",
+                  "openedOn": "2025-12-01",
+                  "reportedOn": "2026-08-31",
+                  "dpdHistory": [
+                    {
+                      "month": "2026-08-01",
+                      "dpd": 0
+                    }
+                  ]
+                },
+                {
+                  "lenderRef": "L-22",
+                  "accountType": "PERSONAL_LOAN",
+                  "lenderType": "BANK",
+                  "ownership": "INDIVIDUAL",
+                  "sanctionedAmount": "100000.00",
+                  "currentBalance": "70000.00",
+                  "instalmentAmount": "4700.00",
+                  "overdueAmount": "0.00",
+                  "status": "ACTIVE",
+                  "openedOn": "2025-03-15",
+                  "reportedOn": "2026-08-31",
+                  "dpdHistory": [
+                    {
+                      "month": "2026-08-01",
+                      "dpd": 0
+                    }
+                  ]
+                }
+              ],
+              "enquiries": []
+            }
+          ],
+          "screening": {
+            "sanctionsHit": false,
+            "pepHit": false,
+            "negativeListHit": false
+          }
+        },
+        {
+          "partyRef": "P-0004",
+          "principalRef": "pr_Vn55cRt2Ha",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "dateOfBirth": "1990-01-30",
+          "householdRef": "H-04",
+          "proposedAmount": "50000.00",
+          "proposedMonthlyInstalment": "2600.00",
+          "kyc": {
+            "status": "VERIFIED",
+            "verifiedAt": "2026-09-20T11:44:00+05:30",
+            "method": "OKYC"
+          },
+          "income": {
+            "monthlyNet": "12500.00",
+            "verified": false,
+            "source": "DECLARED"
+          },
+          "declaredObligations": [],
+          "bureauReports": [
+            {
+              "bureau": "BUREAU_A",
+              "scoreType": "MFI_SCORE",
+              "score": 755,
+              "noHit": false,
+              "pulledAt": "2026-09-28T09:43:00+05:30",
+              "tradelines": [
+                {
+                  "lenderRef": "L-17",
+                  "accountType": "MFI_JLG",
+                  "lenderType": "NBFC_MFI",
+                  "ownership": "INDIVIDUAL",
+                  "sanctionedAmount": "40000.00",
+                  "currentBalance": "20000.00",
+                  "instalmentAmount": "1950.00",
+                  "overdueAmount": "0.00",
+                  "status": "ACTIVE",
+                  "openedOn": "2025-08-20",
+                  "reportedOn": "2026-08-31",
+                  "dpdHistory": [
+                    {
+                      "month": "2026-08-01",
+                      "dpd": 0
+                    }
+                  ]
+                }
+              ],
+              "enquiries": []
+            }
+          ],
+          "screening": {
+            "sanctionsHit": false,
+            "pepHit": false,
+            "negativeListHit": false
+          }
+        },
+        {
+          "partyRef": "P-0005",
+          "principalRef": "pr_Bc19yUo6Ke",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "dateOfBirth": "1996-05-09",
+          "householdRef": "H-05",
+          "proposedAmount": "50000.00",
+          "proposedMonthlyInstalment": "2600.00",
+          "kyc": {
+            "status": "VERIFIED",
+            "verifiedAt": "2026-09-20T12:01:00+05:30",
+            "method": "OKYC"
+          },
+          "income": {
+            "monthlyNet": "10500.00",
+            "verified": false,
+            "source": "DECLARED"
+          },
+          "declaredObligations": [],
+          "bureauReports": [
+            {
+              "bureau": "BUREAU_A",
+              "scoreType": "MFI_SCORE",
+              "noHit": true,
+              "pulledAt": "2026-09-28T09:44:00+05:30",
+              "tradelines": [],
+              "enquiries": []
+            }
+          ],
+          "screening": {
+            "sanctionsHit": false,
+            "pepHit": false,
+            "negativeListHit": false
+          }
+        },
+        {
+          "partyRef": "P-0006",
+          "principalRef": "pr_Hy62tIa8Nd",
+          "role": "MEMBER",
+          "type": "INDIVIDUAL",
+          "dateOfBirth": "1982-09-17",
+          "householdRef": "H-06",
+          "proposedAmount": "50000.00",
+          "proposedMonthlyInstalment": "2600.00",
+          "kyc": {
+            "status": "VERIFIED",
+            "verifiedAt": "2026-09-20T12:14:00+05:30",
+            "method": "OKYC"
+          },
+          "income": {
+            "monthlyNet": "16000.00",
+            "verified": false,
+            "source": "DECLARED"
+          },
+          "declaredObligations": [],
+          "bureauReports": [
+            {
+              "bureau": "BUREAU_A",
+              "scoreType": "MFI_SCORE",
+              "score": 768,
+              "noHit": false,
+              "pulledAt": "2026-09-28T09:45:00+05:30",
+              "tradelines": [
+                {
+                  "lenderRef": "L-09",
+                  "accountType": "CONSUMER_LOAN",
+                  "lenderType": "NBFC",
+                  "ownership": "INDIVIDUAL",
+                  "sanctionedAmount": "30000.00",
+                  "currentBalance": "12000.00",
+                  "instalmentAmount": "2100.00",
+                  "overdueAmount": "0.00",
+                  "status": "ACTIVE",
+                  "openedOn": "2026-01-05",
+                  "reportedOn": "2026-08-31",
+                  "dpdHistory": [
+                    {
+                      "month": "2026-08-01",
+                      "dpd": 0
+                    }
+                  ]
+                }
+              ],
+              "enquiries": []
+            }
+          ],
+          "screening": {
+            "sanctionsHit": false,
+            "pepHit": false,
+            "negativeListHit": false
+          }
+        }
+      ],
+      "households": [
+        {
+          "householdRef": "H-01",
+          "memberPartyRefs": [
+            "P-0001"
+          ],
+          "annualIncome": "210000.00",
+          "monthlyRepaymentObligations": "2900.00"
+        },
+        {
+          "householdRef": "H-02",
+          "memberPartyRefs": [
+            "P-0002"
+          ],
+          "annualIncome": "160000.00",
+          "monthlyRepaymentObligations": "0.00"
+        },
+        {
+          "householdRef": "H-03",
+          "memberPartyRefs": [
+            "P-0003"
+          ],
+          "annualIncome": "276000.00",
+          "monthlyRepaymentObligations": "10800.00"
+        },
+        {
+          "householdRef": "H-04",
+          "memberPartyRefs": [
+            "P-0004"
+          ],
+          "annualIncome": "180000.00",
+          "monthlyRepaymentObligations": "1950.00"
+        },
+        {
+          "householdRef": "H-05",
+          "memberPartyRefs": [
+            "P-0005"
+          ],
+          "annualIncome": "150000.00",
+          "monthlyRepaymentObligations": "0.00"
+        },
+        {
+          "householdRef": "H-06",
+          "memberPartyRefs": [
+            "P-0006"
+          ],
+          "annualIncome": "240000.00",
+          "monthlyRepaymentObligations": "2100.00"
+        }
+      ],
+      "deviationApprovals": [
+        {
+          "deviationType": "INDEBTEDNESS_CAP",
+          "ruleCode": "MFI_INDEBTEDNESS_CAP",
+          "entityType": "MEMBER",
+          "entityRef": "P-0003",
+          "approvedValue": "215000",
+          "approvedBy": "u_bm_221",
+          "approvedLevel": "L2",
+          "approvalRef": "APR-99120",
+          "approvedAt": "2026-10-01T12:05:00+05:30",
+          "expiresOn": "2026-10-31"
+        }
+      ],
+      "consent": {
+        "consentRef": "CNS-2026-55120",
+        "purposeCode": "CREDIT_ASSESSMENT"
+      }
+    },
+    "policy": {
+      "irVersion": 1,
+      "policy": {
+        "tenantId": "t_acme",
+        "code": "MFI_JLG_CREDIT_UW",
+        "version": 3,
+        "productLines": [
+          "MFI_JLG"
+        ],
+        "stage": "CREDIT_UW",
+        "segment": null,
+        "description": "JLG credit underwriting policy"
+      },
+      "factSchema": {
+        "code": "lending-facts",
+        "version": "1.0.0"
+      },
+      "assets": {
+        "parameterSet": {
+          "code": "MFI_PARAMS",
+          "version": 7
+        },
+        "referenceLists": [
+          {
+            "code": "OPEN_TRADELINE_STATUSES",
+            "version": 1
+          },
+          {
+            "code": "UNSECURED_ACCOUNT_TYPES",
+            "version": 2
+          }
+        ],
+        "reasonCodes": {
+          "code": "CORE_REASONS",
+          "version": 5
+        },
+        "authorityMatrix": {
+          "code": "MFI_DOP",
+          "version": 3,
+          "routingMode": "HIGHEST_ONLY",
+          "levels": [
+            {
+              "levelCode": "L1",
+              "rank": 1
+            },
+            {
+              "levelCode": "L2",
+              "rank": 2
+            },
+            {
+              "levelCode": "L3",
+              "rank": 3
+            },
+            {
+              "levelCode": "CREDIT_HEAD",
+              "rank": 4
+            }
+          ],
+          "entries": [
+            {
+              "entryNo": 1,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": "1000000.00",
+              "levelCode": "L2"
+            },
+            {
+              "entryNo": 2,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "1000000.00",
+              "amountUpTo": "2500000.00",
+              "levelCode": "L3"
+            },
+            {
+              "entryNo": 3,
+              "deviationType": "INDEBTEDNESS_CAP",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": "2500000.00",
+              "amountUpTo": null,
+              "levelCode": "CREDIT_HEAD"
+            },
+            {
+              "entryNo": 4,
+              "deviationType": "VRM_CATEGORY_C",
+              "productLine": "*",
+              "segment": "*",
+              "amountAbove": null,
+              "amountUpTo": null,
+              "levelCode": "L2"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "authorityAmount": "coalesce(application.approvedAmount, application.recommendedAmount, application.requestedAmount)",
+        "customerReasonLimit": 4,
+        "fuelLimit": 1000000
+      },
+      "variables": [
+        {
+          "name": "memberUnsecuredOutstanding",
+          "type": "Decimal",
+          "scope": "MEMBER",
+          "expr": "sum(member.bureauReports.tradelines[it.accountType in list.UNSECURED_ACCOUNT_TYPES and it.status in list.OPEN_TRADELINE_STATUSES].currentBalance)",
+          "description": "Outstanding on open unsecured tradelines across all bureau reports of the member"
+        },
+        {
+          "name": "proposedAmount",
+          "type": "Decimal",
+          "scope": "APPLICATION",
+          "expr": "coalesce(application.approvedAmount, application.recommendedAmount, application.requestedAmount)"
+        }
+      ],
+      "rules": [
+        {
+          "code": "MFI_INDEBTEDNESS_CAP",
+          "name": "Member indebtedness within cap",
+          "scope": "MEMBER",
+          "when": "true",
+          "check": "memberUnsecuredOutstanding + proposedAmount / count(group.memberPartyRefs) <= param.INDEBTEDNESS_CAP",
+          "onFail": {
+            "status": "DEVIATION",
+            "reasonCode": "AFF_INDEBTEDNESS_CAP",
+            "deviationType": "INDEBTEDNESS_CAP",
+            "measure": "memberUnsecuredOutstanding + proposedAmount / count(group.memberPartyRefs)",
+            "worseWhen": "HIGHER"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {
+            "totalIndebtedness": "memberUnsecuredOutstanding + proposedAmount / count(group.memberPartyRefs)"
+          }
+        },
+        {
+          "code": "SCREENING_HIT",
+          "name": "No sanctions, PEP or negative-list hit",
+          "scope": "PARTY",
+          "check": "not (party.screening.sanctionsHit or party.screening.pepHit or party.screening.negativeListHit)",
+          "onFail": {
+            "status": "FAIL",
+            "reasonCode": "KO_SCREENING_HIT"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          },
+          "outputs": {}
+        }
+      ],
+      "decisionTables": [
+        {
+          "code": "GRP_VRM_CATEGORY",
+          "name": "Village risk category",
+          "scope": "GROUP",
+          "hitPolicy": {
+            "kind": "FIRST"
+          },
+          "inputs": [
+            {
+              "name": "vrm",
+              "expr": "group.villageRiskCategory"
+            }
+          ],
+          "outputs": [],
+          "rows": [
+            {
+              "when": [
+                "in [\"A\",\"B\"]"
+              ],
+              "then": {
+                "status": "PASS"
+              }
+            },
+            {
+              "when": [
+                "= \"C\""
+              ],
+              "then": {
+                "status": "DEVIATION",
+                "deviationType": "VRM_CATEGORY_C",
+                "reasonCode": "POL_VRM_C"
+              }
+            },
+            {
+              "when": [
+                "in [\"D\",\"E\"]"
+              ],
+              "then": {
+                "status": "FAIL",
+                "reasonCode": "POL_VRM_DE"
+              }
+            },
+            {
+              "when": [
+                "missing"
+              ],
+              "then": {
+                "status": "REFER",
+                "reasonCode": "DATA_VRM_MISSING"
+              }
+            },
+            {
+              "when": [
+                "-"
+              ],
+              "then": {
+                "status": "REFER",
+                "reasonCode": "POL_VRM_UNKNOWN"
+              }
+            }
+          ],
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ],
+      "scorecards": [
+        {
+          "code": "MFI_APP_SCORE_V1",
+          "name": "MFI application score v1",
+          "scope": "MEMBER",
+          "baseScore": 300,
+          "characteristics": [
+            {
+              "name": "groupCycle",
+              "expr": "group.cycleNumber",
+              "reasonCode": "SC_CYCLE_LOW",
+              "bins": [
+                {
+                  "when": "= 1",
+                  "points": 20
+                },
+                {
+                  "when": "[2..3]",
+                  "points": 45
+                },
+                {
+                  "when": ">= 4",
+                  "points": 70
+                },
+                {
+                  "when": "missing",
+                  "points": 0,
+                  "reasonCode": "SC_CYCLE_MISSING"
+                }
+              ]
+            }
+          ],
+          "adverseReasons": 3,
+          "scaling": {
+            "multiplier": "1",
+            "offset": "0",
+            "scale": 0,
+            "roundingMode": "HALF_UP"
+          },
+          "onMissing": {
+            "policy": "REFER"
+          }
+        }
+      ],
+      "flow": {
+        "stages": [
+          {
+            "name": "KNOCKOUT",
+            "knockout": true,
+            "steps": [
+              {
+                "ref": "SCREENING_HIT",
+                "roles": [
+                  "MEMBER"
+                ],
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              }
+            ]
+          },
+          {
+            "name": "ELIGIBILITY",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "GRP_VRM_CATEGORY",
+                "aggregate": {
+                  "kind": "WORST"
+                }
+              },
+              {
+                "ref": "MFI_INDEBTEDNESS_CAP",
+                "aggregate": {
+                  "kind": "THRESHOLD",
+                  "metric": "PERCENT",
+                  "op": ">=",
+                  "value": "param.GROUP_DEVIATION_SHARE_REFER_PCT",
+                  "statuses": [
+                    "DEVIATION"
+                  ],
+                  "result": "REFER"
+                }
+              }
+            ]
+          },
+          {
+            "name": "SCORING",
+            "knockout": false,
+            "steps": [
+              {
+                "ref": "MFI_APP_SCORE_V1",
+                "aggregate": {
+                  "kind": "NONE"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "expect": {
+      "decision": "APPROVE",
+      "stpEligible": false,
+      "steps": [
+        {
+          "status": "PASS",
+          "entities": [
+            {
+              "entityType": "MEMBER",
+              "entityRef": "P-0003",
+              "status": "DEVIATION",
+              "effectiveStatus": "PASS",
+              "annotation": "DEVIATION_APPROVED",
+              "approvalRef": "APR-99120"
+            }
+          ],
+          "ref": "MFI_INDEBTEDNESS_CAP"
+        }
+      ]
+    }
+  }
+]
