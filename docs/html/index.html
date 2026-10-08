@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BRE 2.0 — Review</title>
+<style>
+  /* Same tokens as the API reference, so the three pages read as one product. */
+  :root{
+    --canvas:#15171c; --card:#1c1f26; --card-2:#222630; --ink:#dfe3ea; --muted:#9aa3b2;
+    --faint:#6d7585; --line:#2b303b; --line-2:#39404e; --accent:#61afef;
+    --green:#57cc8f; --green-soft:rgba(87,204,143,.14);
+    --amber:#e0a458; --amber-soft:rgba(224,164,88,.15);
+    --purple:#c586c0; --purple-soft:rgba(197,134,192,.15);
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","IBM Plex Sans",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"IBM Plex Mono","SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--ink);font-family:var(--sans);
+       font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:56px 24px 80px}
+  .kicker{font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+          color:var(--faint);display:block;margin-bottom:10px}
+  h1{font-family:var(--serif);font-size:34px;line-height:1.22;letter-spacing:-.01em;margin:0 0 4px;
+     text-wrap:balance}
+  .sub{color:var(--muted);margin:0 0 8px}
+  .rule{height:1px;background:var(--line);margin:28px 0 0}
+  .rule+.rule{margin-top:3px;background:var(--line-2)}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin:36px 0 0}
+  a.card{display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit;
+         background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);
+         border-radius:11px;padding:20px;transition:background .18s ease-out,border-color .18s ease-out}
+  a.card:hover{background:var(--card-2);border-left-color:var(--green)}
+  a.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .card h2{font-family:var(--serif);font-size:19px;margin:0;letter-spacing:-.01em}
+  .card p{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
+  .card .path{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px}
+
+  .pill{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;
+        padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .pill.green{background:var(--green-soft);color:var(--green)}
+  .pill.amber{background:var(--amber-soft);color:var(--amber)}
+  .pill.purple{background:var(--purple-soft);color:var(--purple)}
+  .pills{display:flex;gap:6px;flex-wrap:wrap}
+
+  .note{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--amber);
+        border-radius:11px;padding:16px 20px;margin:32px 0 0}
+  .note p{margin:0;font-size:14px;color:var(--muted)}
+  .note b{color:var(--ink)}
+
+  h3{font-family:var(--serif);font-size:17px;margin:40px 0 10px;letter-spacing:-.01em}
+  ul{margin:0;padding-left:20px;color:var(--muted);font-size:14.5px}
+  li{margin:5px 0}
+  li b{color:var(--ink)}
+  code{font-family:var(--mono);font-size:12.5px;background:#22262e;color:#e5c07b;
+       padding:1px 6px;border-radius:6px}
+  .foot{margin-top:52px;padding-top:16px;border-top:1px solid var(--line);
+        font-family:var(--mono);font-size:11px;color:var(--faint)}
+
+  @media print{
+    :root{--canvas:#fff;--card:#fff;--ink:#14151a;--muted:#4c5261;--line:#d8d5cd}
+    a.card{break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="kicker">BRE 2.0 · Business Rules &amp; Credit Decisioning</span>
+  <h1>Review</h1>
+  <p class="sub">Two things to look at, both self-contained — open either file directly, no server needed.</p>
+  <div class="rule"></div><div class="rule"></div>
+
+  <div class="cards">
+    <a class="card" href="rule-studio/index.html">
+      <div class="pills">
+        <span class="pill green">live app</span>
+        <span class="pill purple">sample data</span>
+      </div>
+      <h2>Rule Studio</h2>
+      <p>The front end, for design feedback. Five screens: Rule Repository, Rule Editor,
+         Simulator, Approval Queue, Decision Trace. This is the real React build, not a mockup —
+         expand a version history, switch editor tabs, run the simulator, trace a decision.</p>
+      <span class="path">rule-studio/index.html</span>
+    </a>
+
+    <a class="card" href="decision-api.html">
+      <div class="pills">
+        <span class="pill green">2 endpoints live</span>
+        <span class="pill amber">gaps listed</span>
+      </div>
+      <h2>Decision API</h2>
+      <p>The integration reference, for the team connecting a Loan Origination System.
+         What the endpoints do, how a decision is reached, what every status means, and
+         a plain list of what is specified but not yet built.</p>
+      <span class="path">decision-api.html</span>
+    </a>
+  </div>
+
+  <div class="note">
+    <p><b>The Studio shows sample data.</b> No Backend-for-Frontend exists yet, so the screens are
+    served from the wireframes' own example rules and decisions. A banner says so on every screen.
+    Nothing you see there reflects a real rule or a real decision.</p>
+  </div>
+
+  <h3>What would help most as feedback</h3>
+  <ul>
+    <li><b>Rule-centric or policy-version-centric?</b> The wireframes organise the workspace around
+        a rule; the specification organises it around a policy <i>version</i> — which is what gets
+        reviewed, signed, deployed and rolled back. The rule-centric view is friendlier to an
+        author but has nowhere to say "live in UAT, pending approval in PROD".</li>
+    <li><b>Is the AI assistant in scope?</b> "Compile with AI" appears in the wireframes and in no
+        part of the specification. The button is in the UI and does nothing — there is no service
+        behind it. Before building it: which model, hosted where, and what stops a machine-drafted
+        credit rule reaching submission unread.</li>
+    <li><b>Is "TRL" the policy-sentence view?</b> The editor has a TRL tab because the wireframes
+        do. The specification has BEL, PSF and a deterministic policy-sentence renderer. If TRL
+        means the last of those, it should be renamed.</li>
+  </ul>
+
+  <h3>Where these come from</h3>
+  <ul>
+    <li><code>ui/studio-web/</code> — the Studio's source. Rebuild with <code>npm run build</code>.</li>
+    <li><code>docs/api/BRE_Decision_API.html</code> — the API reference's canonical copy.</li>
+    <li><code>backend/libs/bre-contracts/…/decision-api.openapi.yaml</code> — the OpenAPI 3.1 source.</li>
+    <li><code>ui/README.md</code> — the full record of where the wireframes and TRD §13 disagree.</li>
+  </ul>
+
+  <div class="foot">Built from the repository · 8 October 2026 · both pages work offline</div>
+</div>
+</body>
+</html>
