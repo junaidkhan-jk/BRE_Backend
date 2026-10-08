@@ -9,7 +9,10 @@ re2j = "1.8"
 # --- libs outside the engine ---
 jackson = "2.22.3"
 snakeyaml-engine = "3.2"
-json-schema-validator = "3.0.8"
+# 1.5.x is the last line built against Jackson 2. json-schema-validator 3.x moved to Jackson 3
+# (tools.jackson.databind), and this module — like every lib here — is on Jackson 2, so 3.x would
+# mean two Jacksons in one module for one validator. Revisit when the libs move to Jackson 3.
+json-schema-validator = "1.5.6"
 zstd-jni = "1.5.7-22"
 
 # --- test ---

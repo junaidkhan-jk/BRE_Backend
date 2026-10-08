@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bre.dev/schemas/ir/policy-version-1.json",
+  "title": "BRE PolicyVersion IR v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["irVersion", "policy", "factSchema", "assets", "settings", "variables", "rules", "decisionTables", "scorecards", "flow", "tests"],
+  "properties": {
+    "irVersion": { "const": 1 },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenantId", "code", "version", "productLines", "stage"],
+      "properties": {
+        "tenantId": { "$ref": "#/$defs/tenantId" },
+        "code": { "$ref": "#/$defs/code" },
+        "version": { "type": "integer", "minimum": 1 },
+        "productLines": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/code" } },
+        "stage": { "$ref": "#/$defs/code" },
+        "segment": { "oneOf": [ { "$ref": "#/$defs/code" }, { "type": "null" } ] },
+        "description": { "type": "string", "maxLength": 4000 }
+      }
+    },
+    "factSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "version"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" },
+        "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parameterSet", "referenceLists", "reasonCodes", "authorityMatrix"],
+      "properties": {
+        "parameterSet": { "oneOf": [ { "$ref": "#/$defs/assetRef" }, { "type": "null" } ] },
+        "referenceLists": { "type": "array", "items": { "$ref": "#/$defs/assetRef" } },
+        "reasonCodes": { "$ref": "#/$defs/assetRef" },
+        "authorityMatrix": { "oneOf": [ { "$ref": "#/$defs/assetRef" }, { "type": "null" } ] }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorityAmount", "customerReasonLimit"],
+      "properties": {
+        "authorityAmount": { "$ref": "#/$defs/expr" },
+        "customerReasonLimit": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "fuelLimit": { "type": "integer", "minimum": 1000, "maximum": 10000000 }
+      }
+    },
+    "variables": { "type": "array", "items": { "$ref": "#/$defs/variable" } },
+    "rules": { "type": "array", "items": { "$ref": "#/$defs/rule" } },
+    "decisionTables": { "type": "array", "items": { "$ref": "#/$defs/decisionTable" } },
+    "scorecards": { "type": "array", "items": { "$ref": "#/$defs/scorecard" } },
+    "flow": { "$ref": "#/$defs/flow" },
+    "tests": { "type": "array", "items": { "$ref": "#/$defs/testCase" } }
+  },
+  "$defs": {
+    "tenantId": { "type": "string", "pattern": "^[a-z][a-z0-9_]{2,31}$" },
+    "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,63}$" },
+    "name": { "type": "string", "pattern": "^[a-z][A-Za-z0-9_]{0,63}$" },
+    "expr": { "type": "string", "minLength": 1, "maxLength": 8000 },
+    "decimalString": { "type": "string", "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$" },
+    "assetRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "version"],
+      "properties": { "code": { "$ref": "#/$defs/code" }, "version": { "type": "integer", "minimum": 1 } }
+    },
+    "belType": { "enum": ["Decimal", "Integer", "Boolean", "Text", "Date", "DateTime", "Period", "Record", "List<Decimal>", "List<Integer>", "List<Text>", "List<Date>", "List<Record>"] },
+    "scope": { "enum": ["APPLICATION", "PARTY", "GROUP", "MEMBER", "HOUSEHOLD", "COLLATERAL"] },
+    "status": { "enum": ["PASS", "DEVIATION", "REFER", "FAIL"] },
+    "anyStatus": { "enum": ["PASS", "DEVIATION", "REFER", "FAIL", "NOT_APPLICABLE", "DATA_MISSING", "ERROR"] },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["overrideRef"],
+      "properties": { "overrideRef": { "type": "string", "pattern": "^GOV-[A-Z0-9-]{3,40}$" } }
+    },
+    "variable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "scope", "expr"],
+      "properties": {
+        "governance": { "$ref": "#/$defs/governance" },
+        "name": { "$ref": "#/$defs/name" },
+        "type": { "$ref": "#/$defs/belType" },
+        "scope": { "$ref": "#/$defs/scope" },
+        "expr": { "$ref": "#/$defs/expr" },
+        "description": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "onMissing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy"],
+      "properties": {
+        "policy": { "enum": ["REFER", "FAIL", "NOT_APPLICABLE", "USE_DEFAULT"] },
+        "value": { "type": "boolean" },
+        "reasonCode": { "$ref": "#/$defs/code" }
+      },
+      "if": { "properties": { "policy": { "const": "USE_DEFAULT" } } },
+      "then": { "required": ["value"] },
+      "else": { "not": { "required": ["value"] } }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "$ref": "#/$defs/status" },
+        "reasonCode": { "$ref": "#/$defs/code" },
+        "deviationType": { "$ref": "#/$defs/code" },
+        "measure": { "$ref": "#/$defs/expr" },
+        "worseWhen": { "enum": ["HIGHER", "LOWER"] }
+      },
+      "allOf": [
+        { "if": { "properties": { "status": { "const": "DEVIATION" } } }, "then": { "required": ["deviationType", "reasonCode"] } },
+        { "if": { "properties": { "status": { "enum": ["FAIL", "REFER"] } } }, "then": { "required": ["reasonCode"] } },
+        { "if": { "properties": { "status": { "const": "FAIL" } } }, "then": { "not": { "required": ["measure"] } } }
+      ]
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "name", "scope", "check", "onFail", "onMissing", "outputs"],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "scope": { "$ref": "#/$defs/scope" },
+        "when": { "$ref": "#/$defs/expr" },
+        "check": { "$ref": "#/$defs/expr" },
+        "onFail": { "allOf": [ { "$ref": "#/$defs/outcome" }, { "properties": { "status": { "enum": ["FAIL", "DEVIATION", "REFER"] } } } ] },
+        "onMissing": { "$ref": "#/$defs/onMissing" },
+        "outputs": { "type": "object", "propertyNames": { "$ref": "#/$defs/name" }, "additionalProperties": { "$ref": "#/$defs/expr" } },
+        "priority": { "type": "integer", "minimum": 0 },
+        "governance": { "$ref": "#/$defs/governance" },
+        "description": { "type": "string", "maxLength": 4000 }
+      }
+    },
+    "hitPolicy": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "enum": ["FIRST", "UNIQUE", "PRIORITY"] } } },
+        {
+          "type": "object", "additionalProperties": false, "required": ["kind", "op", "collectOutput"],
+          "properties": {
+            "kind": { "const": "COLLECT" },
+            "op": { "enum": ["SUM", "MIN", "MAX", "COUNT", "LIST"] },
+            "collectOutput": { "$ref": "#/$defs/name" }
+          }
+        }
+      ]
+    },
+    "tableRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["when", "then"],
+      "properties": {
+        "when": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 2000 } },
+        "then": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": { "$ref": "#/$defs/status" },
+            "reasonCode": { "$ref": "#/$defs/code" },
+            "deviationType": { "$ref": "#/$defs/code" },
+            "measure": { "$ref": "#/$defs/expr" },
+            "worseWhen": { "enum": ["HIGHER", "LOWER"] },
+            "outputs": { "type": "object", "propertyNames": { "$ref": "#/$defs/name" }, "additionalProperties": { "$ref": "#/$defs/expr" } }
+          }
+        },
+        "label": { "type": "string", "maxLength": 200 }
+      }
+    },
+    "decisionTable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "name", "scope", "hitPolicy", "inputs", "outputs", "rows", "onMissing"],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "scope": { "$ref": "#/$defs/scope" },
+        "when": { "$ref": "#/$defs/expr" },
+        "hitPolicy": { "$ref": "#/$defs/hitPolicy" },
+        "inputs": {
+          "type": "array", "minItems": 1, "maxItems": 16,
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["name", "expr"],
+            "properties": { "name": { "$ref": "#/$defs/name" }, "expr": { "$ref": "#/$defs/expr" } }
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["name", "type"],
+            "properties": { "name": { "$ref": "#/$defs/name" }, "type": { "$ref": "#/$defs/belType" } }
+          }
+        },
+        "rows": { "type": "array", "minItems": 1, "maxItems": 2000, "items": { "$ref": "#/$defs/tableRow" } },
+        "onMissing": { "$ref": "#/$defs/onMissing" },
+        "priority": { "type": "integer", "minimum": 0 },
+        "governance": { "$ref": "#/$defs/governance" },
+        "description": { "type": "string", "maxLength": 4000 }
+      }
+    },
+    "bin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["when", "points"],
+      "properties": {
+        "when": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "points": { "type": "integer", "minimum": -100000, "maximum": 100000 },
+        "reasonCode": { "$ref": "#/$defs/code" }
+      }
+    },
+    "scorecard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "name", "scope", "baseScore", "characteristics", "adverseReasons", "scaling", "onMissing"],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "scope": { "$ref": "#/$defs/scope" },
+        "baseScore": { "type": "integer" },
+        "characteristics": {
+          "type": "array", "minItems": 1, "maxItems": 64,
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["name", "expr", "bins"],
+            "properties": {
+              "name": { "$ref": "#/$defs/name" },
+              "expr": { "$ref": "#/$defs/expr" },
+              "reasonCode": { "$ref": "#/$defs/code" },
+              "bins": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "#/$defs/bin" } }
+            }
+          }
+        },
+        "adverseReasons": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "scaling": {
+          "type": "object", "additionalProperties": false, "required": ["multiplier", "offset", "scale", "roundingMode"],
+          "properties": {
+            "multiplier": { "$ref": "#/$defs/decimalString" },
+            "offset": { "$ref": "#/$defs/decimalString" },
+            "scale": { "type": "integer", "minimum": 0, "maximum": 6 },
+            "roundingMode": { "enum": ["HALF_UP", "HALF_EVEN", "DOWN", "UP", "FLOOR", "CEILING"] }
+          }
+        },
+        "onMissing": { "$ref": "#/$defs/onMissing" },
+        "priority": { "type": "integer", "minimum": 0 },
+        "governance": { "$ref": "#/$defs/governance" }
+      }
+    },
+    "aggregate": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "enum": ["WORST", "ALL_MUST_PASS", "NONE"] } } },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "metric", "op", "value", "statuses", "result"],
+          "properties": {
+            "kind": { "const": "THRESHOLD" },
+            "metric": { "enum": ["COUNT", "PERCENT"] },
+            "op": { "enum": [">=", ">", "<=", "<", "="] },
+            "value": { "oneOf": [ { "$ref": "#/$defs/decimalString" }, { "type": "string", "pattern": "^param\\.[A-Z][A-Z0-9_]{1,63}$" } ] },
+            "statuses": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/anyStatus" } },
+            "result": { "$ref": "#/$defs/status" }
+          }
+        }
+      ]
+    },
+    "flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stages"],
+      "properties": {
+        "stages": {
+          "type": "array", "minItems": 1, "maxItems": 32,
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["name", "knockout", "steps"],
+            "properties": {
+              "name": { "$ref": "#/$defs/code" },
+              "knockout": { "type": "boolean" },
+              "steps": {
+                "type": "array", "minItems": 1, "maxItems": 512,
+                "items": {
+                  "type": "object", "additionalProperties": false, "required": ["ref", "aggregate"],
+                  "properties": {
+                    "ref": { "$ref": "#/$defs/code" },
+                    "roles": { "type": "array", "uniqueItems": true, "items": { "enum": ["APPLICANT", "CO_APPLICANT", "GUARANTOR", "PROMOTER", "DIRECTOR", "MEMBER"] } },
+                    "aggregate": { "$ref": "#/$defs/aggregate" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "testCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "asOf", "facts", "expect", "smoke"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "asOf": { "type": "string", "format": "date" },
+        "facts": { "type": "object" },
+        "smoke": { "type": "boolean" },
+        "expect": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "decision": { "enum": ["DECLINE", "REFER", "APPROVE_WITH_DEVIATION", "APPROVE"] },
+            "stpEligible": { "type": "boolean" },
+            "rules": { "type": "object", "propertyNames": { "$ref": "#/$defs/code" }, "additionalProperties": { "$ref": "#/$defs/anyStatus" } },
+            "entities": {
+              "type": "array",
+              "items": {
+                "type": "object", "additionalProperties": false, "required": ["ref", "entityRef", "status"],
+                "properties": { "ref": { "$ref": "#/$defs/code" }, "entityRef": { "type": "string" }, "status": { "$ref": "#/$defs/anyStatus" } }
+              }
+            },
+            "outputs": { "type": "object" },
+            "customerReasons": { "type": "array", "items": { "$ref": "#/$defs/code" } }
+          }
+        }
+      }
+    }
+  }
+}

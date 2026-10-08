@@ -1,0 +1,87 @@
+policy: MFI_JLG_CREDIT_UW
+version: 3
+productLines: [MFI_JLG]
+stage: CREDIT_UW
+factSchema: lending-facts@1.0.0
+assets:
+  parameterSet: MFI_PARAMS@7
+  referenceLists: [UNSECURED_ACCOUNT_TYPES@2, OPEN_TRADELINE_STATUSES@1]
+  reasonCodes: CORE_REASONS@5
+  authorityMatrix: MFI_DOP@3
+
+variables:
+  - name: proposedAmount
+    type: Decimal
+    expr: coalesce(application.approvedAmount, application.recommendedAmount, application.requestedAmount)
+  - name: memberUnsecuredOutstanding        # per-entity variable: one value per MEMBER
+    scope: MEMBER
+    type: Decimal
+    expr: >
+      sum(member.bureauReports.tradelines[
+            it.accountType in list.UNSECURED_ACCOUNT_TYPES
+        and it.status in list.OPEN_TRADELINE_STATUSES].currentBalance)
+
+rules:
+  - code: MFI_INDEBTEDNESS_CAP
+    name: Member indebtedness within cap
+    scope: MEMBER                           # APPLICATION | PARTY | GROUP | MEMBER | HOUSEHOLD | COLLATERAL
+    when: true                              # optional precondition; false → NOT_APPLICABLE
+    check: memberUnsecuredOutstanding + proposedAmount / count(group.memberPartyRefs) <= param.INDEBTEDNESS_CAP
+    onFail:
+      status: DEVIATION                     # FAIL | DEVIATION | REFER
+      reasonCode: AFF_INDEBTEDNESS_CAP
+      deviationType: INDEBTEDNESS_CAP
+      measure: memberUnsecuredOutstanding + proposedAmount / count(group.memberPartyRefs)
+      worseWhen: HIGHER                     # HIGHER | LOWER; used to match deviationApprovals[]
+    onMissing: REFER                        # REFER (default) | FAIL | NOT_APPLICABLE | USE_DEFAULT(true|false)
+    outputs:
+      totalIndebtedness: memberUnsecuredOutstanding + proposedAmount / count(group.memberPartyRefs)
+
+decisionTables:
+  - code: GRP_VRM_CATEGORY
+    scope: GROUP
+    hitPolicy: FIRST                        # FIRST | UNIQUE | PRIORITY | COLLECT(SUM|MIN|MAX|COUNT|LIST)
+    inputs:
+      - { name: vrm, expr: group.villageRiskCategory }
+    rows:                                   # cells are unary tests: = "C", in [..], < 700, [650..750), -, missing
+      - { when: ['in ["A","B"]'], then: { status: PASS } }
+      - { when: ['= "C"'],        then: { status: DEVIATION, deviationType: VRM_CATEGORY_C, reasonCode: POL_VRM_C } }
+      - { when: ['in ["D","E"]'], then: { status: FAIL, reasonCode: POL_VRM_DE } }
+      - { when: ['missing'],      then: { status: REFER, reasonCode: DATA_VRM_MISSING } }
+      - { when: ['-'],            then: { status: REFER, reasonCode: POL_VRM_UNKNOWN } }
+
+scorecards:
+  - code: MFI_APP_SCORE_V1
+    scope: MEMBER
+    baseScore: 300
+    characteristics:
+      - name: groupCycle
+        expr: group.cycleNumber
+        bins:
+          - { when: '= 1',     points: 20 }
+          - { when: '[2..3]',  points: 45 }
+          - { when: '>= 4',    points: 70 }
+          - { when: 'missing', points: 0, reasonCode: SC_CYCLE_MISSING }
+    adverseReasons: 3                       # report the top N lowest-scoring characteristics
+
+flow:
+  stages:
+    - name: KNOCKOUT
+      knockout: true                        # any FAIL here stops the flow → DECLINE
+      steps:
+        - { ref: SCREENING_HIT, roles: [MEMBER], aggregate: WORST }
+    - name: ELIGIBILITY
+      steps:
+        - { ref: GRP_VRM_CATEGORY }
+        - { ref: MFI_INDEBTEDNESS_CAP, aggregate: "THRESHOLD(percent >= 20, DEVIATION) -> REFER" }   # else WORST
+    - name: SCORING
+      steps:
+        - { ref: MFI_APP_SCORE_V1, aggregate: NONE }
+
+tests:
+  - name: VRM C raises a deviation
+    asOf: 2026-10-01
+    facts: { $ref: fixtures/jlg_vrm_c.json }
+    expect:
+      decision: APPROVE_WITH_DEVIATION
+      rules: { GRP_VRM_CATEGORY: DEVIATION }
