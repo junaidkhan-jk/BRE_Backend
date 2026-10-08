@@ -22,6 +22,8 @@ junit = "5.14.4"
 assertj = "3.27.7"
 jqwik = "1.10.1"
 archunit = "1.5.1"
+# Coverage-guided fuzzing of the BEL lexer and parser (M1-02's exit criterion).
+jazzer = "0.30.0"
 
 # --- services (M2 onwards) ---
 spring-boot = "4.1.1"
@@ -47,6 +49,7 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
 archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+jazzer-junit = { module = "com.code-intelligence:jazzer-junit", version.ref = "jazzer" }
 embedded-postgres = { module = "io.zonky.test:embedded-postgres", version.ref = "embedded-postgres" }
 embedded-postgres-binaries-bom = { module = "io.zonky.test.postgres:embedded-postgres-binaries-bom", version.ref = "embedded-postgres-binaries" }
 

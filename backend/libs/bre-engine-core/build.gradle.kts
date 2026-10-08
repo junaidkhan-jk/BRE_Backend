@@ -10,5 +10,8 @@ dependencies {
     testImplementation(libs.assertj)
     testImplementation(libs.jqwik)
     testImplementation(libs.archunit.junit5)
+    // Jazzer is a TEST dependency only. The engine itself stays on the JDK and re2j (LLD §1.2),
+    // and the ArchUnit purity rule covers main sources, so this cannot leak into the engine.
+    testImplementation(libs.jazzer.junit)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

@@ -43,8 +43,38 @@ public final class Parser {
           TokenKind.SCORECARD,
           TokenKind.IT);
 
+  /**
+   * The deepest nesting the parser will descend into.
+   *
+   * <p>A recursive-descent parser recurses once per level of nesting, so text like {@code
+   * ((((((…))))))} or a chain of filters costs one stack frame per bracket. Without a limit that is
+   * a {@code StackOverflowError} — found by Jazzer in 54 seconds (see {@code BelParserFuzzTest}),
+   * from a 3 KB input of nested {@code [} and {@code (}.
+   *
+   * <p>That is a denial of service rather than a cosmetic defect: BEL text arrives from the studio,
+   * and in a multi-tenant control plane one tenant must not be able to crash the compile path for
+   * everyone. A {@code StackOverflowError} can also leave a JVM in a state where unrelated work
+   * fails, which is why this is a limit and not a caught error.
+   *
+   * <p>32, and the number is measured rather than chosen. One level of nesting costs about ten
+   * stack frames — {@code conditional -> disjunction -> conjunction -> negation -> comparison ->
+   * additive -> multiplicative -> unary -> postfix -> primary} — so a limit of 128 is some 1,300
+   * frames, which survived on a plain JVM and still overflowed under Gradle's test worker, where
+   * the JUnit and AssertJ frames sit below the parser. 32 is about 320 frames, comfortable
+   * anywhere, and still four times the deepest expression in the reference policy, which nests
+   * eight levels inside a filtered projection.
+   *
+   * <p>The counter sits on {@link #primary()} and on {@link #unary()}, which between them bound
+   * every recursion. It was first put on {@code expression()}, which looked like the natural place
+   * and was wrong: {@code additive -> multiplicative -> unary -> postfix -> primary ->
+   * bracketedTargetOrRange -> additive} is a cycle that never passes through it, so nested list
+   * literals still overflowed. {@code primary()} is where every nested construct bottoms out.
+   */
+  public static final int MAX_NESTING_DEPTH = 32;
+
   private final List<Token> tokens;
   private int position;
+  private int depth;
 
   private Parser(List<Token> tokens) {
     this.tokens = tokens;
@@ -67,6 +97,20 @@ public final class Parser {
   // expression = conditional
   private Expr expression() {
     return conditional();
+  }
+
+  /**
+   * Counts one level of nesting, refusing to descend past {@link #MAX_NESTING_DEPTH}.
+   *
+   * <p>Reported as an ordinary syntax error, because from an author's point of view that is what it
+   * is: the text is not a BEL expression this parser accepts. The position lets the studio put the
+   * marker where the nesting became unreasonable.
+   */
+  private void enterNesting() {
+    if (++depth > MAX_NESTING_DEPTH) {
+      // Decremented by the caller's finally, so the parser is left consistent if this is caught.
+      throw error(peek(), "an expression nested no deeper than " + MAX_NESTING_DEPTH + " levels");
+    }
   }
 
   // conditional = "if" expression "then" expression "else" expression | disjunction
@@ -276,7 +320,14 @@ public final class Parser {
   private Expr unary() {
     if (check(TokenKind.MINUS)) {
       Token op = advance();
-      return new Expr.Negate(op, unary());
+      // A chain of minus signs recurses here without passing through expression(), so it needs
+      // its own guard: `-----…-1` is as effective a stack bomb as nested parentheses.
+      enterNesting();
+      try {
+        return new Expr.Negate(op, unary());
+      } finally {
+        depth--;
+      }
     }
     Expr operand = postfix();
     if (operand == null) {
@@ -287,6 +338,15 @@ public final class Parser {
 
   // postfix = primary { "." IDENT | "[" expression "]" }
   private Expr postfix() {
+    enterNesting();
+    try {
+      return postfixInner();
+    } finally {
+      depth--;
+    }
+  }
+
+  private Expr postfixInner() {
     Expr target = primary();
     if (target == null) {
       return null;
