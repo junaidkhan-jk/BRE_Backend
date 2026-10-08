@@ -133,7 +133,11 @@
       <tr><td class="id">M0-05</td><td class="ti">Fail-closed property harness (jqwik)
         <div class="no">Verified against a deliberately fail-open stub, so a green run means something.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M0-06</td><td class="ti">CI pipelines, PR template, CODEOWNERS, ADRs
-        <div class="no">All written and lint-clean; <b>CI has never run</b> — there is no git remote.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Both workflows were <b>invalid YAML and could never have run</b> — found and
+        fixed. Now schema-validated (with the validator itself verified against a broken file),
+        every <code>run:</code> step executed locally, actions pinned to commit SHAs, and every
+        CODEOWNERS path resolved. <b>Orchestration has still never executed</b>, which needs a
+        git remote — see ADR-018.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
       <tr><td class="id">M0-07</td><td class="ti">docs/ and CONTRIBUTING with the Definition of Done</td><td class="st"><span class="pill g">done</span></td></tr>
     </tbody></table>
   </section>
