@@ -229,59 +229,7 @@ public final class Evaluator {
   }
 
   private Value comparison(Expr.Comparison expr) {
-    Value left = eval(expr.left());
-    Value right = eval(expr.right());
-    if (left.isMissing() || right.isMissing()) {
-      return Missing.INSTANCE;
-    }
-
-    if (expr.op() == Expr.CompareOp.EQ || expr.op() == Expr.CompareOp.NE) {
-      boolean equal = valuesEqual(left, right);
-      return BoolV.of(expr.op() == Expr.CompareOp.EQ ? equal : !equal);
-    }
-
-    int order = compareOrdered(left, right);
-    return BoolV.of(
-        switch (expr.op()) {
-          case LT -> order < 0;
-          case LE -> order <= 0;
-          case GT -> order > 0;
-          case GE -> order >= 0;
-          default -> throw new IllegalStateException("handled above: " + expr.op());
-        });
-  }
-
-  private static boolean valuesEqual(Value left, Value right) {
-    if (isNumeric(left) && isNumeric(right)) {
-      // compareTo, so scale is ignored: 1.0 = 1.00 is TRUE (§3.6, D-05).
-      return Decimals.compare(left, right) == 0;
-    }
-    if (left instanceof TextV a && right instanceof TextV b) {
-      return a.value().equals(b.value());
-    }
-    if (left instanceof BoolV a && right instanceof BoolV b) {
-      return a.value() == b.value();
-    }
-    return left.equals(right);
-  }
-
-  private static int compareOrdered(Value left, Value right) {
-    if (isNumeric(left) && isNumeric(right)) {
-      return Decimals.compare(left, right);
-    }
-    if (left instanceof Value.DateV a && right instanceof Value.DateV b) {
-      return a.value().compareTo(b.value());
-    }
-    if (left instanceof Value.DateTimeV a && right instanceof Value.DateTimeV b) {
-      // Compared on the instant (§3.4).
-      return a.value().toInstant().compareTo(b.value().toInstant());
-    }
-    // Text ordering is a compile error, BEL-010; reaching here is a type-checker gap.
-    throw new EvalException(EvalErrorCode.EVAL_INTERNAL, null, left.typeName());
-  }
-
-  private static boolean isNumeric(Value value) {
-    return value instanceof IntV || value instanceof DecimalV;
+    return Comparisons.compare(expr.op(), eval(expr.left()), eval(expr.right()));
   }
 
   private Value logical(Expr.Logical expr) {
@@ -363,7 +311,7 @@ public final class Evaluator {
         sawMissingElement = true;
         continue;
       }
-      if (valuesEqual(value, element)) {
+      if (Comparisons.areEqual(value, element)) {
         return BoolV.TRUE;
       }
     }
@@ -376,8 +324,8 @@ public final class Evaluator {
     if (value.isMissing() || low.isMissing() || high.isMissing()) {
       return Missing.INSTANCE;
     }
-    int vsLow = compareOrdered(value, low);
-    int vsHigh = compareOrdered(value, high);
+    int vsLow = Comparisons.order(value, low);
+    int vsHigh = Comparisons.order(value, high);
     boolean aboveLow = range.lowInclusive() ? vsLow >= 0 : vsLow > 0;
     boolean belowHigh = range.highInclusive() ? vsHigh <= 0 : vsHigh < 0;
     return BoolV.of(aboveLow && belowHigh);
@@ -390,7 +338,7 @@ public final class Evaluator {
     if (value.isMissing() || low.isMissing() || high.isMissing()) {
       return Missing.INSTANCE;
     }
-    boolean within = compareOrdered(value, low) >= 0 && compareOrdered(value, high) <= 0;
+    boolean within = Comparisons.order(value, low) >= 0 && Comparisons.order(value, high) <= 0;
     return BoolV.of(expr.negated() != within);
   }
 
