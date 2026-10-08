@@ -42,7 +42,7 @@ public final class StubEngines {
     Status worst = Status.NOT_APPLICABLE;
     for (Rule rule : policy) {
       Status status = evaluate(rule, facts, treatMissingAsSkip);
-      if (status.ordinal() > worst.ordinal()) {
+      if (status.severity() > worst.severity()) {
         worst = status;
       }
     }

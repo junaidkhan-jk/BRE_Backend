@@ -75,6 +75,14 @@ public final class PsfCodec {
           "^([a-z][a-z0-9-]{1,63})@((?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*))$");
   private static final Pattern USE_DEFAULT = Pattern.compile("^USE_DEFAULT\\((true|false)\\)$");
   private static final Pattern COLLECT = Pattern.compile("^COLLECT\\((SUM|MIN|MAX|COUNT|LIST)\\)$");
+
+  /**
+   * Splits a THRESHOLD's status list. A compiled pattern with an explicit limit, because {@code
+   * String.split} silently drops trailing empty strings — harmless here given the blank filter at
+   * the use site, but not a behaviour to depend on implicitly.
+   */
+  private static final Pattern STATUS_SEPARATOR = Pattern.compile("\\|");
+
   private static final Pattern THRESHOLD =
       Pattern.compile(
           "^THRESHOLD\\(\\s*(count|percent)\\s*(>=|<=|>|<|=)\\s*([^,]+?)\\s*,\\s*([A-Z_|]+)\\s*\\)"
@@ -749,7 +757,7 @@ public final class PsfCodec {
     out.put("op", m.group(2));
     out.put("value", m.group(3).trim());
     ArrayNode statuses = out.putArray("statuses");
-    for (String status : m.group(4).split("\\|")) {
+    for (String status : STATUS_SEPARATOR.split(m.group(4), -1)) {
       if (!status.isBlank()) {
         statuses.add(status.trim());
       }
@@ -849,28 +857,15 @@ public final class PsfCodec {
 
   /** Converts an arbitrary YAML subtree to JSON, for facts and expectations. */
   private JsonNode generic(Node node, String path) {
-    switch (node) {
-      case ScalarNode scalar -> {
-        Tag tag = scalar.getTag();
-        if (Tag.NULL.equals(tag)) {
-          return JSON.nullNode();
-        }
-        if (Tag.BOOL.equals(tag)) {
-          return JSON.booleanNode(Boolean.parseBoolean(scalar.getValue()));
-        }
-        if (Tag.INT.equals(tag)) {
-          return JSON.numberNode(new BigInteger(scalar.getValue().replace("_", "")));
-        }
-        // A float can only be a quoted one by now (M3), so it stays a string and stays exact.
-        return JSON.textNode(scalar.getValue());
-      }
+    return switch (node) {
+      case ScalarNode scalar -> genericScalar(scalar);
       case MappingNode mapping -> {
         ObjectNode out = JSON.objectNode();
         for (NodeTuple tuple : mapping.getValue()) {
           String key = keyText(tuple, path);
           out.set(key, generic(tuple.getValueNode(), child(path, key)));
         }
-        return out;
+        yield out;
       }
       case SequenceNode sequence -> {
         ArrayNode out = JSON.arrayNode();
@@ -878,10 +873,28 @@ public final class PsfCodec {
         for (int i = 0; i < items.size(); i++) {
           out.add(generic(items.get(i), path + "[" + i + "]"));
         }
-        return out;
+        yield out;
       }
+      // An AliasNode is the only other Node kind, and it resolves to a node the walk has already
+      // visited; anything else is a snakeyaml-engine addition this codec has not been taught.
       default -> throw new PsfException(PsfException.Code.PSF_001, path, "unsupported YAML node");
+    };
+  }
+
+  /** Converts one YAML scalar to JSON by its resolved tag. */
+  private JsonNode genericScalar(ScalarNode scalar) {
+    Tag tag = scalar.getTag();
+    if (Tag.NULL.equals(tag)) {
+      return JSON.nullNode();
     }
+    if (Tag.BOOL.equals(tag)) {
+      return JSON.booleanNode(Boolean.parseBoolean(scalar.getValue()));
+    }
+    if (Tag.INT.equals(tag)) {
+      return JSON.numberNode(new BigInteger(scalar.getValue().replace("_", "")));
+    }
+    // A float can only be a quoted one by now (M3), so it stays a string and stays exact.
+    return JSON.textNode(scalar.getValue());
   }
 
   // --- tree navigation ------------------------------------------------------------------------

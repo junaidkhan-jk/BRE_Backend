@@ -1,3 +1,5 @@
+import net.ltgt.gradle.errorprone.errorprone
+
 // Convention plugin for every module under libs/, tools/ and tests/.
 //
 // D11 / deviation containment: this plugin declares Maven Central and nothing
@@ -6,6 +8,7 @@
 // libs/* project can resolve from any other repository.
 
 plugins {
+    id("net.ltgt.errorprone")
     `java-library`
     jacoco
     id("com.diffplug.spotless")
@@ -25,6 +28,15 @@ java {
     }
 }
 
+dependencies {
+    // Error Prone runs INSIDE javac and reads its internals, so the version has to know the
+    // compiler it is given. 2.50.0 is verified working on the Java 25 toolchain below — unlike
+    // google-java-format, which still is not (see the spotless block). Pinned here rather than in
+    // the version catalogue because a convention plugin in an included build has no `libs`
+    // accessor, which is also why spotless pins its own version a few lines down.
+    "errorprone"("com.google.errorprone:error_prone_core:2.50.0")
+}
+
 tasks.withType<JavaCompile>().configureEach {
     options.release.set(25)
     options.compilerArgs.addAll(
@@ -35,6 +47,23 @@ tasks.withType<JavaCompile>().configureEach {
             "-Xlint:-serial",
         ),
     )
+
+    options.errorprone {
+        // Every finding is an error. The build already runs javac with -Werror, so a warning
+        // nobody has to fix is a warning nobody fixes; Error Prone's default severities are
+        // chosen to be actionable and this project has no backlog of them to grandfather in.
+        allErrorsAsWarnings.set(false)
+
+        // DefaultPackage fires on the Gradle-generated test fixtures and on nothing we write,
+        // since every source file here is under dev.bre.
+        disable("DefaultPackage")
+
+        // The engine's exhaustive switches over sealed hierarchies are the pattern the codebase
+        // relies on for compile-time completeness (see DependencyGraph.collect). Error Prone's
+        // UnnecessaryDefaultInEnumSwitch wants a default branch removed, which is right, but
+        // StatementSwitchToExpressionSwitch rewrites them wholesale and fights the style.
+        disable("StatementSwitchToExpressionSwitch")
+    }
 }
 
 spotless {

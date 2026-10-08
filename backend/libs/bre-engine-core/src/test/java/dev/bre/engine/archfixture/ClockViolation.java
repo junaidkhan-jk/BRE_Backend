@@ -10,7 +10,16 @@ public final class ClockViolation {
 
   private ClockViolation() {}
 
-  /** Reads the wall clock instead of using {@code asOf}. This is the defect the rule catches. */
+  /**
+   * Reads the wall clock instead of using {@code asOf}. This is the defect the rule catches.
+   *
+   * <p>Error Prone's {@code JavaTimeDefaultTimeZone} flags this independently, which is a useful
+   * confirmation rather than a problem: two different tools agree that reading the clock here is
+   * wrong. Suppressed because the whole purpose of this file is to contain the violation — if the
+   * call were removed to satisfy the compiler, {@code EngineArchRulesTest} would pass whether or
+   * not the ArchUnit rule actually works.
+   */
+  @SuppressWarnings("JavaTimeDefaultTimeZone")
   public static LocalDate today() {
     return LocalDate.now();
   }

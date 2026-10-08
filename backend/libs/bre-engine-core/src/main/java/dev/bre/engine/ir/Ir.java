@@ -77,7 +77,8 @@ public final class Ir {
    * @param op the collect operation, present only for COLLECT
    * @param collectOutput the output the collect operation writes, present only for COLLECT
    */
-  public record HitPolicy(Kind kind, Optional<CollectOp> op, Optional<String> collectOutput) {
+  public record HitPolicy(
+      HitPolicy.Kind kind, Optional<CollectOp> op, Optional<String> collectOutput) {
 
     /** Hit-policy kinds. */
     public enum Kind {
@@ -111,7 +112,7 @@ public final class Ir {
      * @param kind FIRST, UNIQUE or PRIORITY
      * @return the policy
      */
-    public static HitPolicy of(Kind kind) {
+    public static HitPolicy of(HitPolicy.Kind kind) {
       return new HitPolicy(kind, Optional.empty(), Optional.empty());
     }
 
@@ -123,7 +124,7 @@ public final class Ir {
      * @return the policy
      */
     public static HitPolicy collect(CollectOp op, String collectOutput) {
-      return new HitPolicy(Kind.COLLECT, Optional.of(op), Optional.of(collectOutput));
+      return new HitPolicy(HitPolicy.Kind.COLLECT, Optional.of(op), Optional.of(collectOutput));
     }
   }
 
@@ -419,7 +420,7 @@ public final class Ir {
    * @param result the status to assign when the threshold is met
    */
   public record AggregateSpec(
-      Kind kind,
+      AggregateSpec.Kind kind,
       Optional<Metric> metric,
       Optional<String> op,
       Optional<String> value,
@@ -457,7 +458,7 @@ public final class Ir {
      * @param kind WORST, ALL_MUST_PASS or NONE
      * @return the spec
      */
-    public static AggregateSpec of(Kind kind) {
+    public static AggregateSpec of(AggregateSpec.Kind kind) {
       return new AggregateSpec(
           kind, Optional.empty(), Optional.empty(), Optional.empty(), List.of(), Optional.empty());
     }

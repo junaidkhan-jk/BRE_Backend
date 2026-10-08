@@ -17,20 +17,44 @@ public final class FailClosedModel {
 
   private FailClosedModel() {}
 
-  /** Rule status, per 00 §3.5. Ordered least to most severe for WORST aggregation. */
+  /**
+   * Rule status, per 00 §3.5, each carrying its WORST-aggregation severity explicitly.
+   *
+   * <p>The rank is a field rather than the declaration order. Relying on {@code ordinal()} would
+   * mean that reordering these constants — a change that looks cosmetic — silently changed which
+   * status wins an aggregation. The engine's own {@code Severity} class exists for the same reason,
+   * and there the order is genuinely counter-intuitive: DATA_MISSING outranks DEVIATION, and FAIL
+   * outranks ERROR. A severity that can be changed by tidying an enum is a severity nobody can rely
+   * on.
+   */
   public enum Status {
     /** The rule did not apply. */
-    NOT_APPLICABLE,
+    NOT_APPLICABLE(0),
     /** The rule passed. */
-    PASS,
+    PASS(1),
     /** The rule passed within an approved tolerance. */
-    DEVIATION,
+    DEVIATION(2),
     /** A fact the rule needed was missing. */
-    DATA_MISSING,
+    DATA_MISSING(3),
     /** The rule failed. */
-    FAIL,
+    FAIL(4),
     /** The rule could not be evaluated. */
-    ERROR
+    ERROR(5);
+
+    private final int severity;
+
+    Status(int severity) {
+      this.severity = severity;
+    }
+
+    /**
+     * Returns this status's WORST-aggregation severity; higher is more severe.
+     *
+     * @return the severity rank
+     */
+    public int severity() {
+      return severity;
+    }
   }
 
   /** Overall decision, per 00 §3.5. */

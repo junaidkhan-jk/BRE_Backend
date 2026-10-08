@@ -335,14 +335,13 @@ public final class IrCodec {
   }
 
   private static StageDef readStage(JsonNode node) {
-    List<String> ignoredRoles = new ArrayList<>();
     return new StageDef(
         node.hasNonNull("name") ? text(node, "name") : "STAGE",
         node.hasNonNull("knockout") && node.get("knockout").asBoolean(),
-        readArray(node.get("steps"), step -> readStep(step, ignoredRoles)));
+        readArray(node.get("steps"), IrCodec::readStep));
   }
 
-  private static StepDef readStep(JsonNode node, List<String> scratch) {
+  private static StepDef readStep(JsonNode node) {
     List<String> roles = new ArrayList<>();
     JsonNode rolesNode = node.get("roles");
     if (rolesNode != null && rolesNode.isArray()) {

@@ -61,7 +61,7 @@ public final class ComponentEvaluator {
 
       Value check = evaluate(rule.check(), context);
       if (check.isMissing()) {
-        return applyOnMissing(rule.code(), rule.onMissing(), rule.check(), context);
+        return applyOnMissing(rule.code(), rule.onMissing(), rule.check());
       }
 
       if (((BoolV) check).value()) {
@@ -123,7 +123,7 @@ public final class ComponentEvaluator {
               break;
             }
           }
-          return applyOnMissing(table.code(), table.onMissing(), firstMissing, context);
+          return applyOnMissing(table.code(), table.onMissing(), firstMissing);
         }
         // EVAL_TABLE_NO_MATCH is scoped to non-COLLECT tables (§4.6). A COLLECT table that
         // matches nothing has collected nothing, which is a legitimate answer — T-03 pins it at
@@ -238,9 +238,16 @@ public final class ComponentEvaluator {
       if (value.isMissing()) {
         return Value.Missing.INSTANCE;
       }
-      if (best == null
-          || (dev.bre.engine.eval.Comparisons.order(value, best) > 0) == wantMax
-              && dev.bre.engine.eval.Comparisons.order(value, best) != 0) {
+      if (best == null) {
+        best = value;
+        continue;
+      }
+      int order = dev.bre.engine.eval.Comparisons.order(value, best);
+      // The `order != 0` clause is load-bearing, not defensive: on a tie under MIN,
+      // `(order > 0) == wantMax` is `false == false`, which is true, and an equal value would
+      // replace the incumbent for no reason. Parenthesised because the precedence that makes
+      // this correct is not the precedence most readers assume.
+      if (((order > 0) == wantMax) && (order != 0)) {
         best = value;
       }
     }
@@ -294,8 +301,7 @@ public final class ComponentEvaluator {
       for (Ir.Characteristic characteristic : scorecard.characteristics()) {
         Value value = evaluate(characteristic.expr(), context);
         if (value.isMissing()) {
-          return applyOnMissing(
-              scorecard.code(), scorecard.onMissing(), characteristic.expr(), context);
+          return applyOnMissing(scorecard.code(), scorecard.onMissing(), characteristic.expr());
         }
 
         Optional<Ir.Bin> hit = Optional.empty();
@@ -387,7 +393,7 @@ public final class ComponentEvaluator {
     Value guard = evaluate(when.get(), context);
     if (guard.isMissing()) {
       // S1-01: an unknown `when` goes to onMissing, NEVER to NOT_APPLICABLE.
-      return Optional.of(applyOnMissing(code, onMissing, when.get(), context));
+      return Optional.of(applyOnMissing(code, onMissing, when.get()));
     }
     if (!((BoolV) guard).value()) {
       return Optional.of(ComponentResult.of(code, RuntimeStatus.NOT_APPLICABLE)); // S1-02
@@ -397,7 +403,7 @@ public final class ComponentEvaluator {
 
   /** Applies {@code onMissing} (§4.6, M-01). */
   private static ComponentResult applyOnMissing(
-      String code, OnMissing onMissing, String checkExpr, EvaluationContext context) {
+      String code, OnMissing onMissing, String checkExpr) {
     return switch (onMissing.policy()) {
       case FAIL ->
           ComponentResult.of(code, RuntimeStatus.FAIL, onMissing.reasonCode().orElse(null));
@@ -463,7 +469,8 @@ public final class ComponentEvaluator {
 
   private static String toSnakeCase(String symbol) {
     StringBuilder snake = new StringBuilder();
-    for (char c : symbol.toCharArray()) {
+    for (int i = 0; i < symbol.length(); i++) {
+      char c = symbol.charAt(i);
       if (c == '.') {
         snake.append('_');
       } else if (Character.isUpperCase(c)

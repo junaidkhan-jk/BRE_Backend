@@ -18,8 +18,9 @@ class PsfCodecTest {
   private static final String TENANT = "t_acme";
 
   /** The §3.14 example's only fixture reference, stubbed — the store belongs to the studio (M9). */
-  private static final java.util.function.Function<String, JsonNode> FIXTURES =
-      ref -> new ObjectMapper().createObjectNode().put("fixtureRef", ref);
+  private static JsonNode fixture(String ref) {
+    return new ObjectMapper().createObjectNode().put("fixtureRef", ref);
+  }
 
   private static String canonicalExample() throws IOException {
     try (InputStream in =
@@ -40,7 +41,7 @@ class PsfCodecTest {
    */
   @Test
   void theCanonicalExampleTranslatesAndIsSchemaValid() throws IOException {
-    ObjectNode ir = PsfCodec.toIrJson(canonicalExample(), TENANT, FIXTURES);
+    ObjectNode ir = PsfCodec.toIrJson(canonicalExample(), TENANT, PsfCodecTest::fixture);
 
     assertThat(IrSchemaValidator.violations(ir))
         .as("the §3.14 example must be a legal PolicyVersion under the §2.2 schema")
@@ -55,7 +56,7 @@ class PsfCodecTest {
 
   @Test
   void theCanonicalExampleDecodesIntoAnEvaluablePolicy() throws IOException {
-    ObjectNode ir = PsfCodec.toIrJson(canonicalExample(), TENANT, FIXTURES);
+    ObjectNode ir = PsfCodec.toIrJson(canonicalExample(), TENANT, PsfCodecTest::fixture);
     Ir.PolicyIr policy = IrCodec.readPolicy(ir);
 
     assertThat(policy.variables())
@@ -81,7 +82,7 @@ class PsfCodecTest {
 
   @Test
   void factSchemaAndAssetReferencesSplitIntoCodeAndVersion() throws IOException {
-    ObjectNode ir = PsfCodec.toIrJson(canonicalExample(), TENANT, FIXTURES);
+    ObjectNode ir = PsfCodec.toIrJson(canonicalExample(), TENANT, PsfCodecTest::fixture);
 
     assertThat(ir.at("/factSchema/code").textValue()).isEqualTo("lending-facts");
     assertThat(ir.at("/factSchema/version").textValue()).isEqualTo("1.0.0");
@@ -157,7 +158,7 @@ class PsfCodecTest {
   /** M7: the threshold grammar, exactly as §3.14 writes it. */
   @Test
   void thresholdAggregateParsesTheExampleSpelling() throws IOException {
-    ObjectNode ir = PsfCodec.toIrJson(canonicalExample(), TENANT, FIXTURES);
+    ObjectNode ir = PsfCodec.toIrJson(canonicalExample(), TENANT, PsfCodecTest::fixture);
     JsonNode aggregate = ir.at("/flow/stages/1/steps/1/aggregate");
 
     assertThat(aggregate.get("kind").textValue()).isEqualTo("THRESHOLD");
@@ -233,7 +234,7 @@ class PsfCodecTest {
 
   @Test
   void aBooleanInAnExpressionPositionBecomesItsText() throws IOException {
-    ObjectNode ir = PsfCodec.toIrJson(canonicalExample(), TENANT, FIXTURES);
+    ObjectNode ir = PsfCodec.toIrJson(canonicalExample(), TENANT, PsfCodecTest::fixture);
     // The example writes `when: true`, which is the expression "true".
     assertThat(ir.at("/rules/0/when").textValue()).isEqualTo("true");
   }
@@ -332,6 +333,6 @@ class PsfCodecTest {
         %s
         """
             .formatted(extraRuleKeys.isEmpty() ? "" : extraRuleKeys.stripTrailing(), extraSections);
-    return PsfCodec.toIrJson(yaml, TENANT, FIXTURES);
+    return PsfCodec.toIrJson(yaml, TENANT, PsfCodecTest::fixture);
   }
 }
