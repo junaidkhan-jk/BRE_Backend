@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: decision-service
+  threads:
+    virtual:
+      enabled: true          # ADR-012
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: 8080
+
+# Compact mode (D6): the decision log writes to a durable store before the response returns.
+# The in-memory implementation is for local development only and says so at startup; the
+# PostgreSQL-first outbox is the next step.
+bre:
+  decision-log: in-memory
+
+logging:
+  level:
+    dev.bre: INFO

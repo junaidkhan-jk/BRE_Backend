@@ -59,12 +59,14 @@ spotless {
 }
 
 tasks.withType<Test>().configureEach {
-    // Both engines are named explicitly. Gradle's JvmTestSuite.useJUnitJupiter() pins the suite
-    // to the Jupiter engine, which silently drops every jqwik @Property — the property-based
-    // half of the test strategy would report as "skipped" while the build stayed green.
-    useJUnitPlatform {
-        includeEngines("junit-jupiter", "jqwik")
-    }
+    // No engine filter. Two failure modes to avoid, both seen on this build:
+    //   - Gradle's JvmTestSuite.useJUnitJupiter() pins the suite to the Jupiter engine, which
+    //     silently drops every jqwik @Property: the property-based half of the test strategy
+    //     reports as "skipped" while the build stays green.
+    //   - Naming engines explicitly instead fails the whole test JVM in any module where one of
+    //     them is absent ("Could not complete execution for Gradle Test Executor").
+    // Letting the platform discover whatever engines are on each module's classpath avoids both.
+    useJUnitPlatform()
     // Determinism (D8): tests must not depend on the host locale or zone.
     // Property test 7 asserts bundle hashes are stable under these changing.
     systemProperty("user.timezone", "UTC")
