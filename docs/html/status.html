@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BRE 2.0 — Build Status</title>
+<style>
+  /* Same tokens as the other two pages, so the three read as one product. */
+  :root{
+    --canvas:#15171c; --card:#1c1f26; --ink:#dfe3ea; --muted:#9aa3b2;
+    --faint:#6d7585; --line:#2b303b; --line-2:#39404e; --accent:#61afef;
+    --green:#57cc8f; --green-soft:rgba(87,204,143,.14);
+    --amber:#e0a458; --amber-soft:rgba(224,164,88,.15);
+    --steel:#7f8899; --steel-soft:rgba(127,136,153,.16);
+    --crimson:#e06c75;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","IBM Plex Sans",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"IBM Plex Mono","SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--ink);font-family:var(--sans);
+       font-size:15px;line-height:1.62;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:48px 24px 80px}
+  a{color:var(--accent)}
+  .kicker{font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+          color:var(--faint);display:block}
+  h1{font-family:var(--serif);font-size:32px;line-height:1.2;margin:8px 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);margin:0}
+  .rule{height:1px;background:var(--line);margin:24px 0 0}
+  .rule+.rule{margin-top:3px;background:var(--line-2)}
+
+  .totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:12px;margin:28px 0 0}
+  .tot{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:13px 16px}
+  .tot b{display:block;font-family:var(--serif);font-size:27px;font-weight:600;line-height:1.15}
+  .tot span{font-size:12px;color:var(--muted);line-height:1.45;display:block}
+  .tot.g{border-left:3px solid var(--green)}  .tot.g b{color:var(--green)}
+  .tot.a{border-left:3px solid var(--amber)}  .tot.a b{color:var(--amber)}
+  .tot.s{border-left:3px solid var(--steel)}  .tot.s b{color:var(--muted)}
+
+  .pill{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.04em;
+        padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .pill.g{background:var(--green-soft);color:var(--green)}
+  .pill.a{background:var(--amber-soft);color:var(--amber)}
+  .pill.s{background:var(--steel-soft);color:var(--muted)}
+
+  section.ms{margin:40px 0 0}
+  .ms__head{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:10px}
+  .ms__blurb{margin:3px 0 0;color:var(--muted);font-size:13.5px;max-width:60ch}
+  .ms__counts{margin-left:auto;display:flex;gap:5px}
+
+  table{width:100%;border-collapse:collapse;background:var(--card);
+        border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  td{padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  .id{font-family:var(--mono);font-size:11.5px;color:var(--faint);white-space:nowrap;width:1%}
+  .ti{font-size:14px}
+  .no{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .no b{color:var(--amber);font-weight:600}
+  .st{text-align:right;white-space:nowrap;width:1%}
+  tr.pend .ti{color:var(--muted)}
+
+  .warn{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--crimson);
+        border-radius:11px;padding:18px 22px;margin:44px 0 0}
+  .warn h2{font-family:var(--serif);font-size:19px;margin:0 0 4px;letter-spacing:-.01em}
+  .warn>p{margin:0 0 10px;color:var(--muted);font-size:13.5px}
+  .warn ul{margin:0;padding-left:20px}
+  .warn li{margin:8px 0;color:var(--muted);font-size:13.5px}
+  .warn li b{color:var(--ink)}
+
+  h2.sec{font-family:var(--serif);font-size:20px;margin:44px 0 8px;letter-spacing:-.01em}
+  p.lead{color:var(--muted);font-size:14px;margin:0 0 10px;max-width:74ch}
+  p.lead b,ul.plain b{color:var(--ink)}
+  ul.plain{margin:0;padding-left:20px;color:var(--muted);font-size:14px;max-width:74ch}
+  ul.plain li{margin:7px 0}
+  code{font-family:var(--mono);font-size:12.5px;background:#22262e;color:#e5c07b;
+       padding:1px 6px;border-radius:6px}
+  .foot{margin-top:52px;padding-top:16px;border-top:1px solid var(--line);
+        font-family:var(--mono);font-size:11px;color:var(--faint)}
+  @media print{
+    :root{--canvas:#fff;--card:#fff;--ink:#14151a;--muted:#4c5261;--line:#d8d5cd}
+    section.ms{break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="kicker">BRE 2.0 · against the Build Plan's own task IDs</span>
+  <h1>Build Status</h1>
+  <p class="sub">Every task in M0–M6, and the state it is actually in.</p>
+  <div class="rule"></div><div class="rule"></div>
+
+  <div class="totals">
+    <div class="tot g"><b>14</b><span>done</span></div>
+    <div class="tot a"><b>13</b><span>partial — usable, not finished</span></div>
+    <div class="tot s"><b>33</b><span>not started</span></div>
+    <div class="tot"><b>60</b><span>tasks across all seven milestones</span></div>
+  </div>
+
+  <h2 class="sec">How to read &ldquo;partial&rdquo;</h2>
+  <p class="lead">Partial is the row that misleads if skimmed, so every one of them names what is
+     missing. A task is partial when part of it works and the rest was deliberately deferred — not
+     when it is nearly done. <b>M1-05</b> is the clearest example: the fuel meter and the closed
+     function registry are finished, but evaluation walks the syntax tree rather than the compiled
+     closure tree the design calls for. Right answers, not the designed speed.</p>
+
+  <section class="ms">
+    <div class="ms__head">
+      <div><span class="kicker">M0 — Foundations</span>
+      <p class="ms__blurb">A repository in which a correct change is easy and an incorrect one fails.</p></div>
+      <div class="ms__counts"><span class="pill g">4 done</span><span class="pill a">3 partial</span></div>
+    </div>
+    <table><tbody>
+      <tr><td class="id">M0-01</td><td class="ti">Repo, Gradle wrapper, every module from LLD §1.1</td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M0-02</td><td class="ti">Convention plugins — Java 25, Spotless, JaCoCo, CycloneDX
+        <div class="no"><b>Error Prone was never added.</b> Everything else is in place.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+      <tr><td class="id">M0-03</td><td class="ti">ArchUnit rules from LLD §1.2
+        <div class="no">Four rules, each with a deliberately failing fixture proving it fires.</div></td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M0-04</td><td class="ti">Conformance vectors and the JUnit runner
+        <div class="no">90 vectors imported and passing. The <b>§3.14 PSF example was not imported</b>.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+      <tr><td class="id">M0-05</td><td class="ti">Fail-closed property harness (jqwik)
+        <div class="no">Verified against a deliberately fail-open stub, so a green run means something.</div></td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M0-06</td><td class="ti">CI pipelines, PR template, CODEOWNERS, ADRs
+        <div class="no">All written and lint-clean; <b>CI has never run</b> — there is no git remote.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+      <tr><td class="id">M0-07</td><td class="ti">docs/ and CONTRIBUTING with the Definition of Done</td><td class="st"><span class="pill g">done</span></td></tr>
+    </tbody></table>
+  </section>
+
+  <section class="ms">
+    <div class="ms__head">
+      <div><span class="kicker">M1 — Rule engine</span>
+      <p class="ms__blurb">The critical path, and where nearly all the finished work is. All 90 conformance vectors pass.</p></div>
+      <div class="ms__counts"><span class="pill g">5 done</span><span class="pill a">6 partial</span><span class="pill s">5 pending</span></div>
+    </div>
+    <table><tbody>
+      <tr><td class="id">M1-01</td><td class="ti">Value model, exact decimal and date semantics</td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M1-02</td><td class="ti">BEL lexer, parser, unary tests, positioned errors
+        <div class="no">Written and tested. <b>Jazzer fuzzing (1 h) never run</b> — an M1-02 exit criterion.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+      <tr><td class="id">M1-03</td><td class="ti">Binder and type checker
+        <div class="no">Namespaces resolve at runtime. <b>No type checker, no protected-field detection.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+      <tr><td class="id">M1-04</td><td class="ti">Variable DAG, cycle detection, topological order
+        <div class="no">Lazy memoised resolution with cycle detection. No explicit topological pass — same answers, different mechanism.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+      <tr><td class="id">M1-05</td><td class="ti">Closure-tree lowering, fuel, list cap, function registry
+        <div class="no">Fuel and the closed registry are done. <b>Tree-walking, not closure-lowered; no list-size cap.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+      <tr><td class="id">M1-06</td><td class="ti">Three-valued logic and missing-value semantics</td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M1-07</td><td class="ti">Rules, decision tables with every hit policy, scorecards</td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M1-08</td><td class="ti">Flow, per-entity iteration, aggregation, knockout</td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M1-09</td><td class="ti">Precedence, coverage, authority, champion/challenger
+        <div class="no"><b>Customer-reason selection (§4.10) and EACH routing are missing.</b> The fail-closed property runs 2,000 cases, not the required 10&#8310;.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+      <tr class="pend"><td class="id">M1-10</td><td class="ti">Static checks — table gaps, overlaps, unreachable rows
+        <div class="no">Bad policies are caught at runtime instead of at authoring time.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M1-11</td><td class="ti">Explanation trace recorder
+        <div class="no">Blocks M2-05, the replay endpoint.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M1-12</td><td class="ti">IR codec, PSF YAML, BRE-JCS, schema validation
+        <div class="no">IR codec done, fragments included. <b>PSF YAML, canonical JSON and schema validation are missing.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+      <tr class="pend"><td class="id">M1-13</td><td class="ti">Bundle format, SHA-256, Ed25519 signing, trust store
+        <div class="no">Without it there is no signed, content-addressed policy — so no registry.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M1-14</td><td class="ti">Fact model, canonical schema, Aadhaar/PAN detector
+        <div class="no">Blocks M2-05 and the §9.2 encryption work.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M1-15</td><td class="ti">bre-cli — psf lint / compile / test / bundle / verify
+        <div class="no">An analyst cannot test a policy locally.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M1-16</td><td class="ti">JMH benchmarks and latency budgets
+        <div class="no">No performance figure has been measured.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+    </tbody></table>
+  </section>
+
+  <section class="ms">
+    <div class="ms__head">
+      <div><span class="kicker">M2 — Walking skeleton</span>
+      <p class="ms__blurb">One thin path, end to end. The service runs and answers.</p></div>
+      <div class="ms__counts"><span class="pill a">3 partial</span><span class="pill s">5 pending</span></div>
+    </div>
+    <table><tbody>
+      <tr><td class="id">M2-01</td><td class="ti">bre-platform-common
+        <div class="no">UUIDv7 done (without locator bits). <b>Tenant context and OTel helpers missing.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+      <tr><td class="id">M2-02</td><td class="ti">Flyway migrations for bre_ctl and bre_dec
+        <div class="no">The bre_dec subset is written. <b>bre_ctl missing, and the SQL has never been executed.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+      <tr class="pend"><td class="id">M2-03</td><td class="ti">policy-registry — compile, sign, deploy, active pointer</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M2-04</td><td class="ti">decision-service
+        <div class="no">POST, GET, the durable outbox log and PostgreSQL idempotency are done. <b>No policy resolution, pinning, PointerWatcher or BundleCache</b> — the policy still arrives inline on the request.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+      <tr class="pend"><td class="id">M2-05</td><td class="ti">Explanation by replay
+        <div class="no">Needs M1-11 and stored facts.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M2-06</td><td class="ti">Facts encryption behind KmsPort, masked view
+        <div class="no">Why fact snapshots are not persisted by default.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M2-07</td><td class="ti">devstack — one command, seeded demo tenant</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M2-08</td><td class="ti">Gatling smoke load test at 500 decisions/s</td><td class="st"><span class="pill s">pending</span></td></tr>
+    </tbody></table>
+  </section>
+
+  <section class="ms">
+    <div class="ms__head">
+      <div><span class="kicker">M3 — Control plane</span>
+      <p class="ms__blurb">Authoring, review, deployment, identity. Needs a real identity provider.</p></div>
+      <div class="ms__counts"><span class="pill s">10 pending</span></div>
+    </div>
+    <table><tbody>
+      <tr class="pend"><td class="id">M3-01</td><td class="ti">Full bre_ctl schema with row-level security and a hash-chained audit log</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M3-02</td><td class="ti">studio-service — version lifecycle, PSF import/export, diff</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M3-03</td><td class="ti">Shared assets with maker-checker and effective dating</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M3-04</td><td class="ti">Test cases, coverage, submit gates, simulation API</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M3-05</td><td class="ti">Segregation of duties</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M3-06</td><td class="ti">Deployments, approvals, scheduling, rollback, manifests</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M3-07</td><td class="ti">Bundle export and import between installations</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M3-08</td><td class="ti">tenant-admin-service</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M3-09</td><td class="ti">OIDC and OAuth2 client credentials
+        <div class="no">Why there is no authentication today.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M3-10</td><td class="ti">Studio audit events</td><td class="st"><span class="pill s">pending</span></td></tr>
+    </tbody></table>
+  </section>
+
+  <section class="ms">
+    <div class="ms__head">
+      <div><span class="kicker">M4 — Data plane and scale</span>
+      <p class="ms__blurb">Kafka, cells, encryption, observability. Needs a cluster.</p></div>
+      <div class="ms__counts"><span class="pill s">10 pending</span></div>
+    </div>
+    <table><tbody>
+      <tr class="pend"><td class="id">M4-01</td><td class="ti">KafkaDecisionLog — acks=all, idempotent producer</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M4-02</td><td class="ti">decision-sink — Kafka to hot store, partition maintenance</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M4-03</td><td class="ti">Parquet archive on write-once object storage</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M4-04</td><td class="ti">Envelope encryption, per-principal keys, crypto-shredding
+        <div class="no">The reason facts are not stored.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M4-05</td><td class="ti">Valkey idempotency and rate limits, adaptive concurrency</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M4-06</td><td class="ti">decision-worker — async ingress and bulk jobs</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M4-07</td><td class="ti">Replay verification, drift and error-rate monitors</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M4-08</td><td class="ti">OpenTelemetry, dashboards, SLOs</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M4-09</td><td class="ti">Helm, Argo CD, Strimzi, CloudNativePG</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M4-10</td><td class="ti">Cell load and chaos tests</td><td class="st"><span class="pill s">pending</span></td></tr>
+    </tbody></table>
+  </section>
+
+  <section class="ms">
+    <div class="ms__head">
+      <div><span class="kicker">M5 — Rule Studio</span>
+      <p class="ms__blurb">The front end. Five screens build and run over sample data.</p></div>
+      <div class="ms__counts"><span class="pill a">1 partial</span><span class="pill s">9 pending</span></div>
+    </div>
+    <table><tbody>
+      <tr><td class="id">M5-01</td><td class="ti">App shell — React, TypeScript, Vite, routing, role-aware navigation
+        <div class="no">Built and running over fixtures. <b>No login and no masking.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+      <tr class="pend"><td class="id">M5-02</td><td class="ti">Monaco BEL language — highlighting, autocomplete, diagnostics
+        <div class="no">Needs the §13.3 language service; Monaco without one is a 2 MB textarea.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M5-03</td><td class="ti">Decision-table grid, scorecard and flow editors
+        <div class="no">The grid needs M1-10 to know where the gaps are.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M5-04</td><td class="ti">PSF diff, version history, clone</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M5-05</td><td class="ti">Test runner with coverage, simulation console</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M5-06</td><td class="ti">Review inbox, deployment console, rollback</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M5-07</td><td class="ti">Shared-asset screens</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M5-08</td><td class="ti">Decision lookup, explanation viewer, audit trail</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M5-09</td><td class="ti">Playwright end-to-end tests and an axe accessibility audit</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M5-10</td><td class="ti">Usability sessions with credit-policy analysts</td><td class="st"><span class="pill s">pending</span></td></tr>
+    </tbody></table>
+  </section>
+
+  <section class="ms">
+    <div class="ms__head">
+      <div><span class="kicker">M6 — Reference policy and pilot</span>
+      <p class="ms__blurb">Acceptance. Needs a penetration test and a pilot lender.</p></div>
+      <div class="ms__counts"><span class="pill a">1 partial</span><span class="pill s">6 pending</span></div>
+    </div>
+    <table><tbody>
+      <tr class="pend"><td class="id">M6-01</td><td class="ti">The complete MFI JLG/SHG reference policy in PSF
+        <div class="no">This is the acceptance suite for the whole product.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M6-02</td><td class="ti">Threat model, external penetration test, 24 h Jazzer campaign</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M6-03</td><td class="ti">Disaster-recovery drill — region failover and backup restore</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M6-04</td><td class="ti">Runbooks and the on-call rota</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M6-05</td><td class="ti">Integration guide and sandbox tenant
+        <div class="no">The Decision API reference is written — a first step. <b>The sandbox tenant and fact-schema CLI are not.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+      <tr class="pend"><td class="id">M6-06</td><td class="ti">Pilot parallel run — four or more weeks of shadow decisions</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr class="pend"><td class="id">M6-07</td><td class="ti">Compliance sign-off</td><td class="st"><span class="pill s">pending</span></td></tr>
+    </tbody></table>
+  </section>
+
+  <div class="warn">
+    <h2>Four things that exist but are unproven</h2>
+    <p>Different from work that is simply not done — these are written and reviewed, but nothing has
+       demonstrated them working.</p>
+    <ul>
+      <li><b>The decision-log SQL has never been executed.</b> The migrations are written against
+          LLD §5.3 and read through, but no database has run them. Embedded PostgreSQL works on this
+          machine — verified, about four minutes — if you want them proven.</li>
+      <li><b>CI has never run.</b> The workflows are written and lint-clean, but there is no git
+          remote, so no pipeline has ever executed them.</li>
+      <li><b>The engine has not been fuzzed or benchmarked.</b> All 90 conformance vectors pass,
+          which is M1's headline exit criterion. Jazzer and the JMH latency budgets — four of the
+          other five — have not been run.</li>
+      <li><b>The front end was not opened in a browser this session.</b> The blank-page fix is
+          verified by mechanism (classic script tag, IIFE bundle, nothing fetched at load) but not
+          by sight: the Playwright server failed to connect.</li>
+    </ul>
+  </div>
+
+  <h2 class="sec">What does work</h2>
+  <p class="lead">All <b>90 conformance vectors from LLD §13 pass</b>, across all twenty families —
+     211 tests, none failing. That covers BEL, three-valued logic, exact decimals and dates,
+     decision tables with every hit policy, scorecards with adverse reasons, per-entity iteration,
+     the four aggregation modes, deviation coverage with authority resolution, knockout, fuel, and
+     champion/challenger bucketing.</p>
+  <p class="lead">The decision service runs: <code>POST /v1/decisions</code> returns a decision and
+     <code>GET /v1/decisions/{id}</code> reads it back, behind a decision-log port with a durable
+     PostgreSQL mode and an in-memory mode for local work.</p>
+
+  <h2 class="sec">What is worth doing next</h2>
+  <p class="lead">All three are possible without a Kafka cluster, Kubernetes, a penetration test or
+     a pilot lender — which everything in M3, M4 and M6 does need.</p>
+  <ul class="plain">
+    <li><b>M1-10, static checks.</b> Reject a policy with a decision-table gap at authoring time
+        rather than mid-decision. A policy that fails mid-decision has already cost a decision.</li>
+    <li><b>M1-13, bundle signing.</b> Without a signed, content-addressed bundle there is no
+        registry — which is why the policy still arrives inline on every request, the largest
+        deviation in the API today.</li>
+    <li><b>M1-14, the fact model.</b> Unblocks M2-05 replay, and is the first step toward the §9.2
+        encryption that would let facts be stored at all.</li>
+  </ul>
+
+  <div class="foot">Generated from the repository · 14 commits · 211 tests passing · 8 October 2026</div>
+</div>
+</body>
+</html>
