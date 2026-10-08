@@ -22,6 +22,12 @@ archunit = "1.5.1"
 
 # --- services (M2 onwards) ---
 spring-boot = "4.1.1"
+postgresql = "42.7.9"
+flyway = "13.10.0"
+# Real PostgreSQL binaries for integration tests. The dev host has no Docker, so Testcontainers
+# is not an option locally; this downloads and runs an actual postgres.
+embedded-postgres = "2.2.2"
+embedded-postgres-binaries = "18.6.0"
 
 [libraries]
 re2j = { module = "com.google.re2j:re2j", version.ref = "re2j" }
@@ -38,6 +44,12 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
 archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+embedded-postgres = { module = "io.zonky.test:embedded-postgres", version.ref = "embedded-postgres" }
+embedded-postgres-binaries-bom = { module = "io.zonky.test.postgres:embedded-postgres-binaries-bom", version.ref = "embedded-postgres-binaries" }
+
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }

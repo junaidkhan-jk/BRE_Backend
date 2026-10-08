@@ -24,11 +24,31 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-jackson")
 
     implementation(project(":libs:bre-engine-core"))
+    implementation(project(":libs:bre-platform-common"))
+
+    // Compact mode (D6): PostgreSQL-first with a transactional outbox.
+    implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    runtimeOnly(libs.postgresql)
+    implementation(libs.flyway.core)
+    runtimeOnly(libs.flyway.postgresql)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj)
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+
+    // NO database integration test in this build, deliberately. Verifying the compact-mode writer
+    // needs a real PostgreSQL — the schema uses declarative partitioning, text[] and jsonb, none
+    // of which an in-memory stand-in models faithfully enough to trust — and this host has no
+    // Docker, so the only route is io.zonky.test:embedded-postgres, which downloads real postgres
+    // binaries on first use (verified working here: ~4 minutes, one time).
+    //
+    // To add it back:
+    //   testImplementation(platform(libs.embedded.postgres.binaries.bom))
+    //   testImplementation(libs.embedded.postgres)
+    //   testImplementation(libs.postgresql)
+    //   testImplementation(libs.flyway.postgresql)
+    // then point a test at EmbeddedPostgres.start() and run the Flyway migrations against it.
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

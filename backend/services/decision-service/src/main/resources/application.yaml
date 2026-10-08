@@ -3,18 +3,83 @@ spring:
     name: decision-service
   threads:
     virtual:
-      enabled: true          # ADR-012
+      enabled: true          # ADR-012: evaluation is short and CPU-bound; the decision-log write
+                             # is the only blocking hop, so thread-per-request on virtual threads
+                             # meets the latency budget without an async programming model.
   jackson:
     default-property-inclusion: non_null
+
+  # ---------------------------------------------------------------------------
+  # DATABASE — PLACEHOLDER VALUES. Change these to your own PostgreSQL.
+  # ---------------------------------------------------------------------------
+  # Only read when bre.decision-log.mode=POSTGRES (see below). With the default
+  # IN_MEMORY mode the service starts with no database at all, so these can be
+  # left as they are until you want durability.
+  #
+  # Prefer environment variables over editing this file, so no credential is
+  # ever committed:
+  #   SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bre        # CHANGE ME
+    username: bre_dec_app                            # CHANGE ME
+    password: change-me                               # CHANGE ME — do not commit a real one
+    hikari:
+      maximum-pool-size: 16
+      # The decision log write is on the hot path, so a connection that is not
+      # available quickly should fail the request rather than queue behind others
+      # and spend the caller's whole latency budget waiting.
+      connection-timeout: 2000
+      pool-name: bre-dec
+
+  # Flyway owns the bre_dec schema (LLD §5.3). Disabled by default so the service
+  # does not try to migrate a database that is not there.
+  flyway:
+    enabled: false                                    # set true with mode=POSTGRES
+    schemas: bre_dec
+    default-schema: bre_dec
+    locations: classpath:db/migration
+    # Never clean a decision store. An accidental `flyway clean` against the hot
+    # store destroys the lender's audit trail, and there is no undo.
+    clean-disabled: true
+
+  # The service creates its own DataSource only when it needs one.
+  autoconfigure:
+    exclude: []
 
 server:
   port: 8080
 
-# Compact mode (D6): the decision log writes to a durable store before the response returns.
-# The in-memory implementation is for local development only and says so at startup; the
-# PostgreSQL-first outbox is the next step.
 bre:
-  decision-log: in-memory
+  # The engine version pinned into every decision record (D8), so a replay knows
+  # which engine produced the original answer.
+  engine-version: 0.1.0-SNAPSHOT
+
+  # Recorded on every decision row. Use DEV / UAT / PERF / PROD in real
+  # environments; a decision that cannot say which environment made it is not
+  # much use in an audit.
+  env-code: LOCAL
+
+  decision-log:
+    # IN_MEMORY  — local development. NOT DURABLE: every decision is lost on restart.
+    # POSTGRES   — compact mode (D6). Durable: the decision, its idempotency key
+    #              and its outbox event commit in ONE transaction before the
+    #              response returns. This is what gives RPO 0 for an acknowledged
+    #              decision. Requires spring.datasource.* and spring.flyway.enabled=true.
+    # KAFKA      — Kafka-first, for scale. Not implemented yet (M4).
+    mode: IN_MEMORY
+
+    # Persist the fact snapshot, which replay needs (D7).
+    #
+    # OFF BY DEFAULT, AND THE DEFAULT IS THE SAFE ONE. Facts are the applicant's
+    # personal data. §9.2 requires them stored as two envelopes under a tenant
+    # data key and a per-principal key, so that erasure is performed by destroying
+    # a key (§9.5) rather than by hunting rows. That key hierarchy is not built
+    # yet, so turning this on writes PLAINTEXT personal data to
+    # bre_dec.decision_facts.
+    #
+    # Turn it on for local replay work. Do not turn it on anywhere holding real
+    # applicants until the §9.2 envelopes exist.
+    store-facts: false
 
 logging:
   level:

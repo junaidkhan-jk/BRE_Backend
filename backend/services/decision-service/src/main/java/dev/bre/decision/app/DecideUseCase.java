@@ -1,6 +1,7 @@
 package dev.bre.decision.app;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.bre.common.UuidV7;
 import dev.bre.decision.api.DecisionApi.DecisionRequest;
 import dev.bre.decision.api.DecisionApi.DecisionResponse;
 import dev.bre.decision.api.DecisionApi.RuleOutcome;
@@ -13,13 +14,15 @@ import dev.bre.engine.decide.RuleDef;
 import dev.bre.engine.eval.EvaluationContext;
 import dev.bre.engine.eval.Value;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -38,6 +41,18 @@ import org.springframework.stereotype.Service;
 public class DecideUseCase {
 
   private static final Logger log = LoggerFactory.getLogger(DecideUseCase.class);
+
+  /** The tenant time zone recorded with every decision (00 §3.7a). */
+  private static final ZoneId TENANT_ZONE = ZoneId.of("Asia/Kolkata");
+
+  /**
+   * The fact schema the snapshot is assumed to conform to.
+   *
+   * <p>A placeholder until the canonical schema lands with {@code bre-fact-model} (M1-14). Recorded
+   * rather than omitted because a replay has to know which schema the stored facts were written
+   * against; a record that does not say is a record that cannot be replayed with confidence.
+   */
+  private static final String FACT_SCHEMA = "lending-facts@unversioned";
 
   private final DecisionLog decisionLog;
   private final ObjectMapper objectMapper;
@@ -82,6 +97,7 @@ public class DecideUseCase {
       return existing.get().response();
     }
 
+    Instant receivedAt = clock.instant();
     LocalDate asOf = request.asOf() != null ? request.asOf() : LocalDate.now(clock);
 
     PolicyEvaluator.PolicyResult result =
@@ -91,7 +107,11 @@ public class DecideUseCase {
 
     DecisionResponse response =
         new DecisionResponse(
-            UUID.randomUUID().toString(),
+            // UUIDv7, not v4 (ADR-008): the id carries its own creation time, which the hot
+            // store derives decision_date from, so a lookup by id prunes to one day partition
+            // (§5.3). Minted from the instant already resolved above rather than reading the
+            // clock again, so the id and the record agree about when the decision happened.
+            UuidV7.generate(receivedAt).toString(),
             request.tenantId(),
             request.requestId(),
             asOf,
@@ -100,12 +120,22 @@ public class DecideUseCase {
             toOutcomes(result.results()));
 
     // Durable BEFORE the response returns (D6).
+    Instant completedAt = clock.instant();
     decisionLog.append(
         new DecisionRecord(
             response.decisionId(),
             request.tenantId(),
             request.requestId(),
-            clock.instant(),
+            applicationRefOf(request),
+            receivedAt,
+            completedAt,
+            Duration.between(receivedAt, completedAt).toNanos() / 1_000,
+            TENANT_ZONE.getId(),
+            0L,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            FACT_SCHEMA,
             response,
             writeFacts(request.facts())));
 
@@ -169,6 +199,18 @@ public class DecideUseCase {
               result.error().orElse(null)));
     }
     return outcomes;
+  }
+
+  /** The application reference, for the hot store's by-application index (§5.3). */
+  private static Optional<String> applicationRefOf(DecisionRequest request) {
+    Object application = request.facts().get("application");
+    if (application instanceof Map<?, ?> fields) {
+      Object ref = fields.get("applicationRef");
+      if (ref != null) {
+        return Optional.of(String.valueOf(ref));
+      }
+    }
+    return Optional.empty();
   }
 
   private String writeFacts(Map<String, Object> facts) {
