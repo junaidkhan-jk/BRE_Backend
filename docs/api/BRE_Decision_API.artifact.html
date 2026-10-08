@@ -1,0 +1,580 @@
+<title>BRE Decision API</title>
+
+<style>
+
+/* ============================================================
+   Trustt Standard Documentation Stylesheet
+   Constitution: DESIGN.html — Refined Minimalism, IDE dark canvas.
+   Typography, whitespace, hairlines and meaning-coded color do
+   the work. No gradients, no blobs, no icon-in-circle grids.
+   ============================================================ */
+/* THEME: IDE Dark (default, all documents).
+   A standard editor-style dark surface (#15171c editor / #1c1f26 panel) with
+   syntax-family accents — blue links, warm-yellow inline code, and the five
+   meaning rails re-tuned for dark (brighter fg, low-alpha tint fills).
+   Never a pure #000 background: the near-black greys keep long-form reading calm.
+   Light palettes remain available by swapping ONLY these :root values —
+   Warm Notebook: canvas #f6f4ef · card #fffdf9 · ink #1c1b18 · accent #7c3a2d;
+   Editorial White Paper: paper #F4F1EA · edge #ECE6D8 · ink #0E1A2B ·
+   accent #A8472B (see references/design-constitution.md).
+   Print already re-maps to a light palette below. Structure and interactivity never change. */
+:root{
+  --canvas:#15171c; --card:#1c1f26; --card-2:#222630; --ink:#dfe3ea; --muted:#9aa3b2; --faint:#6d7585;
+  --line:#2b303b; --line-2:#39404e; --accent:#61afef; --accent-soft:#3b6ea8; --code-bg:#22262e; --code-fg:#e5c07b;
+  --th:#232833; --stripe:#191c23; --quote:#4b5566;
+  /* Rails — reserved for their meaning, never decorative (dark-tuned) */
+  --green:#57cc8f; --green-soft:rgba(87,204,143,.14); --green-ink:#7ee2ab;
+  --amber:#e0a458; --amber-soft:rgba(224,164,88,.15); --amber-ink:#f0c07f;
+  --purple:#c586c0; --purple-soft:rgba(197,134,192,.15); --purple-ink:#dcaad8;
+  --crimson:#e06c75; --crimson-soft:rgba(224,108,117,.15); --crimson-ink:#f0949b;
+  --steel:#61afef; --steel-soft:rgba(97,175,239,.15); --steel-ink:#8fc7f5;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","IBM Plex Sans",Roboto,Helvetica,Arial,sans-serif;
+  --mono:"IBM Plex Mono","SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{margin:0;background:var(--canvas);color:var(--ink);font-family:var(--sans);
+  font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+
+/* ---- Topbar ---- */
+.topbar{position:sticky;top:0;z-index:10;background:rgba(21,23,28,.85);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);padding:11px 0}
+.topbar .in{max-width:1460px;margin:0 auto;padding:0 clamp(18px,3vw,40px);display:flex;align-items:center;gap:12px;
+  font-size:12.5px;color:var(--muted)}
+.topbar a.back{color:var(--accent);text-decoration:none;font-weight:600;white-space:nowrap}
+.topbar a.back:hover{text-decoration:underline}
+.topbar .crumb{color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar .crumb code{font-family:var(--mono);font-size:11.5px;background:var(--code-bg);padding:1px 6px;border-radius:4px}
+
+/* ---- Content column ---- */
+.wrap{width:100%;min-width:0;max-width:1120px;margin:0 auto;padding:40px clamp(18px,3.5vw,48px) 110px}
+h1,h2,h3,h4{font-family:var(--serif);line-height:1.22;color:var(--ink);font-weight:600;
+  margin-top:1.7em;margin-bottom:.5em;letter-spacing:-.01em;position:relative}
+h1{font-size:2.1rem;margin-top:.2em;padding-bottom:.32em;border-bottom:2px solid var(--line)}
+h2{font-size:1.5rem;padding-bottom:.22em;border-bottom:1px solid var(--line)}
+h3{font-size:1.22rem;color:var(--accent)}
+h4{font-size:1.05rem;color:var(--muted);font-style:italic}
+p{margin:.75em 0}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent;transition:.15s}
+a:hover{border-bottom-color:var(--accent-soft)}
+hr{border:none;border-top:1px solid var(--line);margin:2.4em 0}
+code{font-family:var(--mono);font-size:.85em;background:var(--code-bg);color:var(--code-fg);
+  padding:.13em .42em;border-radius:5px;overflow-wrap:anywhere}
+pre{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:15px 17px;
+  overflow-x:auto;line-height:1.55;box-shadow:0 1px 2px rgba(0,0,0,.35);position:relative}
+pre{background:#111318}
+pre code{background:none;padding:0;font-size:.84em;color:#d6dae2;white-space:pre-wrap;overflow-wrap:anywhere}
+/* Optional hand-applied syntax tokens inside <pre><code> — editor-style colouring.
+   Use sparingly and only where colour aids reading; they carry no rail meaning. */
+.tok-com{color:#6a7383;font-style:italic}   /* comment */
+.tok-kw{color:#c586c0}                      /* keyword */
+.tok-str{color:#98c379}                     /* string */
+.tok-num{color:#d19a66}                     /* number / literal */
+.tok-fn{color:#61afef}                      /* function / method */
+.tok-var{color:#e5c07b}                     /* variable / identifier */
+.tok-op{color:#9aa3b2}                      /* operator / punctuation */
+table{border-collapse:collapse;width:100%;margin:1.3em 0;font-size:.9rem;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:9px 13px;text-align:left;vertical-align:top;overflow-wrap:break-word}
+th{background:var(--th);font-weight:600;font-family:var(--sans)}
+tr:nth-child(even) td{background:var(--stripe)}
+blockquote{border-left:3px solid var(--quote);margin:1.1em 0;padding:.4em 1.1em;color:var(--muted);
+  background:var(--card);border-radius:0 9px 9px 0}
+ul,ol{padding-left:1.5em}li{margin:.32em 0}
+strong{font-weight:650;color:var(--ink)}
+img{max-width:100%;height:auto;border:1px solid var(--line);border-radius:10px;margin:.6em 0;display:block}
+
+/* ---- The spine: one section = one question, answered plainly ---- */
+.meaning{font-size:13.5px;color:var(--muted);background:var(--card);border:1px solid var(--line);
+  border-left:3px solid var(--steel);border-radius:0 9px 9px 0;padding:.55em 1.1em;margin:.9em 0 1.3em}
+.meaning b{color:var(--steel-ink);font-weight:650}
+
+/* ---- Kicker labels (mono, uppercase) ---- */
+.kicker{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;
+  color:var(--faint);display:block;margin-top:2.2em}
+.kicker + h2, .kicker + h3{margin-top:.25em}
+
+/* ---- Status pills (meaning-coded; never decorative) ---- */
+.pill{display:inline-block;font-family:var(--mono);font-size:11px;line-height:1;padding:4px 9px;
+  border-radius:999px;border:1px solid var(--line-2);background:var(--card-2);color:var(--muted);white-space:nowrap}
+.pill.green{background:var(--green-soft);color:var(--green-ink);border-color:transparent}
+.pill.amber{background:var(--amber-soft);color:var(--amber-ink);border-color:transparent}
+.pill.crimson{background:var(--crimson-soft);color:var(--crimson-ink);border-color:transparent}
+.pill.steel{background:var(--steel-soft);color:var(--steel-ink);border-color:transparent}
+.pill.purple{background:var(--purple-soft);color:var(--purple-ink);border-color:transparent}
+
+/* ---- Stat cards (one key number per card) ---- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:1.3em 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:14px 16px;
+  box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.stat .k{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:var(--faint)}
+.stat .v{font-family:var(--serif);font-size:1.55rem;font-weight:600;margin-top:2px;letter-spacing:-.01em}
+.stat .s{font-size:12px;color:var(--muted);margin-top:1px}
+
+/* ---- Collapsible sections ---- */
+details.fold{background:var(--card);border:1px solid var(--line);border-radius:11px;margin:1em 0;
+  box-shadow:0 1px 2px rgba(0,0,0,.35);overflow:hidden}
+details.fold>summary{cursor:pointer;padding:13px 18px;font-weight:600;list-style:none;
+  display:flex;align-items:center;gap:10px;transition:background .15s}
+details.fold>summary:hover{background:var(--card-2)}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::before{content:"›";font-family:var(--serif);color:var(--accent);
+  font-size:1.15em;transition:transform .2s ease-out;display:inline-block;line-height:1}
+details.fold[open]>summary::before{transform:rotate(90deg)}
+details.fold>.fold-body{padding:2px 18px 16px;border-top:1px solid var(--line)}
+
+/* ---- TOC rail (≥1200px: fixed left; below: collapsible block) ---- */
+.page{max-width:1460px;margin:0 auto}
+nav.toc{display:none}
+@media(min-width:1200px){
+  .page{display:grid;grid-template-columns:225px minmax(0,1fr);gap:8px;padding:0 clamp(12px,2vw,28px)}
+  nav.toc{display:block;position:sticky;top:64px;align-self:start;width:auto;
+    max-height:calc(100vh - 90px);overflow-y:auto;font-size:12.5px;line-height:1.5;
+    padding:42px 12px 24px 0;scrollbar-width:thin}
+  nav.toc .toc-title{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.11em;color:var(--faint);margin-bottom:8px}
+  nav.toc a{display:block;color:var(--muted);padding:3px 0 3px 10px;border-left:2px solid var(--line);
+    border-bottom:none;transition:.15s}
+  nav.toc a.lvl3{padding-left:22px;font-size:12px}
+  nav.toc a:hover{color:var(--ink)}
+  nav.toc a.active{color:var(--accent);border-left-color:var(--accent);font-weight:600}
+}
+details.toc-inline{background:var(--card);border:1px solid var(--line);border-radius:11px;margin:1.4em 0;padding:0}
+details.toc-inline>summary{cursor:pointer;padding:11px 18px;font-weight:600;list-style:none}
+details.toc-inline>summary::-webkit-details-marker{display:none}
+details.toc-inline .toc-body{padding:0 18px 14px;font-size:14px}
+details.toc-inline .toc-body a{display:block;padding:2px 0;color:var(--muted);border-bottom:none}
+details.toc-inline .toc-body a.lvl3{padding-left:18px;font-size:13px}
+details.toc-inline .toc-body a:hover{color:var(--accent)}
+@media(min-width:1200px){details.toc-inline{display:none}}
+
+/* ---- Heading anchors + code copy (richer color on hover only) ---- */
+.hanchor{position:absolute;left:-1.05em;top:0;color:var(--faint);opacity:0;border-bottom:none;
+  font-family:var(--sans);font-weight:400;transition:opacity .15s}
+h2:hover .hanchor,h3:hover .hanchor,h4:hover .hanchor{opacity:1}
+.copy-btn{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.06em;color:var(--muted);background:var(--card-2);border:1px solid var(--line);
+  border-radius:6px;padding:3px 9px;cursor:pointer;opacity:0;transition:opacity .15s,color .15s}
+pre:hover .copy-btn{opacity:1}
+.copy-btn:hover{color:var(--accent)}
+.copy-btn.done{color:var(--green-ink)}
+
+/* ---- Diagrams (inline SVG; see constitution "Diagram language") ---- */
+figure.diagram{margin:1.4em 0;background:var(--card);border:1px solid var(--line);border-radius:11px;
+  padding:16px 16px 8px;box-shadow:0 1px 2px rgba(0,0,0,.35)}
+figure.diagram svg{width:100%;max-width:980px;height:auto;display:block;margin:0 auto}
+figure.diagram figcaption{font-size:12.5px;color:var(--muted);padding:8px 4px 6px;border-top:1px solid var(--line);margin-top:10px}
+figure.diagram figcaption b{color:var(--ink)}
+svg .t-lbl{font-family:var(--mono);font-size:11px;fill:var(--muted)}
+svg .t-lbl2{font-family:var(--mono);font-size:10px;fill:var(--faint)}
+svg .t-name{font-family:var(--sans);font-size:12.5px;font-weight:600;fill:var(--ink)}
+svg .t-cap{font-family:var(--sans);font-size:11.5px;fill:var(--muted)}
+svg .t-kick{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;fill:var(--faint)}
+svg .ln{stroke:var(--line-2);stroke-width:1}
+svg .arrow{stroke:var(--faint);stroke-width:1.2;fill:none;marker-end:url(#arr)}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin:.8em 0 1.2em;font-size:12.5px;color:var(--muted)}
+.legend .sw{display:inline-flex;align-items:center;gap:6px}
+.legend .dot{width:11px;height:11px;border-radius:3px;display:inline-block;border:1px solid rgba(255,255,255,.14)}
+
+/* ---- Plain / Engineer mode (constitution: non-negotiable when audiences mix).
+   Add class .eng-only to engineering tokens (IDs, endpoints, confidences) and
+   .plain-only to their plain-language stand-ins; the toggle appears automatically. ---- */
+body.mode-plain .eng-only{display:none !important}
+body.mode-eng .plain-only{display:none !important}
+#modetoggle{display:none;margin-left:auto;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
+  color:var(--muted);background:var(--card-2);border:1px solid var(--line-2);border-radius:999px;
+  padding:4px 11px;cursor:pointer;white-space:nowrap;transition:color .15s}
+#modetoggle:hover{color:var(--accent)}
+#modetoggle .on{color:var(--accent);font-weight:600}
+
+/* ---- Back to top ---- */
+#totop{position:fixed;bottom:26px;right:26px;width:38px;height:38px;border-radius:999px;
+  background:var(--card);border:1px solid var(--line-2);color:var(--muted);cursor:pointer;
+  font-size:17px;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.45);opacity:0;pointer-events:none;
+  transition:opacity .2s}
+#totop.show{opacity:1;pointer-events:auto}
+#totop:hover{color:var(--accent)}
+
+.doc-foot{max-width:1120px;margin:0 auto;padding:22px clamp(18px,3.5vw,48px) 60px;border-top:1px solid var(--line);
+  color:var(--faint);font-size:12.5px}
+.doc-foot code{font-family:var(--mono);font-size:11.5px;background:var(--code-bg);padding:1px 6px;border-radius:4px}
+@media(max-width:560px){.wrap{padding:28px 18px 80px}h1{font-size:1.7rem}.topbar .in,.doc-foot{padding-left:18px;padding-right:18px}}
+/* ---- Print: the dark canvas is for screens only — re-map to a light palette so
+   a printed or PDF'd copy stays legible and does not flood the page with ink ---- */
+@media print{
+  :root{
+    --canvas:#fff; --card:#fff; --card-2:#f7f6f3; --ink:#14151a; --muted:#4c5261; --faint:#6f7583;
+    --line:#d8d5cd; --line-2:#c9c6bd; --accent:#1f5f96; --accent-soft:#8fb4d4; --code-bg:#f0eee9; --code-fg:#5a4a2e;
+    --th:#f0eee9; --stripe:#faf9f6; --quote:#b6b1a6;
+    --green:#1f8a5b; --green-soft:#e4f0e9; --green-ink:#175e40;
+    --amber:#c8941d; --amber-soft:#f6eeda; --amber-ink:#8a6614;
+    --purple:#7c5cc4; --purple-soft:#ece7f6; --purple-ink:#57408f;
+    --crimson:#c0455b; --crimson-soft:#f6e4e8; --crimson-ink:#8c3243;
+    --steel:#3c7fa6; --steel-soft:#e3edf3; --steel-ink:#2b5e7d;
+  }
+  .topbar,nav.toc,#totop,.copy-btn{display:none}
+  body{background:#fff;color:var(--ink)}
+  pre{background:var(--code-bg);box-shadow:none}
+  pre code{color:#24262c}
+  .tok-com{color:#6a7383}.tok-kw{color:#7c3aa0}.tok-str{color:#2f7a3f}.tok-num{color:#a15c1a}
+  .tok-fn{color:#1f5f96}.tok-var{color:#7a5c14}.tok-op{color:#4c5261}
+  .stat,details.fold,figure.diagram{box-shadow:none}
+  details.fold{page-break-inside:avoid}details[open]{display:block}
+}
+
+</style>
+
+<div class="topbar"><div class="in"><a class="back" href="#doc-title">← BRE Decision API</a>
+<span class="crumb">&middot;&nbsp; <code>backend/libs/bre-contracts/src/main/contracts/decision-api.openapi.yaml</code></span>
+<button id="modetoggle" title="Toggle plain-language / engineering detail" aria-label="Toggle plain or engineer mode"></button></div></div>
+
+<div class="page">
+<nav class="toc" id="toc-rail" aria-label="Table of contents"><div class="toc-title">On this page</div></nav>
+
+<div class="wrap">
+<!-- ====================================================================
+     CONTENT — replace everything between these markers.
+     Structure rules (the constitution):
+       · h1 once. h2 = major question-led section. h3 = sub-topic.
+       · Open every h2 section with:  <p class="meaning"><b>What this means:</b> …one plain sentence.</p>
+       · <span class="kicker">PART N — LABEL</span> above an h2 groups sections.
+       · Key numbers → .stats/.stat cards, one number per card.
+       · Status → .pill (green=live/good, amber=partial/caution, crimson=risk, steel=neutral, purple=structural).
+       · Deep detail the reader may skip → <details class="fold"><summary>…</summary><div class="fold-body">…</div></details>
+       · Tables for enumerable facts; prose around them for the why.
+     ==================================================================== -->
+<h1 id="doc-title">BRE Decision API</h1>
+<blockquote><p>The integration reference for the BRE Platform's synchronous Decision API, for engineers connecting a Loan Origination System to it. Generated from the OpenAPI 3.1 contract in <code>bre-contracts</code> and the implemented service, and it describes <b>what is built today</b> — the differences from the full specification are listed in Part 3 rather than glossed over. 8 October 2026.</p></blockquote>
+
+<details class="toc-inline"><summary>On this page</summary><div class="toc-body" id="toc-inline-body"></div></details>
+
+
+<span class="kicker">PART 1 — ORIENTATION</span>
+<h2 id="what">What is this API?</h2>
+<p class="meaning"><b>What this means:</b> You send an application's facts and the policy to judge them by; it sends back a decision — approve, refer, decline — and the reason for every rule it ran.</p>
+
+<p>The BRE Decision API is the synchronous front door of the decision engine. One call in, one decision out, in tens of milliseconds. It is the call a Loan Origination System makes when a credit officer presses <i>Submit</i>.</p>
+
+<div class="stats">
+  <div class="stat"><span class="kicker">ENDPOINTS LIVE</span><b>2</b><span>POST a decision · GET it back</span></div>
+  <div class="stat"><span class="kicker">OUTBOUND CALLS</span><b>0</b><span>the engine fetches nothing</span></div>
+  <div class="stat"><span class="kicker">MEASURED LOCALLY</span><b>28–41 ms</b><span>end to end, 8 Oct 2026, laptop</span></div>
+</div>
+
+<h2 id="why">Why does it look like this?</h2>
+<p class="meaning"><b>What this means:</b> The engine is a pure calculation — it never phones a bureau or a KYC service — and almost every other rule in this document follows from that one choice.</p>
+
+<p>Decision <b>D2</b> fixes the Decision API as a pure function of <code>(facts, policy, asOf)</code>. The caller assembles a complete fact snapshot; the engine decides. Three consequences matter to you as an integrator:</p>
+
+<table>
+  <thead><tr><th>Because the engine fetches nothing…</th><th>You get</th></tr></thead>
+  <tbody>
+    <tr><td>the same inputs always give the same output</td><td><b>Exact replay.</b> A decision from last March can be reproduced byte for byte, which is what makes <code>GET</code> an audit record rather than a log line.</td></tr>
+    <tr><td>there is no outbound call on the hot path</td><td><b>Predictable latency.</b> Evaluation time is a property of your policy and your data — never of someone else's uptime.</td></tr>
+    <tr><td>bureau reports and KYC documents are never cached here</td><td><b>A smaller regulated surface.</b> The engine holds no data it did not receive on the request.</td></tr>
+  </tbody>
+</table>
+
+<figure class="diagram">
+<svg viewBox="0 0 860 250" role="img" aria-label="A decision request flows from the caller through validation and evaluation, is written durably to PostgreSQL, and only then returns to the caller.">
+  <text class="t-lbl2" x="0" y="12">ONE SYNCHRONOUS CALL · COMPACT MODE · THE RESPONSE WAITS FOR THE DURABLE WRITE</text>
+
+  <rect x="0" y="34" width="150" height="56" rx="8" fill="#1c1f26" stroke="#61afef" stroke-width="1"/>
+  <text class="t-name" x="75" y="58" text-anchor="middle">Your LOS</text>
+  <text class="t-lbl" x="75" y="76" text-anchor="middle">facts + policy</text>
+
+  <line x1="150" y1="62" x2="206" y2="62" stroke="#6d7585" stroke-width="1.2" marker-end="url(#ar)"/>
+
+  <rect x="210" y="34" width="150" height="56" rx="8" fill="#1c1f26" stroke="#2b303b" stroke-width="1"/>
+  <text class="t-name" x="285" y="58" text-anchor="middle">Validate</text>
+  <text class="t-lbl" x="285" y="76" text-anchor="middle">at the boundary</text>
+
+  <line x1="360" y1="62" x2="416" y2="62" stroke="#6d7585" stroke-width="1.2" marker-end="url(#ar)"/>
+
+  <rect x="420" y="26" width="170" height="72" rx="8" fill="#1c1f26" stroke="#57cc8f" stroke-width="1.6"/>
+  <text class="t-name" x="505" y="52" text-anchor="middle">Evaluate</text>
+  <text class="t-lbl" x="505" y="70" text-anchor="middle">pure: no I/O, no clock</text>
+  <text class="t-lbl2" x="505" y="86" text-anchor="middle">rules · tables · scorecards</text>
+
+  <line x1="590" y1="62" x2="646" y2="62" stroke="#6d7585" stroke-width="1.2" marker-end="url(#ar)"/>
+
+  <rect x="650" y="34" width="150" height="56" rx="8" fill="#1c1f26" stroke="#c586c0" stroke-width="1"/>
+  <text class="t-name" x="725" y="58" text-anchor="middle">Write durably</text>
+  <text class="t-lbl" x="725" y="76" text-anchor="middle">one transaction</text>
+
+  <path d="M725 90 L725 128 L75 128 L75 100" fill="none" stroke="#6d7585" stroke-width="1.2" marker-end="url(#ar)"/>
+  <text class="t-lbl" x="400" y="146" text-anchor="middle">201 Created — only after the commit</text>
+
+  <line x1="0" y1="178" x2="860" y2="178" stroke="#2b303b" stroke-width="1"/>
+  <text class="t-cap" x="0" y="202">Nothing leaves the engine while it decides. The only blocking hop is the write at the end.</text>
+  <text class="t-cap" x="0" y="222">If that write fails you get an error and no decision — a decision you acted on that the lender</text>
+  <text class="t-cap" x="0" y="238">cannot produce on audit is worse than no decision at all.</text>
+
+  <defs><marker id="ar" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="#6d7585"/></marker></defs>
+</svg>
+<figcaption><b>Reading it:</b> left to right is one request's life. The green box is the only step that computes anything; the purple box is the only step that can fail for reasons outside your request. Everything between them is yours to control.</figcaption>
+</figure>
+
+<span class="kicker">PART 2 — USING IT</span>
+<h2 id="decide">How do I get a decision?</h2>
+<p class="meaning"><b>What this means:</b> POST the facts and the rules to one endpoint; you get the decision back in the same response.</p>
+
+<p><code>POST /v1/decisions</code> — <span class="pill green">live</span></p>
+
+<pre><code><span class="tok-kw">POST</span> /v1/decisions
+<span class="tok-var">Content-Type</span>: application/json
+
+{
+  <span class="tok-str">"tenantId"</span>:  <span class="tok-str">"t_acme"</span>,
+  <span class="tok-str">"requestId"</span>: <span class="tok-str">"REQ-2026-0001"</span>,
+  <span class="tok-str">"asOf"</span>:      <span class="tok-str">"2026-10-01"</span>,
+  <span class="tok-str">"facts"</span>: {
+    <span class="tok-str">"application"</span>: { <span class="tok-str">"applicationRef"</span>: <span class="tok-str">"APP-2026-000123"</span> },
+    <span class="tok-str">"member"</span>:      { <span class="tok-str">"income"</span>: <span class="tok-str">"20000"</span>, <span class="tok-str">"emi"</span>: <span class="tok-str">"5000"</span>, <span class="tok-str">"age"</span>: <span class="tok-num">34</span> }
+  },
+  <span class="tok-str">"policy"</span>: {
+    <span class="tok-str">"rules"</span>: [
+      { <span class="tok-str">"code"</span>: <span class="tok-str">"MFI_FOIR_CAP"</span>,
+        <span class="tok-str">"check"</span>: <span class="tok-str">"member.emi / member.income &lt;= 0.5"</span>,
+        <span class="tok-str">"reasonCode"</span>: <span class="tok-str">"POL_FOIR_EXCEEDED"</span> }
+    ]
+  }
+}</code></pre>
+
+<h3 id="fields">The four fields that decide everything</h3>
+<table>
+  <thead><tr><th>Field</th><th>Required</th><th>What it does, and what goes wrong</th></tr></thead>
+  <tbody>
+    <tr><td><code>tenantId</code></td><td><span class="pill crimson">yes</span></td><td>The platform is multi-tenant from day one (D1). The tenant appears on every row, event, metric and log line, so it is never defaulted.</td></tr>
+    <tr><td><code>requestId</code></td><td><span class="pill crimson">yes</span></td><td>Your idempotency key. Retrying with the same <code>(tenantId, requestId)</code> returns <b>the original decision with the same <code>decisionId</code></b> — not a second decision.</td></tr>
+    <tr><td><code>asOf</code></td><td><span class="pill steel">optional</span></td><td>The date the policy is evaluated against. Omit it and the service resolves one <i>once</i>, from the tenant time zone, and stores it. The engine itself never reads a clock — it only ever sees this date, which is what makes replay exact.</td></tr>
+    <tr><td><code>facts</code></td><td><span class="pill crimson">yes</span></td><td>The snapshot. Two rules below are where integrations actually go wrong.</td></tr>
+  </tbody>
+</table>
+
+<h3 id="facts-rules">Two rules about facts worth reading twice</h3>
+<p><b>Send decimals as JSON strings.</b> <code>"20000"</code>, not <code>20000.00</code>. A decimal that passes through a JSON number may be read as a double somewhere in the chain, and a double is exactly how <code>0.1 + 0.2</code> stops equalling <code>0.3</code>. The engine uses exact decimal arithmetic throughout; sending a float undoes that before the value arrives.</p>
+
+<p><b>An absent field is missing data, which is not zero.</b> Leave a field out and a policy that needs it reports <code>DATA_MISSING</code> and the decision refers to a human. Send <code>0</code> for an income you do not know and you have asserted that the borrower earns nothing — a different and much worse claim, and one the engine will act on.</p>
+
+<h2 id="response">What comes back?</h2>
+<p class="meaning"><b>What this means:</b> One overall decision, plus the status of every rule that ran — so you can always show why.</p>
+
+<pre><code>{
+  <span class="tok-str">"decisionId"</span>:  <span class="tok-str">"01a11b0b-df03-76a2-a30c-255a7934d513"</span>,
+  <span class="tok-str">"tenantId"</span>:    <span class="tok-str">"t_acme"</span>,
+  <span class="tok-str">"requestId"</span>:   <span class="tok-str">"REQ-2026-0001"</span>,
+  <span class="tok-str">"asOf"</span>:        <span class="tok-str">"2026-10-01"</span>,
+  <span class="tok-str">"decision"</span>:    <span class="tok-str">"APPROVE"</span>,
+  <span class="tok-str">"stpEligible"</span>: <span class="tok-kw">true</span>,
+  <span class="tok-str">"results"</span>: [
+    { <span class="tok-str">"code"</span>: <span class="tok-str">"MFI_FOIR_CAP"</span>, <span class="tok-str">"status"</span>: <span class="tok-str">"PASS"</span> }
+  ]
+}</code></pre>
+
+<p>The <code>decisionId</code> is a <b>UUIDv7</b>, so it carries its own creation time. The decision store derives the row's partition from it — which is why reading one decision reads one day's partition instead of scanning every day the store holds.</p>
+
+<h3 id="precedence">How the overall decision is reached</h3>
+
+<figure class="diagram">
+<svg viewBox="0 0 860 236" role="img" aria-label="Decision precedence: any FAIL declines; otherwise any error or missing data refers; otherwise any deviation approves with deviation; otherwise approve.">
+  <text class="t-lbl2" x="0" y="12">DECISION PRECEDENCE · LLD §4.8 · TESTED BY VECTORS P-01 TO P-03</text>
+
+  <rect x="0" y="30" width="250" height="38" rx="7" fill="rgba(224,108,117,.15)" stroke="#e06c75" stroke-width="1.6"/>
+  <text class="t-name" x="14" y="54">any rule FAIL</text>
+  <text class="t-lbl" x="300" y="54">→</text>
+  <text class="t-name" x="330" y="54" fill="#e06c75">DECLINE</text>
+
+  <rect x="0" y="78" width="250" height="38" rx="7" fill="rgba(224,164,88,.15)" stroke="#e0a458" stroke-width="1"/>
+  <text class="t-name" x="14" y="102">else any ERROR · DATA_MISSING · REFER</text>
+  <text class="t-lbl" x="300" y="102">→</text>
+  <text class="t-name" x="330" y="102" fill="#e0a458">REFER</text>
+
+  <rect x="0" y="126" width="250" height="38" rx="7" fill="rgba(224,164,88,.15)" stroke="#e0a458" stroke-width="1"/>
+  <text class="t-name" x="14" y="150">else any DEVIATION</text>
+  <text class="t-lbl" x="300" y="150">→</text>
+  <text class="t-name" x="330" y="150" fill="#e0a458">APPROVE_WITH_DEVIATION</text>
+
+  <rect x="0" y="174" width="250" height="38" rx="7" fill="rgba(87,204,143,.14)" stroke="#57cc8f" stroke-width="1"/>
+  <text class="t-name" x="14" y="198">else</text>
+  <text class="t-lbl" x="300" y="198">→</text>
+  <text class="t-name" x="330" y="198" fill="#57cc8f">APPROVE</text>
+
+  <text class="t-cap" x="560" y="54">FAIL outranks ERROR —</text>
+  <text class="t-cap" x="560" y="72">a policy breach is a more</text>
+  <text class="t-cap" x="560" y="90">definite answer than an</text>
+  <text class="t-cap" x="560" y="108">engine fault.</text>
+  <text class="t-cap" x="560" y="150">Nothing uncertain can</text>
+  <text class="t-cap" x="560" y="168">reach APPROVE. That is</text>
+  <text class="t-cap" x="560" y="186">decision D9, enforced in</text>
+  <text class="t-cap" x="560" y="204">the control flow itself.</text>
+</svg>
+<figcaption><b>Reading it:</b> top to bottom, first match wins. Only the bottom row — where every rule passed or did not apply — reaches APPROVE; the two amber rows both mean a human has to look.</figcaption>
+</figure>
+
+<h3 id="statuses">Rule statuses</h3>
+<table>
+  <thead><tr><th>Status</th><th>Means</th></tr></thead>
+  <tbody>
+    <tr><td><span class="pill green">PASS</span></td><td>The check was TRUE.</td></tr>
+    <tr><td><span class="pill crimson">FAIL</span></td><td>The check was FALSE.</td></tr>
+    <tr><td><span class="pill amber">DEVIATION</span></td><td>Failed within a tolerance an authority may approve.</td></tr>
+    <tr><td><span class="pill amber">DATA_MISSING</span></td><td>A fact the rule needed was absent.</td></tr>
+    <tr><td><span class="pill amber">REFER</span></td><td>The rule asks for human review.</td></tr>
+    <tr><td><span class="pill steel">NOT_APPLICABLE</span></td><td>The rule's <code>when</code> guard was FALSE.</td></tr>
+    <tr><td><span class="pill crimson">ERROR</span></td><td>The rule could not be evaluated. See the <code>error</code> field.</td></tr>
+  </tbody>
+</table>
+
+<p><code>stpEligible</code> deserves its own note: it is false the moment anything deviates, <b>including a deviation an approver has already signed off</b>. The decision is then <code>APPROVE</code>, but it was never straight-through, and the two facts are worth keeping apart in your own reporting.</p>
+
+<h2 id="read">How do I read a decision back?</h2>
+<p class="meaning"><b>What this means:</b> Fetch any past decision by its ID — this is the audit record.</p>
+
+<p><code>GET /v1/decisions/{decisionId}</code> — <span class="pill green">live</span>, with header <code>X-Tenant-Id</code>.</p>
+
+<p>The lookup is <b>tenant-scoped</b>. A correct <code>decisionId</code> under the wrong tenant returns <code>404</code>, not <code>403</code> — a decision is never readable across tenants (D1), and 404 is also the answer that leaks least, since a 403 would confirm the ID exists.</p>
+
+<details class="fold"><summary>Why the tenant is a header today, and why that is temporary</summary><div class="fold-body">
+<p>The specification derives the tenant from the authenticated principal, which is the only trustworthy source. A header is accepted now because <b>there is no authentication yet</b>. In this form a caller can read another tenant's decision by changing one header, so this endpoint must not be exposed to an untrusted network until the OAuth2 resource server lands.</p>
+</div></details>
+
+<h2 id="missing">What happens when data is missing?</h2>
+<p class="meaning"><b>What this means:</b> Missing data never produces an approval — it refers the application to a person.</p>
+
+<p>This is decision <b>D9</b>, and it is the single most important property of the engine. A fail-open engine approves loans <i>because</i> data was absent, which is a credit loss and a regulatory finding at once. Draft 1 of this product had that defect; the current engine closes it, and a property-based test asserts it over randomly generated policies.</p>
+
+<p>Concretely: if you see a <code>REFER</code> you did not expect, the cause is almost always a fact the policy needed and your request did not carry. Check the <code>results</code> array for a rule with <code>DATA_MISSING</code> — its <code>reasonCode</code> names the symbol.</p>
+
+<h2 id="errors">What can go wrong?</h2>
+<p class="meaning"><b>What this means:</b> Bad requests get an HTTP error; rules that break mid-evaluation are reported inside a normal 201 response.</p>
+
+<table>
+  <thead><tr><th>Status</th><th>When</th><th>Body</th></tr></thead>
+  <tbody>
+    <tr><td><span class="pill green">201</span></td><td>Decided. Including when a rule errored — the engine still produced a decision.</td><td>The decision</td></tr>
+    <tr><td><span class="pill amber">400</span></td><td>The request body is not valid.</td><td><code>application/problem+json</code></td></tr>
+    <tr><td><span class="pill amber">422</span></td><td>A BEL expression does not parse. The body carries <code>line</code> and <code>column</code>.</td><td><code>application/problem+json</code></td></tr>
+    <tr><td><span class="pill steel">404</span></td><td>No such decision for that tenant.</td><td>empty</td></tr>
+  </tbody>
+</table>
+
+<p>Error bodies follow <b>RFC 9457</b> and name the offending <i>field</i>, never its value. A validation message that quoted your submitted facts would put personal data into client logs and error trackers, where the engine no longer controls who reads it.</p>
+
+<h3 id="eval-errors">Runtime error codes</h3>
+<p>These arrive on a rule result, not as an HTTP status, because the decision still exists — it is <code>REFER</code>.</p>
+
+<table>
+  <thead><tr><th>Code</th><th>Cause</th></tr></thead>
+  <tbody>
+    <tr><td><code>EVAL_DIV_ZERO</code></td><td>Division by zero. <b>The one integrators hit most.</b> Division by zero is an error, not a missing value — guard it: <code>income &gt; 0 and emi / income &lt;= 0.5</code>. <code>and</code> short-circuits, so the division never runs when the guard is false.</td></tr>
+    <tr><td><code>EVAL_OVERFLOW</code></td><td>Integer overflow.</td></tr>
+    <tr><td><code>EVAL_FUEL_EXHAUSTED</code></td><td>The policy exceeded its evaluation budget. Every component not yet evaluated is also reported ERROR — never "not applicable", which would read as a decision nobody made.</td></tr>
+    <tr><td><code>EVAL_TABLE_NO_MATCH</code></td><td>Every decision-table input was present and no row matched — a gap in the policy.</td></tr>
+    <tr><td><code>EVAL_TABLE_UNIQUE_VIOLATION</code></td><td>More than one row matched under a <code>UNIQUE</code> hit policy.</td></tr>
+    <tr><td><code>EVAL_SCORECARD_NO_BIN</code></td><td>A characteristic had a value but no bin covered it.</td></tr>
+    <tr><td><code>EVAL_PARAM_NOT_EFFECTIVE</code></td><td>A referenced parameter has no value effective at <code>asOf</code>.</td></tr>
+    <tr><td><code>EVAL_INTERNAL</code></td><td>An engine defect. Raises a P1 alert.</td></tr>
+  </tbody>
+</table>
+
+<span class="kicker">PART 3 — LIMITS AND HONESTY</span>
+<h2 id="not-built">What is not built yet?</h2>
+<p class="meaning"><b>What this means:</b> This API is a working subset of the specified one — here is exactly what is missing, so you do not design against something that is not there.</p>
+
+<table>
+  <thead><tr><th>Concern</th><th>Today</th><th>Specified</th></tr></thead>
+  <tbody>
+    <tr><td>Policy source</td><td><span class="pill amber">inline on the request</span></td><td>Resolved from a signed, content-addressed bundle by hash. A caller cannot choose the policy that decides its application.</td></tr>
+    <tr><td>Authentication</td><td><span class="pill crimson">none</span></td><td>OAuth2 client credentials, scope <code>decisions:evaluate</code>.</td></tr>
+    <tr><td>Idempotency key</td><td><span class="pill amber">in the body</span></td><td><code>Idempotency-Key</code> header.</td></tr>
+    <tr><td>Explanation endpoint</td><td><span class="pill crimson">not built</span></td><td><code>GET /v1/decisions/{id}/explanation</code>, regenerated by replaying the stored facts.</td></tr>
+    <tr><td>Per-entity results</td><td><span class="pill amber">one result per rule</span></td><td>Per-entity results, deviations with required approval level, customer-facing reasons.</td></tr>
+    <tr><td>Facts at rest</td><td><span class="pill crimson">not stored by default</span></td><td>Envelope-encrypted and split by identifying field group, so erasure is key destruction.</td></tr>
+    <tr><td>Transport</td><td><span class="pill amber">REST only</span></td><td>REST <b>and</b> gRPC.</td></tr>
+  </tbody>
+</table>
+
+<p><b>The inline policy is the biggest of these.</b> It is a development affordance that makes the API testable before the policy registry exists. It is not how a deployment works, and any integration built around sending your own rules will have to change.</p>
+
+<details class="fold"><summary>Why facts are not persisted, and what that costs you</summary><div class="fold-body">
+<p>Replay needs the facts. The specification requires them stored as two envelopes under a tenant key and a per-principal key, so that erasing a borrower is performed by destroying a key rather than by hunting rows. That key hierarchy is not built.</p>
+<p>Storing them as plaintext in the meantime was rejected. The table exists, its column is named <code>facts_json_plaintext</code> rather than anything that sounds encrypted, and it is written only behind an explicitly-named flag that defaults to off.</p>
+<p><b>What this costs:</b> a decision is durable, auditable and idempotent, but the full evaluation trace cannot be regenerated. You get the decision and every rule's status; you do not get a replay.</p>
+</div></details>
+
+<h2 id="decisions">Decisions log</h2>
+<p class="meaning"><b>What this means:</b> The choices behind this API's shape, and why each was made.</p>
+
+<table>
+  <thead><tr><th>Ref</th><th>Decision</th><th>Rationale</th></tr></thead>
+  <tbody>
+    <tr><td><code>D2</code></td><td>Facts in, decision out — the engine calls nothing</td><td>Determinism makes replay, simulation and back-testing exact, keeps latency in single-digit milliseconds, and keeps regulated data out of the engine.</td></tr>
+    <tr><td><code>D9</code></td><td>Fail-closed: ERROR and DATA_MISSING can never produce APPROVE</td><td>Closes the fail-open defect in Draft 1, where absent data could approve a loan.</td></tr>
+    <tr><td><code>D8</code></td><td>Exact decimals; evaluation never reads a clock</td><td>Money is not a <code>double</code>, and a replay that re-derives "today" is not a replay.</td></tr>
+    <tr><td><code>D6</code></td><td>Durable write before the response returns</td><td>RPO 0 for an acknowledged decision.</td></tr>
+    <tr><td><code>D1</code></td><td>Tenant on every row, and on every read</td><td>Tenancy costs little to build in and is very expensive to retrofit.</td></tr>
+    <tr><td>ADR-008</td><td>UUIDv7 decision identifiers</td><td>The ID carries its creation time, so a lookup prunes to one partition instead of scanning the store.</td></tr>
+  </tbody>
+</table>
+
+
+</div>
+</div>
+<div class="doc-foot">Rendered from <code>decision-api.openapi.yaml</code> and the <code>decision-service</code> implementation · LLD §6.2, §3.11, §4.8 · generated 8 October 2026 · latency figures measured locally on that date, not on production hardware</div>
+<button id="totop" title="Back to top" aria-label="Back to top">↑</button>
+
+<script>
+/* Interactivity layer — TOC build + scroll-spy, heading anchors, code copy, back-to-top.
+   Pure vanilla, no dependencies, works from file:// */
+(function(){
+  var headings=[].slice.call(document.querySelectorAll('.wrap h2, .wrap h3'));
+  var rail=document.getElementById('toc-rail'), inline=document.getElementById('toc-inline-body');
+  headings.forEach(function(h,i){
+    if(!h.id){h.id='s-'+i+'-'+h.textContent.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}
+    var a=document.createElement('a');a.href='#'+h.id;a.textContent=h.textContent;
+    if(h.tagName==='H3')a.className='lvl3';
+    rail.appendChild(a);
+    if(inline)inline.appendChild(a.cloneNode(true));
+    var an=document.createElement('a');an.className='hanchor';an.href='#'+h.id;an.textContent='#';
+    an.setAttribute('aria-label','Link to '+h.textContent);h.appendChild(an);
+  });
+  /* scroll-spy */
+  var links=[].slice.call(rail.querySelectorAll('a'));
+  function spy(){
+    var y=window.scrollY+90,cur=null;
+    headings.forEach(function(h){if(h.offsetTop<=y)cur=h.id});
+    links.forEach(function(l){l.classList.toggle('active',l.getAttribute('href')==='#'+cur)});
+  }
+  window.addEventListener('scroll',spy,{passive:true});spy();
+  /* code copy */
+  [].slice.call(document.querySelectorAll('pre')).forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';b.textContent='copy';
+    b.addEventListener('click',function(){
+      var t=(pre.querySelector('code')||pre).innerText;
+      (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){
+        b.textContent='copied';b.classList.add('done');
+        setTimeout(function(){b.textContent='copy';b.classList.remove('done')},1600);
+      }).catch(function(){});
+    });
+    pre.appendChild(b);
+  });
+  /* plain / engineer mode toggle — appears only if the document uses the classes */
+  var mt=document.getElementById('modetoggle');
+  if(mt && document.querySelector('.eng-only,.plain-only')){
+    var eng=false;
+    function paint(){
+      document.body.classList.toggle('mode-eng',eng);
+      document.body.classList.toggle('mode-plain',!eng);
+      mt.innerHTML=eng?'plain / <span class="on">engineer</span>':'<span class="on">plain</span> / engineer';
+    }
+    mt.style.display='inline-block';paint();
+    mt.addEventListener('click',function(){eng=!eng;paint()});
+  }
+  /* back to top */
+  var tt=document.getElementById('totop');
+  window.addEventListener('scroll',function(){tt.classList.toggle('show',window.scrollY>600)},{passive:true});
+  tt.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'})});
+})();
+</script>
+

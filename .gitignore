@@ -20,3 +20,6 @@ local.properties
 
 # Tooling scratch
 .aitdp/
+
+# Local preview server output and screenshots
+.playwright-mcp/
