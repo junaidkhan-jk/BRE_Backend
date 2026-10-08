@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bre.dev/schemas/facts/lending-facts-1.0.0.json",
+  "title": "BRE canonical lending facts v1",
+  "description": "00 §3.9. Every leaf carries the §9.1 vendor keywords: x-bre-tags, x-bre-group and x-bre-mask. Money is a decimal in INR carried as a string (§2.1 rule 4), never a JSON number.",
+  "type": "object",
+  "required": ["application", "parties", "consent"],
+  "properties": {
+    "application": {
+      "type": "object",
+      "required": ["applicationRef", "productLine", "productCode", "stage", "channel", "requestedAmount", "tenureMonths", "purpose"],
+      "properties": {
+        "applicationRef": { "type": "string", "x-bre-tags": ["pii"], "x-bre-group": "identifying", "x-bre-mask": "TOKEN_TAIL4" },
+        "productLine": { "type": "string" },
+        "productCode": { "type": "string" },
+        "stage": { "type": "string" },
+        "segment": { "type": "string" },
+        "channel": { "type": "string" },
+        "branchCode": { "type": "string" },
+        "requestedAmount": { "type": "string", "x-bre-decimal": true, "x-bre-mask": "ROUND_1000" },
+        "recommendedAmount": { "type": "string", "x-bre-decimal": true, "x-bre-mask": "ROUND_1000" },
+        "approvedAmount": { "type": "string", "x-bre-decimal": true, "x-bre-mask": "ROUND_1000" },
+        "tenureMonths": { "type": "integer" },
+        "repaymentFrequency": { "type": "string", "enum": ["WEEKLY", "FORTNIGHTLY", "MONTHLY", "QUARTERLY"] },
+        "proposedMonthlyInstalment": { "type": "string", "x-bre-decimal": true },
+        "emiPerLakh": { "type": "string", "x-bre-decimal": true },
+        "purpose": { "type": "string" },
+        "asOf": { "type": "string", "format": "date" }
+      }
+    },
+    "parties": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["partyRef", "role", "type"],
+        "properties": {
+          "partyRef": { "type": "string", "x-bre-tags": ["pii"], "x-bre-group": "identifying", "x-bre-mask": "TOKEN_TAIL4" },
+          "principalRef": {
+            "description": "The caller's stable pseudonymous ID for the data principal; targets erasure and crypto-shredding. Must never be a natural identifier (00 §3.9).",
+            "type": "string", "x-bre-tags": ["pii"], "x-bre-group": "identifying", "x-bre-mask": "HIDE"
+          },
+          "role": { "type": "string", "enum": ["APPLICANT", "CO_APPLICANT", "GUARANTOR", "PROMOTER", "DIRECTOR", "MEMBER"] },
+          "type": { "type": "string", "enum": ["INDIVIDUAL", "NON_INDIVIDUAL"] },
+          "dateOfBirth": { "type": "string", "format": "date", "x-bre-tags": ["pii"], "x-bre-group": "identifying", "x-bre-mask": "AGE_BAND" },
+          "gender": {
+            "description": "PROTECTED. Reading this from rule logic is BEL-017 without an approved governance override.",
+            "type": "string", "enum": ["F", "M", "X"], "x-bre-tags": ["pii", "protected"], "x-bre-group": "identifying", "x-bre-mask": "HIDE"
+          },
+          "religion": {
+            "description": "PROTECTED, and never a lending criterion.",
+            "type": "string", "x-bre-tags": ["pii", "protected"], "x-bre-group": "identifying", "x-bre-mask": "HIDE"
+          },
+          "caste": {
+            "description": "PROTECTED, and never a lending criterion.",
+            "type": "string", "x-bre-tags": ["pii", "protected"], "x-bre-group": "identifying", "x-bre-mask": "HIDE"
+          },
+          "aadhaarVaultRef": {
+            "description": "A vault reference, never a raw Aadhaar number (00 §3.9). Tagged aadhaar: rule logic may not read it at all (BEL-026), with no override.",
+            "type": "string", "x-bre-tags": ["pii", "regulated", "aadhaar"], "x-bre-group": "identifying", "x-bre-mask": "HIDE"
+          },
+          "panToken": {
+            "type": "string", "pattern": "^tok_[A-Za-z0-9]{16,64}$",
+            "x-bre-tags": ["pii", "regulated"], "x-bre-group": "identifying", "x-bre-mask": "TOKEN_TAIL4"
+          },
+          "householdRef": { "type": "string" },
+          "proposedAmount": { "type": "string", "x-bre-decimal": true },
+          "proposedMonthlyInstalment": { "type": "string", "x-bre-decimal": true },
+          "kyc": {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string", "enum": ["VERIFIED", "PENDING", "FAILED"], "x-bre-tags": ["regulated"] },
+              "verifiedAt": { "type": "string", "format": "date-time", "x-bre-tags": ["regulated"] },
+              "method": { "type": "string", "x-bre-tags": ["regulated"] }
+            }
+          },
+          "income": {
+            "type": "object",
+            "properties": {
+              "monthlyGross": { "type": "string", "x-bre-decimal": true, "x-bre-tags": ["pii"], "x-bre-group": "identifying", "x-bre-mask": "ROUND_1000" },
+              "monthlyNet": { "type": "string", "x-bre-decimal": true, "x-bre-tags": ["pii"], "x-bre-group": "identifying", "x-bre-mask": "ROUND_1000" },
+              "verified": { "type": "boolean" },
+              "source": { "type": "string" }
+            }
+          },
+          "declaredObligations": {
+            "type": "array",
+            "items": { "type": "string", "x-bre-decimal": true, "x-bre-tags": ["pii"], "x-bre-group": "identifying" }
+          },
+          "bureauReports": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "bureau": { "type": "string", "x-bre-tags": ["regulated"] },
+                "scoreType": { "type": "string", "x-bre-tags": ["regulated"] },
+                "score": { "type": "integer", "x-bre-tags": ["regulated"], "x-bre-mask": "NONE" },
+                "noHit": { "type": "boolean", "x-bre-tags": ["regulated"] },
+                "pulledAt": { "type": "string", "format": "date-time", "x-bre-tags": ["regulated"] },
+                "tradelines": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "lenderRef": { "type": "string", "x-bre-tags": ["regulated"] },
+                      "accountType": { "type": "string", "x-bre-tags": ["regulated"] },
+                      "lenderType": { "type": "string", "x-bre-tags": ["regulated"] },
+                      "ownership": { "type": "string", "x-bre-tags": ["regulated"] },
+                      "sanctionedAmount": { "type": "string", "x-bre-decimal": true, "x-bre-tags": ["regulated"] },
+                      "currentBalance": { "type": "string", "x-bre-decimal": true, "x-bre-tags": ["regulated"] },
+                      "instalmentAmount": { "type": "string", "x-bre-decimal": true, "x-bre-tags": ["regulated"] },
+                      "overdueAmount": { "type": "string", "x-bre-decimal": true, "x-bre-tags": ["regulated"] },
+                      "status": { "type": "string", "x-bre-tags": ["regulated"] },
+                      "openedOn": { "type": "string", "format": "date", "x-bre-tags": ["regulated"] },
+                      "closedOn": { "type": "string", "format": "date", "x-bre-tags": ["regulated"] },
+                      "reportedOn": { "type": "string", "format": "date", "x-bre-tags": ["regulated"] },
+                      "dpdHistory": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "month": { "type": "string", "x-bre-tags": ["regulated"], "x-bre-mask": "MONTH_ONLY" },
+                            "dpd": { "type": "integer", "x-bre-tags": ["regulated"] }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "enquiries": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "date": { "type": "string", "format": "date", "x-bre-tags": ["regulated"] },
+                      "purpose": { "type": "string", "x-bre-tags": ["regulated"] },
+                      "amount": { "type": "string", "x-bre-decimal": true, "x-bre-tags": ["regulated"] }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "screening": {
+            "type": "object",
+            "properties": {
+              "sanctionsHit": { "type": "boolean", "x-bre-tags": ["regulated"] },
+              "pepHit": { "type": "boolean", "x-bre-tags": ["regulated"] },
+              "negativeListHit": { "type": "boolean", "x-bre-tags": ["regulated"] },
+              "matchScore": { "type": "string", "x-bre-decimal": true, "x-bre-tags": ["regulated"] }
+            }
+          }
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "properties": {
+        "groupRef": { "type": "string" },
+        "type": { "type": "string", "enum": ["JLG", "SHG"] },
+        "formedOn": { "type": "string", "format": "date" },
+        "cycleNumber": { "type": "integer" },
+        "memberPartyRefs": { "type": "array", "items": { "type": "string", "x-bre-tags": ["pii"], "x-bre-group": "identifying" } },
+        "meetingFrequency": { "type": "string" },
+        "centreRef": { "type": "string" },
+        "villageRiskCategory": { "type": "string", "enum": ["A", "B", "C", "D", "E"] }
+      }
+    },
+    "households": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "householdRef": { "type": "string" },
+          "memberPartyRefs": { "type": "array", "items": { "type": "string", "x-bre-tags": ["pii"], "x-bre-group": "identifying" } },
+          "annualIncome": { "type": "string", "x-bre-decimal": true, "x-bre-tags": ["pii"], "x-bre-group": "identifying", "x-bre-mask": "ROUND_1000" },
+          "monthlyRepaymentObligations": { "type": "string", "x-bre-decimal": true, "x-bre-tags": ["pii"], "x-bre-group": "identifying", "x-bre-mask": "ROUND_1000" }
+        }
+      }
+    },
+    "collaterals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "collateralRef": { "type": "string" },
+          "type": { "type": "string" },
+          "marketValue": { "type": "string", "x-bre-decimal": true },
+          "valuationDate": { "type": "string", "format": "date" },
+          "ownerPartyRefs": { "type": "array", "items": { "type": "string", "x-bre-tags": ["pii"], "x-bre-group": "identifying" } }
+        }
+      }
+    },
+    "deviationApprovals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ruleCode": { "type": "string" },
+          "deviationType": { "type": "string" },
+          "entityType": { "type": "string" },
+          "entityRef": { "type": "string" },
+          "approvedValue": { "type": "string" },
+          "approvedBy": { "type": "string", "x-bre-tags": ["pii"], "x-bre-group": "identifying" },
+          "approvedLevel": { "type": "string" },
+          "approvalRef": { "type": "string" },
+          "approvedAt": { "type": "string", "format": "date" },
+          "expiresOn": { "type": "string", "format": "date" }
+        }
+      }
+    },
+    "consent": {
+      "type": "object",
+      "required": ["consentRef", "purposeCode"],
+      "properties": {
+        "consentRef": { "type": "string", "x-bre-tags": ["regulated"] },
+        "purposeCode": { "type": "string", "x-bre-tags": ["regulated"] }
+      }
+    }
+  }
+}

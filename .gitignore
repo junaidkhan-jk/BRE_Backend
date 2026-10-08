@@ -26,3 +26,9 @@ local.properties
 
 # Gradle Kotlin compiler session state
 .kotlin/
+
+# Jazzer's generated corpus. Inputs the fuzzer discovered and keeps for the next run — machine
+# output, regenerated freely, and written DURING a run, so staging it races the fuzzer.
+# A crash is different and IS committed: it lives under src/test/resources/.../<TestClass>/<method>/
+# and becomes a permanent regression case.
+.cifuzz-corpus/

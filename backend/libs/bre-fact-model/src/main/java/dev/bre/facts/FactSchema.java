@@ -181,6 +181,25 @@ public final class FactSchema {
       // A list element shares its parent's path plus "[]": the schema types a field, not a
       // position, so every element of every list has the same type and the same tags.
       walk(items, path + "[]", out);
+
+      // The CONTAINER also needs a type, and forgetting it was a real defect: without this,
+      // `count(group.memberPartyRefs)` reported BEL-019 "unknown fact path" even though the schema
+      // plainly declares the field — only its element had an entry. An author writes the container
+      // path, so the container has to have a type.
+      if (!path.isEmpty()) {
+        listTypeOf(items, out.get(path + "[]"))
+            .ifPresent(
+                listType ->
+                    out.put(
+                        path,
+                        new Field(
+                            path,
+                            listType,
+                            tagsOf(items),
+                            groupOf(items),
+                            maskOf(items),
+                            Set.of())));
+      }
       return;
     }
 
@@ -188,6 +207,46 @@ public final class FactSchema {
       return;
     }
     out.put(path, leaf(node, path));
+  }
+
+  /**
+   * The BEL list type whose elements are the given element schema.
+   *
+   * <p>A list of records types as {@code List<Record>}; a list of scalars as the list of that
+   * scalar. A list of lists has no BEL type — the language flattens nested projections at runtime
+   * rather than giving them a nested type — so this returns empty and the container simply has no
+   * declared type, which is honest rather than wrong.
+   */
+  private static Optional<String> listTypeOf(JsonNode items, Field element) {
+    if (items.has("properties")) {
+      return Optional.of("List<Record>");
+    }
+    if (element == null) {
+      return Optional.empty();
+    }
+    return switch (element.belType()) {
+      case "Decimal" -> Optional.of("List<Decimal>");
+      case "Integer" -> Optional.of("List<Integer>");
+      case "Text" -> Optional.of("List<Text>");
+      case "Date" -> Optional.of("List<Date>");
+      case "Record" -> Optional.of("List<Record>");
+      default -> Optional.empty();
+    };
+  }
+
+  private static Set<Tag> tagsOf(JsonNode node) {
+    Set<Tag> tags = new LinkedHashSet<>();
+    JsonNode tagNode = node.get("x-bre-tags");
+    if (tagNode != null && tagNode.isArray()) {
+      tagNode.forEach(
+          t -> {
+            Tag parsed = tagOf(t.asText());
+            if (parsed != null) {
+              tags.add(parsed);
+            }
+          });
+    }
+    return tags;
   }
 
   private static Field leaf(JsonNode node, String path) {
