@@ -557,6 +557,8 @@ class ComponentModelTest {
           List.of(),
           List.of(),
           new Ir.FlowDef(List.of(new Ir.StageDef("S1", knockout, steps))),
+          Optional.empty(),
+          Optional.empty(),
           Optional.empty());
     }
 
@@ -627,6 +629,8 @@ class ComponentModelTest {
                           false,
                           List.of(
                               Ir.StepDef.of("LATER", AggregateSpec.of(AggregateSpec.Kind.NONE)))))),
+              Optional.empty(),
+              Optional.empty(),
               Optional.empty());
 
       FlowEvaluator.DecisionResult result =
@@ -667,6 +671,8 @@ class ComponentModelTest {
                           false,
                           List.of(
                               Ir.StepDef.of("MEM", AggregateSpec.of(AggregateSpec.Kind.WORST)))))),
+              Optional.empty(),
+              Optional.empty(),
               Optional.empty());
 
       Value parties =

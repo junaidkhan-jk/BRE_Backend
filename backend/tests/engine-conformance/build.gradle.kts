@@ -6,6 +6,8 @@ plugins { id("bre.java-library") }
 
 dependencies {
     testImplementation(project(":libs:bre-engine-core"))
+    // The policy vectors carry IR fragments, which the codec turns into engine records.
+    testImplementation(project(":libs:bre-ir-json"))
     testImplementation(libs.jackson.databind)
 
     testImplementation(platform(libs.junit.bom))

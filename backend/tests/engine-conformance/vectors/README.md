@@ -120,9 +120,22 @@ A missing *fact* is an absent field, never `null`. The exception is an authority
 bound, where `03_LLD.md:1322` gives `null` a meaning of its own ("a null bound means
 unbounded"). That is a present value that happens to be unbounded, not a missing one.
 
-## Status at M0
+## Status
 
-The engine does not exist yet, so every vector reports as **pending** (skipped
-with a reason), not as a failure. That is M0's exit criterion: CI green, and the
-runner listing every vector. From M1 each turns green as the corresponding engine
-behaviour lands, and the engine is finished when all of them are.
+**All 90 vectors pass** (2026-10-08). Both shapes run against the real engine: an expression
+vector through the parser and evaluator, a policy vector through the IR codec and the full flow.
+
+The runner compares only the keys a vector asserts, because the §13 rows assert different things
+from one another — some a `status`, some a `decision`, some a list of `steps`. A vector that
+asserted nothing would therefore pass vacuously, which is why the suite requires every `expect` to
+be non-empty. Steps and entities are matched by identity (`ref`, `entityRef`) rather than by
+position, so a row naming one step asserts what *that* step looked like, wherever it sits in the
+flow.
+
+Deviations from the §13 table, each recorded where it was made:
+
+- **L-03's reason code** was corrected from `DATA_MISSING_X` to `DATA_MISSING_MEMBER_X`. Two §13
+  rows contradict each other; this one follows §4.6's derivation rule and its worked example, which
+  S5-01 also asserts. See the vector's own `description` and `docs/OPEN-QUESTIONS.md` Q2.
+- **S12-01's third assertion** is not transcribed: BEL-016 makes a reference to a skipped step
+  unwritable, so no expression can observe it. Q3.

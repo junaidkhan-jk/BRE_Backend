@@ -19,13 +19,17 @@ import java.util.Objects;
  * @param lists named lists, bound under the {@code list.} namespace
  * @param asOf the evaluation date — the engine's only notion of "today" (§3.7)
  * @param it the current element inside a filter, or {@link Missing} outside one
+ * @param fuel the decision's fuel budget (§3.10), shared by every component
+ * @param variables the policy's declared variables, resolved lazily and memoised per entity
  */
 public record EvaluationContext(
     RecordV facts,
     Map<String, Value> parameters,
     Map<String, Value> lists,
     LocalDate asOf,
-    Value it) {
+    Value it,
+    FuelMeter fuel,
+    VariableResolver variables) {
 
   /** Creates a context, copying the maps so the context is genuinely immutable. */
   public EvaluationContext {
@@ -34,6 +38,8 @@ public record EvaluationContext(
     Objects.requireNonNull(it, "it");
     parameters = Map.copyOf(parameters);
     lists = Map.copyOf(lists);
+    fuel = fuel == null ? FuelMeter.unlimited() : fuel;
+    variables = variables == null ? VariableResolver.none() : variables;
   }
 
   /**
@@ -47,7 +53,37 @@ public record EvaluationContext(
    */
   public static EvaluationContext of(
       RecordV facts, Map<String, Value> parameters, Map<String, Value> lists, LocalDate asOf) {
-    return new EvaluationContext(facts, parameters, lists, asOf, Missing.INSTANCE);
+    return of(facts, parameters, lists, asOf, FuelMeter.unlimited());
+  }
+
+  /**
+   * Creates a context for a top-level expression with an explicit fuel budget.
+   *
+   * @param facts the fact snapshot
+   * @param parameters the {@code param.} namespace
+   * @param lists the {@code list.} namespace
+   * @param asOf the evaluation date
+   * @param fuel the decision's fuel budget
+   * @return the context
+   */
+  public static EvaluationContext of(
+      RecordV facts,
+      Map<String, Value> parameters,
+      Map<String, Value> lists,
+      LocalDate asOf,
+      FuelMeter fuel) {
+    return new EvaluationContext(
+        facts, parameters, lists, asOf, Missing.INSTANCE, fuel, VariableResolver.none());
+  }
+
+  /**
+   * Returns a copy with the policy's variables available to expressions.
+   *
+   * @param resolver the variable resolver
+   * @return the derived context
+   */
+  public EvaluationContext withVariables(VariableResolver resolver) {
+    return new EvaluationContext(facts, parameters, lists, asOf, it, fuel, resolver);
   }
 
   /**
@@ -58,7 +94,7 @@ public record EvaluationContext(
    * @return the derived context
    */
   public EvaluationContext withIt(Value element) {
-    return new EvaluationContext(facts, parameters, lists, asOf, element);
+    return new EvaluationContext(facts, parameters, lists, asOf, element, fuel, variables);
   }
 
   /** Returns {@code asOf} as a BEL value. */

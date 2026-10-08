@@ -533,6 +533,81 @@ public final class Ir {
   }
 
   /**
+   * One Authority Matrix level (§4.9).
+   *
+   * @param levelCode the level's code, e.g. {@code L2}
+   * @param rank its rank; a higher rank is a higher authority
+   */
+  public record AuthorityLevel(String levelCode, int rank) {}
+
+  /**
+   * One Authority Matrix band (§4.9).
+   *
+   * <p>A band is {@code amountAbove < amount <= amountUpTo}, and a <b>null bound means
+   * unbounded</b> — which is why the bounds are {@link Optional} rather than defaulted to zero or
+   * to a sentinel. An unbounded upper bound defaulted to zero would silently stop covering the
+   * amounts it exists to cover.
+   *
+   * @param entryNo the entry's order, for diagnostics
+   * @param deviationType the deviation type this band governs
+   * @param productLine the product line, or {@code *} for any
+   * @param segment the segment, or {@code *} for any
+   * @param amountAbove the exclusive lower bound, empty when unbounded
+   * @param amountUpTo the inclusive upper bound, empty when unbounded
+   * @param levelCode the authority level the band requires
+   */
+  public record AuthorityEntry(
+      int entryNo,
+      String deviationType,
+      String productLine,
+      String segment,
+      Optional<BigDecimal> amountAbove,
+      Optional<BigDecimal> amountUpTo,
+      String levelCode) {}
+
+  /**
+   * The Authority Matrix (§4.9).
+   *
+   * <p>The routing mode is pinned in the matrix <em>version</em>, copied from the tenant setting
+   * when that version was created — not read from the tenant at decision time. That is what makes
+   * replay exact: a decision from March resolves the authority it actually resolved then, even if
+   * the tenant has since changed its routing.
+   *
+   * @param code the matrix's code
+   * @param version its version
+   * @param routingMode {@code HIGHEST_ONLY} or {@code EACH}
+   * @param levels the levels and their ranks
+   * @param entries the bands
+   */
+  public record AuthorityMatrix(
+      String code,
+      int version,
+      String routingMode,
+      List<AuthorityLevel> levels,
+      List<AuthorityEntry> entries) {
+
+    /** Creates a matrix, copying the lists. */
+    public AuthorityMatrix {
+      levels = List.copyOf(levels);
+      entries = List.copyOf(entries);
+    }
+
+    /**
+     * Returns a level's rank.
+     *
+     * @param levelCode the level code
+     * @return its rank, or empty when the matrix does not declare it — §4.9 treats an unknown level
+     *     code as no match rather than as rank zero
+     */
+    public Optional<Integer> rankOf(String levelCode) {
+      return levels.stream()
+          .filter(level -> level.levelCode().equals(levelCode))
+          .map(AuthorityLevel::rank)
+          .findFirst();
+    }
+  }
+
+  /**
    * A whole policy (§2.2 root).
    *
    * <p>Only the parts evaluation needs are modelled here. {@code policy}, {@code factSchema},
@@ -546,6 +621,9 @@ public final class Ir {
    * @param scorecards the scorecards
    * @param flow the flow
    * @param fuelLimit the evaluation fuel budget (§3.10)
+   * @param authorityAmount the BEL expression giving the amount authority bands are read against
+   *     (§2.2 {@code settings.authorityAmount})
+   * @param authorityMatrix the Authority Matrix, when the policy declares one
    */
   public record PolicyIr(
       int irVersion,
@@ -554,7 +632,9 @@ public final class Ir {
       List<DecisionTableDef> decisionTables,
       List<ScorecardDef> scorecards,
       FlowDef flow,
-      Optional<Integer> fuelLimit) {
+      Optional<Integer> fuelLimit,
+      Optional<String> authorityAmount,
+      Optional<AuthorityMatrix> authorityMatrix) {
 
     /** Creates a policy, copying every list. */
     public PolicyIr {

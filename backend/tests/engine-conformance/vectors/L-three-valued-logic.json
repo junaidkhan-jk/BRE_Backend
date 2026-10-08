@@ -31,7 +31,7 @@
   },
   {
     "id": "L-03",
-    "description": "not x is unknown when x is missing; as a rule check with the default onMissing it yields status DATA_MISSING with reason DATA_MISSING_X",
+    "description": "not x is unknown when x is missing; as a rule check with the default onMissing it yields status DATA_MISSING with reason DATA_MISSING_X | TRANSCRIPTION CORRECTED: the §13 row writes the reason as DATA_MISSING_X, but §4.6's applyMissing derives DATA_MISSING_ + SNAKE(firstMissingSymbol) and its own worked example at 03_LLD.md:1203 includes the fact root (group.villageRiskCategory -> DATA_MISSING_GROUP_VILLAGE_RISK_CATEGORY), which S5-01 also asserts. Two §13 rows therefore disagree; this follows the derivation rule and its example. See docs/OPEN-QUESTIONS.md Q2.",
     "asOf": "2026-10-01",
     "scope": "MEMBER",
     "facts": {
@@ -49,7 +49,7 @@
     },
     "expect": {
       "status": "DATA_MISSING",
-      "reasonCode": "DATA_MISSING_X"
+      "reasonCode": "DATA_MISSING_MEMBER_X"
     }
   },
   {

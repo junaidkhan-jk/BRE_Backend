@@ -26,7 +26,7 @@ import org.junit.jupiter.api.TestFactory;
  */
 class EngineConformanceTest {
 
-  private final EngineUnderTest engine = new BelExpressionEngine();
+  private final EngineUnderTest engine = new BreEngine();
 
   @TestFactory
   @DisplayName("LLD §13 conformance vectors")
@@ -115,6 +115,20 @@ class EngineConformanceTest {
             "a missing family means part of the LLD §13 specification is not being checked; "
                 + "add the vectors, do not relax this list")
         .containsAll(expectedFamilies);
+  }
+
+  @Test
+  @DisplayName("every vector asserts something, so key projection cannot pass one vacuously")
+  void everyVectorAssertsSomething() {
+    // The runner compares only the keys a vector names (see BreEngine#project). That is right for
+    // the §13 table, whose rows assert different things — but it means an empty `expect` would
+    // match anything at all.
+    assertThat(VectorLoader.loadAll())
+        .allSatisfy(
+            vector ->
+                assertThat(vector.expect().size())
+                    .as("vector %s asserts nothing", vector.id())
+                    .isPositive());
   }
 
   @Test

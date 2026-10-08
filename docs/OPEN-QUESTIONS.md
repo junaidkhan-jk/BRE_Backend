@@ -13,9 +13,28 @@ Ordered by how much damage each does if left alone.
 
 ---
 
-## Q1 — The vector format has no channel for the Authority Matrix (blocking M1-09)
+## Q1 — The Authority Matrix channel — RESOLVED IN PRACTICE, still needs blessing
 
-**This one will make a correct engine fail its own conformance suite.**
+**No longer blocking.** The S8 vectors inline the matrix into the policy fragment's
+`assets.authorityMatrix`, using camelCased DDL column names, and the engine reads it from there.
+All 14 affected vectors pass. What remains is a documentation question: §2.2 shows
+`levels`/`entries` only as empty arrays, so the shape the vectors chose is not blessed anywhere.
+
+Two sub-questions the implementation had to settle, both worth confirming:
+
+1. **The JSON shape of `levels` and `entries`.** Adopted: `levels: [{levelCode, rank}]` and
+   `entries: [{entryNo, deviationType, productLine, segment, amountAbove, amountUpTo, levelCode}]`,
+   plus `routingMode`. A `null` bound means unbounded, per §4.9 — read as absent, never as zero.
+2. **A fragment that declares no matrix at all.** The S7 vectors do this. Adopted: a policy
+   declaring no matrix states no authority requirement, so there is no level clause to satisfy and
+   coverage is decided on the remaining clauses. The alternative — treating every deviation as
+   unapprovable — makes S7-03 and its siblings unreachable. A real policy always declares a matrix
+   (CHK-011 requires it to cover the whole amount range), so this path is for fragments only. See
+   `Coverage.apply`.
+
+**Decide in:** LLD §2.2 (show a populated matrix) and §4.9 (say what no matrix means).
+
+### Original statement, for the record
 
 LLD §4.9 (`03_LLD.md:1293-1298`) resolves coverage **and authority** per entity before
 aggregation, for every entity whose raw status is `DEVIATION`. `resolveAuthority` reads
@@ -45,13 +64,22 @@ included.
 But §13's own L-03 row (`03_LLD.md:3960`) expects `DATA_MISSING_X` for the symbol
 `member.x`, which drops the root. One of the two is wrong.
 
-**Needs:** fix either the derivation rule or the L-03 row. S1-01 currently asserts
-`status` only, so it stays true under either reading; L-03 asserts `DATA_MISSING_X` and
-will need revisiting with the answer.
+**RESOLVED in the engine, and the transcription corrected.** S5-01 asserts
+`DATA_MISSING_GROUP_VILLAGE_RISK_CATEGORY` — root included — which matches §4.6's derivation rule
+and its worked example. Two §13 rows therefore contradict each other, and L-03 is the outlier. The
+engine implements the derivation rule, and **L-03's vector was corrected** to
+`DATA_MISSING_MEMBER_X`, with the reasoning recorded in the vector's own `description` so nobody
+later mistakes it for a transcription slip.
+
+**Still needs:** the §13 L-03 row corrected in the LLD itself, so the document stops contradicting
+its own rule.
 
 **Decide in:** LLD §4.6, then correct the §13 row.
 
 ## Q3 — S12-01's third assertion cannot be satisfied as written
+
+**Still open.** S12-01 passes on its two observable assertions; the third is simply not
+transcribed, because no expression can be written that reads a skipped step.
 
 The S12-01 row asks that "references to skipped steps return ∅". But §4.8 evaluates every
 step of a knockout stage before testing for `FAIL`, then marks the remaining steps
@@ -109,6 +137,12 @@ Both settled in the vectors, both worth confirming:
 
 ---
 
+## Status, 2026-10-08
+
+All 90 conformance vectors pass. Q1 and Q2 are resolved in the engine as described above and need
+only a documentation correction; Q3, Q4, Q5 and Q6 remain open but none of them blocks a vector —
+each was settled with a recorded choice the vectors now exercise.
+
 ## Already resolved, recorded so it is not re-litigated
 
 - **`expect.steps[].id` vs `ref`, and rule `id` vs `code`.** The vector README originally
@@ -119,3 +153,11 @@ Both settled in the vectors, both worth confirming:
 - **`U` and `∅` are the same value.** `03_LLD.md:845` — "`U` means unknown, which is a
   missing Boolean." One `{"missing": true}` encoding covers both.
 - **D11 vs `trustt-platform-lib`.** ADR-016, and D11 in `00` now carries the amendment.
+- **Variables are resolved lazily and memoised per entity.** §4.2 specifies a compile-time
+  dependency DAG and topological order; the engine resolves on demand with cycle detection
+  instead. Same order, same answers, and a variable no component reaches costs no fuel. The cache
+  is per entity because a MEMBER-scope variable means something different for each member.
+- **Aggregation consumes effective statuses, not raw ones.** §4.9 resolves coverage before
+  aggregation, so an approved deviation contributes a PASS to the step — while the raw DEVIATION
+  stays on the entity record for the audit trail. `stpEligible` reads the raw status, which is why
+  a covered deviation approves but is not straight-through (P-02).

@@ -1,10 +1,12 @@
 package dev.bre.engine.decide;
 
+import dev.bre.engine.eval.EvalErrorCode;
 import dev.bre.engine.eval.EvaluationContext;
 import dev.bre.engine.eval.Value;
 import dev.bre.engine.eval.Value.ListV;
 import dev.bre.engine.eval.Value.RecordV;
 import dev.bre.engine.eval.Value.TextV;
+import dev.bre.engine.eval.VariableResolver;
 import dev.bre.engine.ir.Ir;
 import dev.bre.engine.ir.Ir.PolicyIr;
 import dev.bre.engine.ir.Ir.RuntimeStatus;
@@ -39,6 +41,9 @@ public final class FlowEvaluator {
 
   /** The reason attached to steps a knockout skipped (S12-01). */
   public static final String SKIPPED_KNOCKOUT = "SYS_SKIPPED_KNOCKOUT";
+
+  /** The reason every runtime error carries (§3.11). */
+  public static final String SYS_ERROR = "SYS_ERROR";
 
   private FlowEvaluator() {}
 
@@ -88,8 +93,40 @@ public final class FlowEvaluator {
    * @param context the evaluation context at application scope
    * @return the decision
    */
-  public static DecisionResult evaluate(PolicyIr policy, EvaluationContext context) {
+  public static DecisionResult evaluate(PolicyIr policy, EvaluationContext policyContext) {
+    // The fuel budget belongs to the policy, so it is installed here rather than left to every
+    // caller to remember (§3.10). One meter per decision, shared by every component.
+    Map<String, String> variableExpressions = new LinkedHashMap<>();
+    policy
+        .variables()
+        .forEach(variable -> variableExpressions.put(variable.name(), variable.expr()));
+
+    EvaluationContext context =
+        policy
+            .fuelLimit()
+            .map(
+                limit ->
+                    new EvaluationContext(
+                        policyContext.facts(),
+                        policyContext.parameters(),
+                        policyContext.lists(),
+                        policyContext.asOf(),
+                        policyContext.it(),
+                        new dev.bre.engine.eval.FuelMeter(limit),
+                        new VariableResolver(variableExpressions)))
+            .orElseGet(
+                () -> policyContext.withVariables(new VariableResolver(variableExpressions)));
+
     Components components = Components.index(policy);
+    // Resolved once, at application scope: the authority amount is a property of the application,
+    // not of whichever member happens to be under evaluation.
+    Optional<Value> authorityAmount =
+        policy
+            .authorityAmount()
+            .map(
+                expr ->
+                    dev.bre.engine.eval.Evaluator.evaluate(
+                        dev.bre.engine.bel.parse.Parser.parseExpression(expr), context));
     List<StepResult> steps = new ArrayList<>();
     boolean knockedOut = false;
 
@@ -101,7 +138,7 @@ public final class FlowEvaluator {
 
       List<StepResult> stageSteps = new ArrayList<>(stage.steps().size());
       for (StepDef step : stage.steps()) {
-        stageSteps.add(runStep(step, components, context));
+        stageSteps.add(runStep(step, components, context, policy, authorityAmount));
       }
       steps.addAll(stageSteps);
 
@@ -124,18 +161,56 @@ public final class FlowEvaluator {
   }
 
   private static StepResult runStep(
-      StepDef step, Components components, EvaluationContext context) {
+      StepDef step,
+      Components components,
+      EvaluationContext context,
+      PolicyIr policy,
+      Optional<Value> authorityAmount) {
+
     Scope scope = components.scopeOf(step.ref());
-    List<EvaluationContext> entities = entitiesInScope(scope, context);
+
+    if (context.fuel().isExhausted()) {
+      // §3.10: fail-closed. A policy that ran out of fuel part way has not decided that its
+      // remaining rules do not apply.
+      return new StepResult(
+          step.ref(),
+          RuntimeStatus.ERROR,
+          List.of(
+              ComponentResult.error(step.ref(), EvalErrorCode.EVAL_FUEL_EXHAUSTED.name())
+                  .withReasonCode(SYS_ERROR)));
+    }
+
+    List<Entity> entities = entitiesInScope(scope, context, step.roles());
 
     List<ComponentResult> results = new ArrayList<>(entities.size());
-    for (EvaluationContext entity : entities) {
-      results.add(components.evaluate(step.ref(), entity));
+    for (Entity entity : entities) {
+      ComponentResult raw =
+          components.evaluate(step.ref(), entity.context()).forEntity(scope.name(), entity.ref());
+      // §4.9: coverage and authority are resolved per entity, BEFORE aggregation — so an approved
+      // deviation is already an effective PASS by the time the step's status is computed.
+      if (raw.status() == RuntimeStatus.ERROR && raw.reasonCode().isEmpty()) {
+        raw = raw.withReasonCode(SYS_ERROR); // §3.11: every runtime error reports SYS_ERROR.
+      }
+      results.add(
+          Coverage.apply(
+              raw,
+              policy.authorityMatrix(),
+              authorityAmount,
+              entity.context().facts(),
+              entity.context().asOf()));
     }
 
     RuntimeStatus status = Aggregation.aggregate(step.aggregate(), results, context);
     return new StepResult(step.ref(), status, results);
   }
+
+  /**
+   * One entity in scope: the context the component sees, and the reference identifying it.
+   *
+   * @param context the per-entity evaluation context
+   * @param ref the entity's reference, or null when the scope has no separate identity
+   */
+  private record Entity(EvaluationContext context, String ref) {}
 
   /**
    * Enumerates the entities a scope iterates over (§4.5).
@@ -149,29 +224,87 @@ public final class FlowEvaluator {
    * arrive with the retail and MSME catalogues in Phase 2, and each needs its own ordering rule
    * from §4.5 rather than a guess here.
    */
-  private static List<EvaluationContext> entitiesInScope(Scope scope, EvaluationContext context) {
+  private static List<Entity> entitiesInScope(
+      Scope scope, EvaluationContext context, List<String> roles) {
+
+    // PARTY scope iterates the parties, optionally narrowed to the step's roles. §2.2 allows
+    // `roles` only on a PARTY-scope step, which is why the filter lives here and not in the
+    // component.
+    if (scope == Scope.PARTY) {
+      List<Entity> entities = new ArrayList<>();
+      for (Value party : partiesOf(context)) {
+        if (!roles.isEmpty() && !hasRole(party, roles)) {
+          continue;
+        }
+        entities.add(new Entity(bind(context, "party", party), partyRef(party)));
+      }
+      return entities;
+    }
+
     if (scope != Scope.MEMBER) {
-      return List.of(context);
+      return List.of(new Entity(context, applicationRef(context)));
     }
 
     List<Value> members = derivedMembers(context);
-    if (members.isEmpty()) {
-      return List.of();
+    if (!members.isEmpty()) {
+      List<Entity> entities = new ArrayList<>(members.size());
+      for (Value member : members) {
+        entities.add(new Entity(bind(context, "member", member), partyRef(member)));
+      }
+      return entities;
     }
 
-    List<EvaluationContext> entities = new ArrayList<>(members.size());
-    for (Value member : members) {
-      Map<String, Value> fields = new LinkedHashMap<>(context.facts().fields());
-      fields.put("member", member);
-      entities.add(
-          new EvaluationContext(
-              new RecordV(fields),
-              context.parameters(),
-              context.lists(),
-              context.asOf(),
-              context.it()));
+    // A fact snapshot that binds `member` DIRECTLY, with no parties[] to derive from, is one
+    // member already selected — which is how most of the §13 single-member vectors are written.
+    // Returning no entities instead would aggregate to NOT_APPLICABLE and silently report that
+    // the rule did not apply, when in truth it was never run.
+    if (!context.facts().field("member").isMissing()) {
+      return List.of(new Entity(context, partyRef(context.facts().field("member"))));
     }
-    return entities;
+    return List.of();
+  }
+
+  /** Returns a context with one extra fact root bound, for a per-entity evaluation. */
+  private static EvaluationContext bind(EvaluationContext context, String name, Value value) {
+    Map<String, Value> fields = new LinkedHashMap<>(context.facts().fields());
+    fields.put(name, value);
+    return new EvaluationContext(
+        new RecordV(fields),
+        context.parameters(),
+        context.lists(),
+        context.asOf(),
+        context.it(),
+        context.fuel(),
+        // A fresh cache per entity: a MEMBER-scope variable is a different value for each member,
+        // so sharing one cache across members would hand the first member's answer to all of them.
+        context.variables().forNewEntity());
+  }
+
+  private static List<Value> partiesOf(EvaluationContext context) {
+    return context.facts().field("parties") instanceof ListV parties
+        ? parties.elements()
+        : List.of();
+  }
+
+  private static boolean hasRole(Value party, List<String> roles) {
+    return party instanceof RecordV record
+        && record.field("role") instanceof TextV role
+        && roles.contains(role.value());
+  }
+
+  private static String applicationRef(EvaluationContext context) {
+    if (context.facts().field("application") instanceof RecordV application
+        && application.field("applicationRef") instanceof TextV ref) {
+      return ref.value();
+    }
+    return null;
+  }
+
+  private static String partyRef(Value party) {
+    if (party instanceof RecordV record && record.field("partyRef") instanceof TextV ref) {
+      return ref.value();
+    }
+    return null;
   }
 
   private static List<Value> derivedMembers(EvaluationContext context) {
@@ -248,13 +381,21 @@ public final class FlowEvaluator {
     return anyDeviation ? Outcomes.Decision.APPROVE_WITH_DEVIATION : Outcomes.Decision.APPROVE;
   }
 
-  /** Straight-through processing is off the moment anything deviates (P-02). */
+  /**
+   * Straight-through eligibility (P-02).
+   *
+   * <p>Read from each entity's <b>raw</b> status, not the step's effective one. A deviation that an
+   * approver signed off is still a deviation that needed a human: the decision is APPROVE, and
+   * {@code stpEligible} is false. Reading the effective status here would report a covered
+   * deviation as straight-through and lose the distinction entirely.
+   */
   private static boolean isStpEligible(List<StepResult> steps) {
     return steps.stream()
+        .flatMap(step -> step.entities().stream())
         .allMatch(
-            step ->
-                step.status() == RuntimeStatus.PASS
-                    || step.status() == RuntimeStatus.NOT_APPLICABLE);
+            entity ->
+                entity.status() == RuntimeStatus.PASS
+                    || entity.status() == RuntimeStatus.NOT_APPLICABLE);
   }
 
   /** Indexes a policy's components by code, so a flow step's {@code ref} resolves in one place. */

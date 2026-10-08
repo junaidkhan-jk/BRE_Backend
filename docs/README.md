@@ -65,10 +65,16 @@ The parts of the specification that are code rather than prose:
 | LLD §1.2 rule 2 / §9.6 PII log guard | `../backend/tests/engine-conformance/src/test/java/dev/bre/conformance/PiiLogGuardTest.java` |
 | D11 / ADR-016 repository boundary | the root `checkLibsAreMavenCentralOnly` task |
 
+**All 90 conformance vectors pass** (2026-10-08). The engine implements the §13 semantics in full:
+BEL, three-valued logic, decimals and dates, decision tables with every hit policy, scorecards with
+adverse reasons, per-entity iteration, the four aggregation modes, deviation coverage and authority
+resolution, knockout, fuel and champion/challenger bucketing.
+
 **Open questions: [`OPEN-QUESTIONS.md`](OPEN-QUESTIONS.md).** Six places where the specification
-does not fix something the code needed, ordered by damage, each with the choice taken so M0 could
-finish. Read it before M1 continues — **Q1 is blocking**: the vector format has no channel for the
-Authority Matrix, so as written a correct engine would fail 24 of its own conformance vectors.
+does not fix something the code needed. **None blocks a vector any more** — Q1 (the Authority Matrix
+channel) and Q2 (contradictory `DATA_MISSING_` reason codes) are resolved in the engine and need
+only a documentation correction; the rest were settled with a recorded choice. Two §13 rows had to
+be deviated from, and both deviations are written down beside the vector that makes them.
 Per-family detail is in `NOTES-vectors-{missing,tables,decision}.md` beside the vectors.
 
 ## Building

@@ -119,6 +119,23 @@ final class JsonFacts {
     return PLAIN_DECIMAL.matcher(text).matches() ? DecimalV.of(text) : new TextV(text);
   }
 
+  /**
+   * Renders a scalar as its bare canonical text, without the typed envelope.
+   *
+   * <p>For a Decimal that is {@code stripTrailingZeros().toPlainString()} (§3.6), so a measure of
+   * {@code 216000} compares equal however it was computed.
+   */
+  static String plain(Value value) {
+    return switch (value) {
+      case DecimalV d -> d.toCanonicalString();
+      case IntV i -> Long.toString(i.value());
+      case TextV t -> t.value();
+      case BoolV b -> Boolean.toString(b.value());
+      case Value.DateV d -> d.value().toString();
+      default -> value.toString();
+    };
+  }
+
   /** Renders an engine value as the vector format's typed envelope, for comparison. */
   static Map<String, Object> toEnvelope(Value value) {
     Map<String, Object> envelope = new LinkedHashMap<>(1);

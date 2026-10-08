@@ -48,7 +48,7 @@ final class Aggregation {
       return RuntimeStatus.NOT_APPLICABLE;
     }
     return switch (spec.kind()) {
-      case NONE -> results.get(0).status();
+      case NONE -> results.get(0).effectiveStatus();
       case WORST -> worst(results);
       case ALL_MUST_PASS -> allMustPass(results);
       case THRESHOLD -> threshold(spec, results, context);
@@ -58,7 +58,9 @@ final class Aggregation {
   private static RuntimeStatus worst(List<ComponentResult> results) {
     RuntimeStatus status = RuntimeStatus.NOT_APPLICABLE;
     for (ComponentResult result : results) {
-      status = Severity.worst(status, result.status());
+      // EFFECTIVE, not raw: §4.9 resolves coverage per entity before aggregation, so an approved
+      // deviation contributes a PASS here (S8-01) while the raw DEVIATION stays on the record.
+      status = Severity.worst(status, result.effectiveStatus());
     }
     return status;
   }
@@ -69,7 +71,7 @@ final class Aggregation {
     boolean anyBreach = false;
 
     for (ComponentResult result : results) {
-      RuntimeStatus status = result.status();
+      RuntimeStatus status = result.effectiveStatus();
       if (status == RuntimeStatus.NOT_APPLICABLE) {
         continue; // A-01a: NOT_APPLICABLE leaves the set before the all-PASS test.
       }
@@ -100,11 +102,12 @@ final class Aggregation {
     long numerator = 0;
     long denominator = 0;
     for (ComponentResult result : results) {
-      if (result.status() == RuntimeStatus.NOT_APPLICABLE) {
+      if (result.effectiveStatus() == RuntimeStatus.NOT_APPLICABLE) {
         continue; // S7-04: out of the denominator entirely.
       }
       denominator++;
-      if (counted.contains(result.status())) {
+      // A covered deviation is no longer a deviation for threshold purposes (S7-03).
+      if (counted.contains(result.effectiveStatus())) {
         numerator++;
       }
     }

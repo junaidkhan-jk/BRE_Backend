@@ -65,16 +65,14 @@ public final class ComponentEvaluator {
       }
 
       if (((BoolV) check).value()) {
-        return new ComponentResult(
+        return ComponentResult.of(
             rule.code(),
             RuntimeStatus.PASS,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            evaluateOutputs(rule.outputs(), context),
-            Optional.empty(),
-            List.of());
+            null,
+            null,
+            null,
+            null,
+            evaluateOutputs(rule.outputs(), context));
       }
       return fromOutcome(rule.code(), rule.onFail(), rule.outputs(), context);
 
@@ -116,7 +114,16 @@ public final class ComponentEvaluator {
         // S5-01 and S5-04. A gap with all inputs present is a policy defect CHK-002 should have
         // caught at compile time, so it is an ERROR rather than a quiet pass.
         if (anyInputMissing) {
-          return applyOnMissing(table.code(), table.onMissing(), null, context);
+          // The derived reason names the first input that was actually missing, which is what
+          // S5-01 asserts: group.villageRiskCategory -> DATA_MISSING_GROUP_VILLAGE_RISK_CATEGORY.
+          String firstMissing = null;
+          for (int column = 0; column < inputs.size(); column++) {
+            if (inputs.get(column).isMissing()) {
+              firstMissing = table.inputs().get(column).expr();
+              break;
+            }
+          }
+          return applyOnMissing(table.code(), table.onMissing(), firstMissing, context);
         }
         // EVAL_TABLE_NO_MATCH is scoped to non-COLLECT tables (§4.6). A COLLECT table that
         // matches nothing has collected nothing, which is a legitimate answer — T-03 pins it at
@@ -210,16 +217,8 @@ public final class ComponentEvaluator {
         };
 
     // A COLLECT table's rows carry no status, so a match is a PASS (§2.2's output-only rule).
-    return new ComponentResult(
-        table.code(),
-        RuntimeStatus.PASS,
-        Optional.empty(),
-        Optional.empty(),
-        Optional.empty(),
-        Optional.empty(),
-        Map.of(outputName, aggregated),
-        Optional.empty(),
-        List.of());
+    return ComponentResult.of(
+        table.code(), RuntimeStatus.PASS, null, null, null, null, Map.of(outputName, aggregated));
   }
 
   private static Value sum(List<Value> values) {
@@ -257,16 +256,14 @@ public final class ComponentEvaluator {
     RuntimeStatus status =
         then.status().map(ComponentEvaluator::toRuntimeStatus).orElse(RuntimeStatus.PASS);
 
-    return new ComponentResult(
+    return ComponentResult.of(
         table.code(),
         status,
-        then.reasonCode(),
-        then.deviationType(),
-        then.measure().map(expr -> evaluate(expr, context)),
-        then.worseWhen(),
-        outputs,
-        Optional.empty(),
-        List.of());
+        then.reasonCode().orElse(null),
+        then.deviationType().orElse(null),
+        then.measure().map(expr -> evaluate(expr, context)).orElse(null),
+        then.worseWhen().orElse(null),
+        outputs);
   }
 
   private static Optional<OutcomeStatus> rowStatus(TableRow row) {
@@ -297,7 +294,8 @@ public final class ComponentEvaluator {
       for (Ir.Characteristic characteristic : scorecard.characteristics()) {
         Value value = evaluate(characteristic.expr(), context);
         if (value.isMissing()) {
-          return applyOnMissing(scorecard.code(), scorecard.onMissing(), null, context);
+          return applyOnMissing(
+              scorecard.code(), scorecard.onMissing(), characteristic.expr(), context);
         }
 
         Optional<Ir.Bin> hit = Optional.empty();
@@ -332,14 +330,28 @@ public final class ComponentEvaluator {
               .toList();
 
       Value score = scale(raw, scorecard.scaling());
+      // §4.10 and S11-01: the adverse reasons are a named output, `reasons`, so a policy can
+      // reference scorecard.CODE.reasons the same way it references the score.
+      Map<String, Value> outputs =
+          Map.of(
+              "score",
+              score,
+              "reasons",
+              new Value.ListV(adverse.stream().map(r -> (Value) new Value.TextV(r)).toList()));
       return new ComponentResult(
           scorecard.code(),
+          RuntimeStatus.PASS,
           RuntimeStatus.PASS,
           Optional.empty(),
           Optional.empty(),
           Optional.empty(),
           Optional.empty(),
-          Map.of("score", score),
+          Optional.empty(),
+          Optional.empty(),
+          Optional.empty(),
+          Optional.empty(),
+          Optional.empty(),
+          outputs,
           Optional.empty(),
           adverse);
 
@@ -467,16 +479,14 @@ public final class ComponentEvaluator {
 
   private static ComponentResult fromOutcome(
       String code, Ir.Outcome outcome, Map<String, String> outputs, EvaluationContext context) {
-    return new ComponentResult(
+    return ComponentResult.of(
         code,
         toRuntimeStatus(outcome.status()),
-        outcome.reasonCode(),
-        outcome.deviationType(),
-        outcome.measure().map(expr -> evaluate(expr, context)),
-        outcome.worseWhen(),
-        evaluateOutputs(outputs, context),
-        Optional.empty(),
-        List.of());
+        outcome.reasonCode().orElse(null),
+        outcome.deviationType().orElse(null),
+        outcome.measure().map(expr -> evaluate(expr, context)).orElse(null),
+        outcome.worseWhen().orElse(null),
+        evaluateOutputs(outputs, context));
   }
 
   private static Map<String, Value> evaluateOutputs(

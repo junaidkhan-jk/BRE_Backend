@@ -60,6 +60,9 @@ public final class Evaluator {
   }
 
   private Value eval(Expr expr) {
+    // §3.10: every AST node costs one unit. Charged here rather than per node type so that no
+    // expression form can be added later that quietly costs nothing.
+    context.fuel().charge();
     return switch (expr) {
       case Expr.IntLit e -> new IntV(e.value());
       case Expr.DecimalLit e -> new DecimalV(e.value());
@@ -98,8 +101,18 @@ public final class Evaluator {
           // argument, which the type checker rejects (M1-03).
           throw new EvalException(EvalErrorCode.EVAL_INTERNAL, ref.name(), "RoundingMode");
         }
-        // A bare identifier is a fact root or a variable; both read off the fact record, and an
-        // absent one reads as missing rather than failing.
+        // A declared variable shadows a fact root of the same name: the policy said what that
+        // name means, and the binder resolves it that way (§3.8).
+        if (context.variables().declares(ref.name())) {
+          yield context
+              .variables()
+              .resolve(
+                  ref.name(),
+                  context,
+                  (expression, where) ->
+                      evaluate(dev.bre.engine.bel.parse.Parser.parseExpression(expression), where));
+        }
+        // Otherwise a fact root, and an absent one reads as missing rather than failing.
         yield context.facts().field(ref.name());
       }
     };
@@ -151,6 +164,8 @@ public final class Evaluator {
    * field that happens to be absent on *every* element currently takes the scalar path.
    */
   private Value project(ListV list, String fieldName) {
+    context.fuel().charge(list.elements().size()); // §3.10: a projection costs 1 + n.
+
     boolean flattening = false;
     for (Value element : list.elements()) {
       if (element instanceof RecordV record && record.field(fieldName) instanceof ListV) {
@@ -182,6 +197,10 @@ public final class Evaluator {
     if (!(target instanceof ListV list)) {
       throw new EvalException(EvalErrorCode.EVAL_INTERNAL, null, target.typeName());
     }
+
+    // §3.10: a filter costs 1 + n before the predicate's own cost, which the recursive
+    // evaluation of each element charges as it goes.
+    context.fuel().charge(list.elements().size());
 
     List<Value> kept = new ArrayList<>();
     for (Value element : list.elements()) {
