@@ -1,0 +1,86 @@
+spring:
+  application:
+    name: policy-registry
+  threads:
+    virtual:
+      enabled: true
+  jackson:
+    default-property-inclusion: non_null
+
+  # ---------------------------------------------------------------------------
+  # DATABASE — PLACEHOLDER VALUES. Change these to your own PostgreSQL.
+  # ---------------------------------------------------------------------------
+  # Unlike the decision service, this one has NO in-memory mode. A registry
+  # whose policy versions are not durable is not a registry: the whole point is
+  # that an approval, a signature and a deployment are facts somebody can be
+  # held to years later. It therefore refuses to start without a database.
+  #
+  # Prefer environment variables over editing this file, so no credential is
+  # ever committed:
+  #   SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bre        # CHANGE ME
+    username: bre_ctl_app                            # CHANGE ME
+    password: change-me                               # CHANGE ME — do not commit a real one
+    hikari:
+      maximum-pool-size: 8
+      pool-name: bre-ctl
+
+  # Flyway owns bre_ctl (LLD §5.2).
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # NO `schemas:` setting, deliberately. Flyway creates the schemas it is told about, and V1 does
+    # `CREATE SCHEMA bre_ctl AUTHORIZATION bre_ctl_owner` itself — so naming it here makes Flyway
+    # create it first (owned by the connecting user) and V1 then fails with "schema already
+    # exists". Worse, the obvious fix of making V1 use IF NOT EXISTS would leave the schema owned
+    # by the wrong role, which quietly breaks FORCE ROW LEVEL SECURITY and the §5.2 grants.
+    #
+    # So the migration owns the schema and its ownership, and Flyway's own history table lives in
+    # `public`. Found by running these migrations through Spring Boot for the first time: the test
+    # that had been executing them configured Flyway by hand, with no schemas setting, so this path
+    # had never run.
+    # Never clean the control plane. `flyway clean` here destroys every policy
+    # version, every approval and the hash-chained audit log, and there is no
+    # undo for an audit log.
+    clean-disabled: true
+
+server:
+  port: 8081
+
+bre:
+  engine-version: 0.1.0-SNAPSHOT
+
+  registry:
+    # The cell this registry publishes manifests for (§8.1). A manifest is per
+    # cell and monotonically versioned, so two registries writing to one cell
+    # would produce two version-1 manifests and pods would adopt whichever
+    # arrived first.
+    cell-id: 1
+
+    # Where published manifests are written for the decision pods to read. In
+    # production this is the §8.2 long-poll endpoint plus object storage; this
+    # directory is the local equivalent and is what devstack points pods at.
+    manifest-dir: ./var/manifests
+
+    # Where built bundles are written. Content-addressed, so a file name is the
+    # bundle hash and a wrong file cannot masquerade as the right one.
+    bundle-dir: ./var/bundles
+
+    # ---------------------------------------------------------------------------
+    # SIGNING KEYS — LOCAL DEVELOPMENT ONLY.
+    # ---------------------------------------------------------------------------
+    # A production signing key is generated in, and never leaves, the KMS or HSM
+    # (§8.6); this service calls the KMS to sign and never holds the key. These
+    # two settings exist so the registry runs on a laptop. If either is set in a
+    # deployed environment, that is the finding.
+    #
+    # Generate a pair with:  bre keygen bundle.pkcs8 bundle.x509
+    bundle-signing-key: ""                            # base64 PKCS#8 Ed25519 — LOCAL ONLY
+    bundle-signing-kid: "reg-local-2026-01"
+    manifest-signing-key: ""                          # base64 PKCS#8 Ed25519 — LOCAL ONLY
+    manifest-signing-kid: "manifest-cell1-2026-01"
+
+logging:
+  level:
+    dev.bre: INFO

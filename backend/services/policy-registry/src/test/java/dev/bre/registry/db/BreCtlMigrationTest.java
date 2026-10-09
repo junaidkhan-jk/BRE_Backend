@@ -71,10 +71,21 @@ class BreCtlMigrationTest {
     }
   }
 
+  private static int migrationScriptCount() throws Exception {
+    var dir = java.nio.file.Path.of(BreCtlMigrationTest.class.getResource("/db/migration").toURI());
+    try (var files = java.nio.file.Files.list(dir)) {
+      return (int) files.filter(f -> f.getFileName().toString().matches("V\\d+__.*\\.sql")).count();
+    }
+  }
+
   @Test
-  void everyMigrationApplies() {
+  void everyMigrationApplies() throws Exception {
     assertThat(result.success).isTrue();
-    assertThat(result.migrationsExecuted).isEqualTo(7);
+    // Counted from the files, not hard-coded. A literal goes stale the first time a migration is
+    // added and then fails with "expected 7 but was 12" about migrations that applied perfectly.
+    assertThat(result.migrationsExecuted)
+        .as("every V__ script on the classpath must have run")
+        .isEqualTo(migrationScriptCount());
   }
 
   @Test

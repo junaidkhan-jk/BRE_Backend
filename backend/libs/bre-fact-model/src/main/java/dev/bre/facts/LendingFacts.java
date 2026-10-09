@@ -34,6 +34,28 @@ public final class LendingFacts {
     return SCHEMA;
   }
 
+  /**
+   * Returns the schema's JSON Schema document, verbatim.
+   *
+   * <p>The parsed {@link FactSchema} is a flattened path-to-type view and cannot be rendered back
+   * into the original document — it keeps no {@code $defs}, no descriptions and no enum ordering.
+   * The registry stores the document itself (§5.2 {@code fact_schemas.json_schema}) and hashes it,
+   * so a lender can show an auditor the exact bytes their policies were validated against, which
+   * means the bytes have to be available rather than reconstructed.
+   *
+   * @return the document
+   */
+  public static String schemaJson() {
+    try (InputStream in = LendingFacts.class.getResourceAsStream(RESOURCE)) {
+      if (in == null) {
+        throw new IllegalStateException("the lending fact schema resource is missing: " + RESOURCE);
+      }
+      return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new UncheckedIOException("the lending fact schema could not be read", e);
+    }
+  }
+
   private static FactSchema load() {
     try (InputStream in = LendingFacts.class.getResourceAsStream(RESOURCE)) {
       if (in == null) {
