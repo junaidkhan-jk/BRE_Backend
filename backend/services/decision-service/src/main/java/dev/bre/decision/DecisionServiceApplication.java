@@ -11,6 +11,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * simplest thing that meets the latency budget without an async programming model.
  */
 @SpringBootApplication
+@org.springframework.boot.context.properties.EnableConfigurationProperties(
+    dev.bre.decision.policy.PolicyConfiguration.PolicyProperties.class)
 public class DecisionServiceApplication {
 
   /**

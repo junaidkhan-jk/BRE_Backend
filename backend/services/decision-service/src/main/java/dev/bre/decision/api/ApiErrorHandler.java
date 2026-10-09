@@ -63,6 +63,51 @@ public class ApiErrorHandler {
   }
 
   /**
+   * A policy could not be resolved (§8.1, §8.3).
+   *
+   * <p>422 rather than 404: the request is well formed and the resource exists conceptually — this
+   * pod will not serve that policy to that caller right now. The reason is named, because the three
+   * causes need entirely different responses from the integrator. An unserved policy is a
+   * deployment question; a refused pin usually means the grandfather window has closed and the
+   * caller should stop pinning; no manifest at all is this pod's problem, not the caller's.
+   *
+   * <p>No bundle content, no facts — identifiers only.
+   *
+   * @param exception the failure
+   * @return the problem body
+   */
+  @ExceptionHandler(dev.bre.decision.policy.PolicyResolutionException.class)
+  public ProblemDetail onPolicyNotResolved(
+      dev.bre.decision.policy.PolicyResolutionException exception) {
+    ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNPROCESSABLE_CONTENT);
+    problem.setTitle("The policy could not be resolved");
+    problem.setType(java.net.URI.create("https://bre.dev/problems/policy-not-resolved"));
+    problem.setDetail(exception.getMessage());
+    problem.setProperty("reason", exception.reason().name());
+    return problem;
+  }
+
+  /**
+   * A bundle failed verification (§2.6, §8.6).
+   *
+   * <p>502, not 422: the caller did nothing wrong. Something between the registry and this pod
+   * produced a bundle that does not verify, and that is an operational incident — a tampered object
+   * store, a misconfigured trust key, or a bundle signed by a key this installation does not know.
+   *
+   * @param exception the failure
+   * @return the problem body
+   */
+  @ExceptionHandler(dev.bre.bundle.BundleException.class)
+  public ProblemDetail onBundleNotVerified(dev.bre.bundle.BundleException exception) {
+    ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_GATEWAY);
+    problem.setTitle("The policy bundle could not be verified");
+    problem.setType(java.net.URI.create("https://bre.dev/problems/bundle-not-verified"));
+    problem.setDetail(exception.getMessage());
+    problem.setProperty("reason", exception.reason().name());
+    return problem;
+  }
+
+  /**
    * A request the service understood but cannot accept, such as an unknown {@code onMissing}.
    *
    * @param exception the rejection

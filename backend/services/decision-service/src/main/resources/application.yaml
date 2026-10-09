@@ -81,6 +81,40 @@ bre:
     # applicants until the §9.2 envelopes exist.
     store-facts: false
 
+
+# --- Policy distribution (LLD §8.1, §8.3, §8.6) -------------------------------------------------
+#
+# The policy is RESOLVED, never supplied on the request. A caller names a policy code and may pin a
+# bundle hash; this pod fetches that bundle by content address, verifies its signature against the
+# keys below, and only then evaluates it.
+#
+# ONLY PUBLIC KEYS BELONG HERE. A decision pod verifies and never signs — the bundle and manifest
+# signing keys live in the registry's KMS (§8.6), so a compromised pod can refuse policies but
+# cannot mint one.
+  policy:
+    # Where verified bundles are cached on disk, and where the Active Pointer Manifest is read
+    # from. In production both come from the registry (§8.2 long-poll); these are the local paths
+    # a pod keeps them at.
+    bundles: ./var/bundles
+    manifest: ./var/manifest.json
+
+    # CHANGE ME. The cell's manifest signing public key, base64-encoded X.509 Ed25519.
+    # Generate the pair in the KMS; only the public half is ever deployed here.
+    manifest-key: ""
+
+    # CHANGE ME. This installation's bundle signing public keys, by key id. Hold BOTH the current
+    # and the previous kid during a rotation — overlap is what stops a key change invalidating
+    # every bundle signed an hour ago (§8.6).
+    trusted-keys: {}
+    #  reg-acme-prod-2026-01: "MCowBQYDK2VwAyEA..."
+    #  reg-acme-prod-2025-07: "MCowBQYDK2VwAyEA..."
+
+    # How long a retired champion stays pinnable (§8.1). Measured from when it stopped being
+    # champion to the time a request ARRIVES — never to the caller's asOf, which the caller
+    # supplies and could back-date.
+    grandfather-window-days: 90
+
+
 logging:
   level:
     dev.bre: INFO

@@ -5,12 +5,11 @@ import dev.bre.common.UuidV7;
 import dev.bre.decision.api.DecisionApi.DecisionRequest;
 import dev.bre.decision.api.DecisionApi.DecisionResponse;
 import dev.bre.decision.api.DecisionApi.RuleOutcome;
-import dev.bre.decision.api.DecisionApi.RulePayload;
 import dev.bre.decision.log.DecisionLog;
 import dev.bre.decision.log.DecisionRecord;
-import dev.bre.engine.decide.Outcomes.OnMissing;
-import dev.bre.engine.decide.PolicyEvaluator;
-import dev.bre.engine.decide.RuleDef;
+import dev.bre.decision.policy.PolicyResolution;
+import dev.bre.decision.policy.PolicyResolver;
+import dev.bre.engine.decide.FlowEvaluator;
 import dev.bre.engine.eval.EvaluationContext;
 import dev.bre.engine.eval.Value;
 import java.time.Clock;
@@ -20,7 +19,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -54,6 +52,7 @@ public class DecideUseCase {
    */
   private static final String FACT_SCHEMA = "lending-facts@unversioned";
 
+  private final PolicyResolver policyResolver;
   private final DecisionLog decisionLog;
   private final ObjectMapper objectMapper;
   private final Clock clock;
@@ -71,7 +70,12 @@ public class DecideUseCase {
    * @param objectMapper used to store the fact snapshot verbatim
    * @param clock resolves an omitted {@code asOf}; see {@link DecisionClockConfiguration}
    */
-  public DecideUseCase(DecisionLog decisionLog, ObjectMapper objectMapper, Clock clock) {
+  public DecideUseCase(
+      PolicyResolver policyResolver,
+      DecisionLog decisionLog,
+      ObjectMapper objectMapper,
+      Clock clock) {
+    this.policyResolver = policyResolver;
     this.decisionLog = decisionLog;
     this.objectMapper = objectMapper;
     this.clock = clock;
@@ -100,9 +104,25 @@ public class DecideUseCase {
     Instant receivedAt = clock.instant();
     LocalDate asOf = request.asOf() != null ? request.asOf() : LocalDate.now(clock);
 
-    PolicyEvaluator.PolicyResult result =
-        PolicyEvaluator.evaluate(
-            toRules(request.policy().rules()),
+    // The policy is RESOLVED, never supplied. The caller names a policy code and may pin a
+    // bundle hash; what is actually evaluated is a signed, content-addressed bundle this pod
+    // fetched and verified (§8.1, §8.3, D4/D5). That is what makes the decision replayable: the
+    // record below carries the bundleHash, so the exact rules can be fetched again years later.
+    PolicyResolution resolved =
+        policyResolver.resolve(
+            request.tenantId(),
+            request.environment(),
+            request.policyCode(),
+            // The application reference fixes the challenger bucket (§4.11). When the caller does
+            // not supply one, the request id stands in: it is stable across a retry, which is the
+            // property that matters — an applicant must not be re-bucketed by retrying.
+            applicationRefOf(request).orElse(request.requestId()),
+            Optional.ofNullable(request.bundleHash()).filter(h -> !h.isBlank()),
+            receivedAt);
+
+    FlowEvaluator.DecisionResult result =
+        FlowEvaluator.evaluate(
+            resolved.policy(),
             EvaluationContext.of(FactMapper.toRecord(request.facts()), Map.of(), Map.of(), asOf));
 
     DecisionResponse response =
@@ -117,7 +137,7 @@ public class DecideUseCase {
             asOf,
             result.decision().name(),
             result.stpEligible(),
-            toOutcomes(result.results()));
+            toOutcomes(result.steps()));
 
     // Durable BEFORE the response returns (D6).
     Instant completedAt = clock.instant();
@@ -152,51 +172,40 @@ public class DecideUseCase {
   }
 
   /**
-   * Looks a decision up.
+   * Returns a decision by id.
    *
-   * @param tenantId the tenant
-   * @param decisionId the decision identifier
-   * @return the decision, or empty
+   * @param tenantId the tenant, which scopes the lookup — a decision id is only unique within one
+   * @param decisionId the decision
+   * @return the decision, or empty when this tenant has no such decision
    */
   public Optional<DecisionResponse> find(String tenantId, String decisionId) {
     return decisionLog.find(tenantId, decisionId).map(DecisionRecord::response);
   }
 
-  private static List<RuleDef> toRules(List<RulePayload> payloads) {
-    List<RuleDef> rules = new ArrayList<>(payloads.size());
-    for (RulePayload payload : payloads) {
-      rules.add(
-          new RuleDef(
-              payload.code(),
-              payload.check(),
-              Optional.ofNullable(payload.when()),
-              onMissing(payload.onMissing()),
-              Optional.ofNullable(payload.reasonCode())));
-    }
-    return rules;
-  }
-
-  private static OnMissing onMissing(String name) {
-    if (name == null || name.isBlank()) {
-      return OnMissing.DATA_MISSING; // the IR's default
-    }
-    try {
-      return OnMissing.valueOf(name.toUpperCase(Locale.ROOT));
-    } catch (IllegalArgumentException unknown) {
-      throw new IllegalArgumentException(
-          "onMissing must be one of DATA_MISSING, FAIL or NOT_APPLICABLE, not '" + name + "'");
-    }
-  }
-
-  private static List<RuleOutcome> toOutcomes(List<PolicyEvaluator.RuleResult> results) {
-    List<RuleOutcome> outcomes = new ArrayList<>(results.size());
-    for (PolicyEvaluator.RuleResult result : results) {
-      outcomes.add(
-          new RuleOutcome(
-              result.code(),
-              result.status().name(),
-              result.reasonCode().orElse(null),
-              result.error().orElse(null)));
+  /**
+   * One outcome per flow step.
+   *
+   * <p>The step's AGGREGATED status, not a per-entity one: a MEMBER-scope component runs once per
+   * group member, and a response that listed forty outcomes for one rule would be reporting the
+   * engine's internals rather than the decision. The per-entity detail belongs in the explanation
+   * (§6.4), which is M2-05.
+   */
+  private static List<RuleOutcome> toOutcomes(List<FlowEvaluator.StepResult> steps) {
+    List<RuleOutcome> outcomes = new ArrayList<>(steps.size());
+    for (FlowEvaluator.StepResult step : steps) {
+      String reasonCode =
+          step.entities().stream()
+              .filter(e -> e.reasonCode().isPresent())
+              .findFirst()
+              .flatMap(dev.bre.engine.decide.ComponentResult::reasonCode)
+              .orElse(null);
+      String error =
+          step.entities().stream()
+              .filter(e -> e.error().isPresent())
+              .findFirst()
+              .flatMap(dev.bre.engine.decide.ComponentResult::error)
+              .orElse(null);
+      outcomes.add(new RuleOutcome(step.ref(), step.status().name(), reasonCode, error));
     }
     return outcomes;
   }

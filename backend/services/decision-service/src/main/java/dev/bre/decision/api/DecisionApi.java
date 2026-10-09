@@ -1,8 +1,6 @@
 package dev.bre.decision.api;
 
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.util.List;
@@ -29,41 +27,22 @@ public final class DecisionApi {
    *     the request. The engine never reads a clock itself (D8) — this is the only place a "today"
    *     enters, and the resolved value is stored on the decision record.
    * @param facts the fact snapshot. Facts in, decision out (D2): the engine fetches nothing.
-   * @param policy the rules to evaluate
+   * @param environment the environment to decide in, e.g. {@code PROD}
+   * @param policyCode the policy to decide against. The service resolves it to a signed,
+   *     content-addressed bundle through the Active Pointer Manifest (§8.1); the caller names the
+   *     policy, never its contents.
+   * @param bundleHash an optional pin. Honoured only while that bundle is in the entry's {@code
+   *     servable} set and inside the tenant's grandfather window (§8.1), measured against the time
+   *     the request arrived — not against {@code asOf}, which the caller supplies.
    */
   public record DecisionRequest(
       @NotBlank String tenantId,
       @NotBlank String requestId,
       LocalDate asOf,
       @NotNull Map<String, Object> facts,
-      @NotNull @Valid PolicyPayload policy) {}
-
-  /**
-   * An inline policy.
-   *
-   * <p>A real deployment resolves a signed, content-addressed bundle by hash and never accepts
-   * policy on the request (D4, D5). Accepting it inline is what makes the walking skeleton testable
-   * before the registry exists, and the registry is M3.
-   *
-   * @param rules the rules, in declaration order
-   */
-  public record PolicyPayload(@NotEmpty @Valid List<RulePayload> rules) {}
-
-  /**
-   * One rule.
-   *
-   * @param code the rule's identifier. The IR calls this {@code code}, not {@code id}.
-   * @param check the BEL expression that must be TRUE to pass
-   * @param when an optional BEL guard
-   * @param onMissing DATA_MISSING (the default), FAIL or NOT_APPLICABLE
-   * @param reasonCode the reason attached to a non-PASS outcome
-   */
-  public record RulePayload(
-      @NotBlank String code,
-      @NotBlank String check,
-      String when,
-      String onMissing,
-      String reasonCode) {}
+      @NotBlank String environment,
+      @NotBlank String policyCode,
+      String bundleHash) {}
 
   /**
    * A decision response.
