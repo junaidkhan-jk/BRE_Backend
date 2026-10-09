@@ -27,7 +27,8 @@ class ListCapTest {
         Value.Missing.INSTANCE,
         FuelMeter.unlimited(),
         VariableResolver.none(),
-        new ListCap(cap));
+        new ListCap(cap),
+        dev.bre.engine.trace.TraceRecorder.NONE);
   }
 
   private static ListV tradelines(int count, long balance) {

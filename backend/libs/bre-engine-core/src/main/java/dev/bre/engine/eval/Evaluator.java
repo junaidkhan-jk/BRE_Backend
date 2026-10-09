@@ -1,6 +1,7 @@
 package dev.bre.engine.eval;
 
 import dev.bre.engine.bel.ast.Expr;
+import dev.bre.engine.bel.lex.Token;
 import dev.bre.engine.eval.Value.BoolV;
 import dev.bre.engine.eval.Value.DecimalV;
 import dev.bre.engine.eval.Value.IntV;
@@ -63,6 +64,66 @@ public final class Evaluator {
     // §3.10: every AST node costs one unit. Charged here rather than per node type so that no
     // expression form can be added later that quietly costs nothing.
     context.fuel().charge();
+    if (context.recorder().isRecording()) {
+      return evalRecording(expr);
+    }
+    return evalNode(expr);
+  }
+
+  /**
+   * Evaluates one node while recording the explanation (§4.12).
+   *
+   * <p>Separate from the plain path so that a decision pays nothing for tracing. The recorder on
+   * the decision path is {@code TraceRecorder.NONE}, whose {@code isRecording()} is a constant
+   * false the JIT folds away — an explanation is regenerated on demand by re-running with a real
+   * recorder attached, never produced speculatively.
+   */
+  private Value evalRecording(Expr expr) {
+    Token token = tokenOf(expr);
+    int start = token == null ? 0 : token.start();
+    int end = token == null ? 0 : token.end();
+    context.recorder().enter(describe(expr), start, end);
+    Value value;
+    try {
+      value = evalNode(expr);
+    } catch (RuntimeException failed) {
+      // The frame has to be closed or every later node nests under a dead one.
+      context.recorder().exit(Missing.INSTANCE, null);
+      throw failed;
+    }
+    context.recorder().exit(value, factPathOf(expr));
+    return value;
+  }
+
+  /** The fact path a node read, when it read one — which is what decides masking (§9.4). */
+  private static String factPathOf(Expr expr) {
+    return expr instanceof Expr.Field || expr instanceof Expr.Ref ? describe(expr) : null;
+  }
+
+  private static Token tokenOf(Expr expr) {
+    return switch (expr) {
+      case Expr.IntLit e -> e.token();
+      case Expr.DecimalLit e -> e.token();
+      case Expr.StringLit e -> e.token();
+      case Expr.BoolLit e -> e.token();
+      case Expr.Ref e -> e.token();
+      case Expr.Field e -> e.token();
+      case Expr.Filter e -> e.token();
+      case Expr.Call e -> e.token();
+      case Expr.ListLit e -> e.token();
+      case Expr.Negate e -> e.token();
+      case Expr.Not e -> e.token();
+      case Expr.Arithmetic e -> e.token();
+      case Expr.Comparison e -> e.token();
+      case Expr.Logical e -> e.token();
+      case Expr.In e -> e.token();
+      case Expr.Between e -> e.token();
+      case Expr.If e -> e.token();
+      case Expr.Range e -> e.token();
+    };
+  }
+
+  private Value evalNode(Expr expr) {
     return switch (expr) {
       case Expr.IntLit e -> new IntV(e.value());
       case Expr.DecimalLit e -> new DecimalV(e.value());
@@ -255,6 +316,18 @@ public final class Evaluator {
     return switch (expr) {
       case Expr.Ref ref -> ref.name();
       case Expr.Field field -> describe(field.target()) + "." + field.name();
+      case Expr.Call call -> call.function() + "(...)";
+      case Expr.Arithmetic arithmetic ->
+          describe(arithmetic.left()) + " " + arithmetic.op() + " " + describe(arithmetic.right());
+      case Expr.Comparison comparison ->
+          describe(comparison.left()) + " " + comparison.op() + " " + describe(comparison.right());
+      case Expr.Logical logical ->
+          describe(logical.left()) + " " + logical.op() + " " + describe(logical.right());
+      case Expr.IntLit lit -> String.valueOf(lit.value());
+      case Expr.DecimalLit lit -> String.valueOf(lit.value());
+      case Expr.StringLit lit -> "\"" + lit.value() + "\"";
+      case Expr.BoolLit lit -> String.valueOf(lit.value());
+      case Expr.Filter filter -> describe(filter.target()) + "[...]";
       default -> null;
     };
   }

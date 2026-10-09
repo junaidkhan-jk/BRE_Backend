@@ -22,6 +22,9 @@ import java.util.Objects;
  * @param fuel the decision's fuel budget (§3.10), shared by every component
  * @param variables the policy's declared variables, resolved lazily and memoised per entity
  * @param listCap the list-size cap (§3.10), which bounds the only unbounded work BEL can do
+ * @param recorder the explanation recorder (§4.12). {@code TraceRecorder.NONE} on the decision
+ *     path: an explanation is regenerated on demand by re-running with one attached, so a decision
+ *     never pays for a trace nobody asked for.
  */
 public record EvaluationContext(
     RecordV facts,
@@ -31,7 +34,8 @@ public record EvaluationContext(
     Value it,
     FuelMeter fuel,
     VariableResolver variables,
-    ListCap listCap) {
+    ListCap listCap,
+    dev.bre.engine.trace.TraceRecorder recorder) {
 
   /** Creates a context, copying the maps so the context is genuinely immutable. */
   public EvaluationContext {
@@ -43,6 +47,7 @@ public record EvaluationContext(
     fuel = fuel == null ? FuelMeter.unlimited() : fuel;
     variables = variables == null ? VariableResolver.none() : variables;
     listCap = listCap == null ? ListCap.defaults() : listCap;
+    recorder = recorder == null ? dev.bre.engine.trace.TraceRecorder.NONE : recorder;
   }
 
   /**
@@ -83,7 +88,19 @@ public record EvaluationContext(
         Missing.INSTANCE,
         fuel,
         VariableResolver.none(),
-        ListCap.defaults());
+        ListCap.defaults(),
+        dev.bre.engine.trace.TraceRecorder.NONE);
+  }
+
+  /**
+   * Returns a copy that records an explanation (§4.12).
+   *
+   * @param newRecorder the recorder
+   * @return the context, recording
+   */
+  public EvaluationContext recording(dev.bre.engine.trace.TraceRecorder newRecorder) {
+    return new EvaluationContext(
+        facts, parameters, lists, asOf, it, fuel, variables, listCap, newRecorder);
   }
 
   /**
@@ -93,7 +110,8 @@ public record EvaluationContext(
    * @return the derived context
    */
   public EvaluationContext withVariables(VariableResolver resolver) {
-    return new EvaluationContext(facts, parameters, lists, asOf, it, fuel, resolver, listCap);
+    return new EvaluationContext(
+        facts, parameters, lists, asOf, it, fuel, resolver, listCap, recorder);
   }
 
   /**
@@ -104,7 +122,8 @@ public record EvaluationContext(
    * @return the derived context
    */
   public EvaluationContext withIt(Value element) {
-    return new EvaluationContext(facts, parameters, lists, asOf, element, fuel, variables, listCap);
+    return new EvaluationContext(
+        facts, parameters, lists, asOf, element, fuel, variables, listCap, recorder);
   }
 
   /** Returns {@code asOf} as a BEL value. */
