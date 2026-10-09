@@ -8,6 +8,12 @@ import net.ltgt.gradle.errorprone.errorprone
 plugins { id("bre.java-library") }
 
 sourceSets {
+    // The service load test (M2-08). Its own source set because it is not a benchmark and not a
+    // test: it needs a RUNNING service, so it must never be picked up by `./gradlew test`.
+    create("load") {
+        java.srcDir("src/load/java")
+    }
+
     create("jmh") {
         java.srcDir("src/jmh/java")
         compileClasspath += sourceSets["main"].output
@@ -48,6 +54,20 @@ tasks.named<JavaCompile>("compileJmhJava") {
 }
 
 // ./gradlew :tests:perf:jmh --args="Decision"    -- one, by regex
+// ./gradlew :tests:perf:load --args="--url http://127.0.0.1:8080 --rate 500 --duration 60"
+tasks.register<JavaExec>("load") {
+    group = "verification"
+    description = "Load-tests a RUNNING decision service. Start one first: ./devstack/up.sh"
+    mainClass.set("dev.bre.perf.DecisionLoadTest")
+    classpath = sourceSets["load"].runtimeClasspath
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+    // From backend/, not from tests/perf/ — so a --facts path reads the same way whether it is
+    // typed on the command line or taken from the default.
+    workingDir = rootProject.layout.projectDirectory.asFile
+    // The harness exits non-zero on a missed budget, which is the point of it.
+    isIgnoreExitValue = false
+}
+
 tasks.register<JavaExec>("jmh") {
     group = "verification"
     description = "Runs the engine JMH benchmarks."

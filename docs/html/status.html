@@ -95,9 +95,9 @@
   <div class="rule"></div><div class="rule"></div>
 
   <div class="totals">
-    <div class="tot g"><b>29</b><span>done</span></div>
+    <div class="tot g"><b>30</b><span>done</span></div>
     <div class="tot a"><b>4</b><span>partial — usable, not finished</span></div>
-    <div class="tot s"><b>35</b><span>not started</span></div>
+    <div class="tot s"><b>34</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
 
@@ -190,7 +190,7 @@
     <div class="ms__head">
       <div><span class="kicker">M2 — Walking skeleton</span>
       <p class="ms__blurb">One thin path, end to end. The service runs and answers.</p></div>
-      <div class="ms__counts"><span class="pill g">5 done</span><span class="pill a">1 partial</span><span class="pill s">2 pending</span></div>
+      <div class="ms__counts"><span class="pill g">6 done</span><span class="pill a">1 partial</span><span class="pill s">1 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M2-01</td><td class="ti">bre-platform-common
@@ -213,7 +213,9 @@
       <tr><td class="id">M2-07</td><td class="ti">devstack — one command, seeded demo tenant
         <div class="no"><code>./devstack/up.sh</code>: builds, generates two local signing keys, bundles and signs the reference policy with its resolved assets, signs an Active Pointer Manifest, starts the service with only the public halves, then <b>posts all three reference fixtures and prints the decisions</b> — because &ldquo;it started&rdquo; and &ldquo;it decides correctly&rdquo; are different claims, and a devstack that comes up referring everything looks fine. No Docker: embedded where it can be, and the durable PostgreSQL path is opt-in.</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
-      <tr class="pend"><td class="id">M2-08</td><td class="ti">Gatling smoke load test at 500 decisions/s</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M2-08</td><td class="ti">Smoke load test at 500 decisions/s
+        <div class="no"><b>500/s held for 60s: p50 1 ms, p99 14 ms against a 100 ms budget, no failures.</b> Also run at 2,000/s — four times the target — where p50 does not move and the whole extra cost lands in the tail, which is queueing rather than work getting slower. <b>Open-model arrival</b>, which is the part most hand-rolled load tests get wrong: each request is measured from the instant it was <i>scheduled</i>, so a slow service cannot quietly reduce the offered rate and report its own preferred latency. Not Gatling — one endpoint and a fixed rate does not need a Scala toolchain and a build plugin added to a build whose containment rule is the point. <b>The decision log was IN_MEMORY</b>, so the durable write is not in these numbers, and both runs were on loopback.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
     </tbody></table>
   </section>
 
@@ -372,9 +374,11 @@
         empty list of customer-facing ones. That is the gap between a decision a credit officer can
         act on and one a lender can send to an applicant, and it is small: the catalogue is
         referenced by every policy already, and nothing reads it.</li>
-    <li><b>M2-08, the load test.</b> The engine is benchmarked and the service is not. A 0.198 ms
-        p99 inside the engine says nothing about what the decision-log write, the connection pool
-        and virtual-thread scheduling do to it under 500 decisions a second.</li>
+    <li><b>The durable write under load.</b> The service holds 500 decisions a second at a 14 ms
+        p99 — but with the IN_MEMORY decision log. NFR-PERF-01's budget includes the durable write,
+        and the one thing M2-08 does not yet measure is the PostgreSQL path with its sixteen-
+        connection pool. That is the number that decides whether compact mode (D6) is enough or
+        whether M4's Kafka-first path is needed sooner than planned.</li>
     <li><b>M2-06, facts encryption behind KmsPort.</b> Fact snapshots are not stored at all today,
         which is the safe default and also means replay cannot be used for the thing it exists for.
         The §9.2 two-envelope scheme is what unblocks it.</li>
