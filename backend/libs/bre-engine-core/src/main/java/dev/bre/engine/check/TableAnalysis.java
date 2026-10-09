@@ -92,8 +92,11 @@ public final class TableAnalysis {
     findings.addAll(overlaps(table, rows, domains));
     if (!anyOpaque) {
       findings.addAll(gaps(table, rows, domains));
+      // Reachability is unknowable for the same reason a gap is: every cell in an opaque column
+      // reads as "any", so every row after the first looks already covered. Reporting that would
+      // tell an author to delete rows that are in fact reachable.
+      findings.addAll(unreachable(table, rows));
     }
-    findings.addAll(unreachable(table, rows));
     return List.copyOf(findings);
   }
 

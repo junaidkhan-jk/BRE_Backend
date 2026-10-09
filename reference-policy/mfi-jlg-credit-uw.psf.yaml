@@ -1,0 +1,336 @@
+# The MFI JLG/SHG reference policy (M6-01).
+#
+# Assembled from the Rule Authoring Guide's worked examples E1-E11, E17, E18 and E21 — the
+# MFI-relevant ones. E12-E16 are retail, housing and MSME and belong to a different policy;
+# E19 and E20 are prose about process, not rules.
+#
+# This is the acceptance suite for the whole product. Ninety conformance vectors prove the engine
+# implements §13's semantics; this proves the engine can express a real lender's credit policy,
+# which is a different and larger claim. Every disagreement it surfaced between the guide and the
+# engine is recorded in reference-policy/FINDINGS.md rather than quietly worked around.
+policy: MFI_JLG_CREDIT_UW
+version: 1
+productLines: [MFI_JLG]
+stage: CREDIT_UW
+factSchema: lending-facts@1.0.0
+
+assets:
+  parameterSet: MFI_PARAMS@1
+  referenceLists: [UNSECURED_ACCOUNT_TYPES@1, OPEN_TRADELINE_STATUSES@1, MFI_LENDER_TYPES@1]
+  reasonCodes: CORE_REASONS@1
+  authorityMatrix: MFI_DOP@1
+
+settings:
+  authorityAmount: coalesce(application.approvedAmount, application.recommendedAmount, application.requestedAmount)
+  customerReasonLimit: 4
+
+variables:
+  # E4 — the amount under consideration, and each member's share of it.
+  - name: proposedAmount
+    type: Decimal
+    expr: coalesce(application.approvedAmount, application.recommendedAmount, application.requestedAmount)
+
+  - name: memberProposedAmount
+    scope: MEMBER
+    type: Decimal
+    expr: coalesce(member.proposedAmount, proposedAmount / count(group.memberPartyRefs))
+
+  # A tradeline with no status counts as open: conservative for a debt cap (Guide §2.7).
+  - name: memberUnsecuredOutstanding
+    scope: MEMBER
+    type: Decimal
+    expr: >
+      sum(member.bureauReports[it.bureau = param.PRIMARY_BUREAU].tradelines[
+            it.accountType in list.UNSECURED_ACCOUNT_TYPES
+        and (isMissing(it.status) or it.status in list.OPEN_TRADELINE_STATUSES)].currentBalance)
+
+  - name: memberTotalIndebtedness
+    scope: MEMBER
+    type: Decimal
+    expr: memberUnsecuredOutstanding + memberProposedAmount
+
+  # E5 — how many other MFI lenders this member already has.
+  - name: mfiLenderCount
+    scope: MEMBER
+    type: Integer
+    expr: >
+      distinctCount(member.bureauReports[it.bureau = param.PRIMARY_BUREAU].tradelines[
+            it.lenderType in list.MFI_LENDER_TYPES
+        and it.status in list.OPEN_TRADELINE_STATUSES
+        and it.lenderRef != param.OWN_LENDER_REF].lenderRef)
+
+  # E8 — the bureau report this policy reasons about, and the delinquency window.
+  - name: primaryReport
+    scope: MEMBER
+    type: Record
+    expr: first(member.bureauReports[it.bureau = param.PRIMARY_BUREAU])
+
+  - name: recentHistory
+    scope: MEMBER
+    type: List<Record>
+    expr: >
+      member.bureauReports[it.bureau = param.PRIMARY_BUREAU].tradelines.dpdHistory[
+            it.month >= addMonths(asOf, -param.DPD_LOOKBACK_MONTHS)]
+
+  - name: recentDelinquencies
+    scope: MEMBER
+    type: Integer
+    expr: count(recentHistory[it.dpd >= param.DPD_SEVERE_THRESHOLD])
+
+rules:
+  # --- E2: household income ceiling -----------------------------------------------------------
+  - code: MFI_HH_INCOME_CEILING
+    name: Household income within microfinance ceiling
+    scope: HOUSEHOLD
+    check: household.annualIncome <= param.MFI_HH_ANNUAL_INCOME_MAX
+    onFail: { status: FAIL, reasonCode: POL_HH_INCOME_ABOVE_MFI }
+    onMissing: REFER
+
+  - code: MFI_MEMBER_HAS_HOUSEHOLD
+    name: Every member is linked to a household
+    scope: MEMBER
+    check: not isMissing(member.householdRef)
+    onFail: { status: REFER, reasonCode: DATA_HH_LINK_MISSING }
+    onMissing: REFER
+
+  # --- E4: indebtedness, hard then soft --------------------------------------------------------
+  - code: MFI_INDEBTEDNESS_HARD_CAP
+    name: Member indebtedness within hard cap
+    scope: MEMBER
+    check: memberTotalIndebtedness <= param.INDEBTEDNESS_HARD_CAP
+    onFail: { status: FAIL, reasonCode: AFF_INDEBTEDNESS_HARD_CAP }
+    onMissing: REFER
+
+  - code: MFI_INDEBTEDNESS_SOFT_CAP
+    name: Member indebtedness within internal soft cap
+    scope: MEMBER
+    check: memberTotalIndebtedness <= param.INDEBTEDNESS_SOFT_CAP
+    onFail:
+      status: DEVIATION
+      reasonCode: AFF_INDEBTEDNESS_SOFT_CAP
+      deviationType: INDEBTEDNESS_CAP
+      measure: memberTotalIndebtedness
+      worseWhen: HIGHER
+    onMissing: REFER
+    outputs:
+      totalIndebtedness: memberTotalIndebtedness
+
+  # --- E5: lender concentration ----------------------------------------------------------------
+  - code: MFI_LENDER_CAP
+    name: Number of MFI lenders within cap, including us
+    scope: MEMBER
+    check: mfiLenderCount + 1 <= param.MAX_MFI_LENDERS
+    onFail: { status: FAIL, reasonCode: CR_MFI_LENDER_CAP }
+    onMissing: REFER
+
+  # --- E6: group shape -------------------------------------------------------------------------
+  - code: GRP_JLG_SIZE
+    name: JLG size within limits
+    scope: GROUP
+    when: group.type = "JLG"
+    check: count(group.memberPartyRefs) >= param.JLG_MIN_SIZE and count(group.memberPartyRefs) <= param.JLG_MAX_SIZE
+    onFail: { status: FAIL, reasonCode: POL_GROUP_SIZE }
+    onMissing: REFER
+
+  - code: GRP_SHG_SIZE
+    name: SHG size within limits
+    scope: GROUP
+    when: group.type = "SHG"
+    check: count(group.memberPartyRefs) >= param.SHG_MIN_SIZE and count(group.memberPartyRefs) <= param.SHG_MAX_SIZE
+    onFail: { status: FAIL, reasonCode: POL_GROUP_SIZE }
+    onMissing: REFER
+
+  - code: GRP_MIN_AGE
+    name: Group has existed long enough
+    scope: GROUP
+    when: group.cycleNumber = 1
+    check: monthsBetween(group.formedOn, asOf) >= param.MIN_GROUP_AGE_MONTHS
+    onFail: { status: FAIL, reasonCode: POL_GROUP_TOO_NEW }
+    onMissing: REFER
+
+  # --- E8: bureau presence and delinquency -----------------------------------------------------
+  - code: DATA_BUREAU_PRESENT
+    name: Primary bureau report was pulled
+    scope: MEMBER
+    check: count(member.bureauReports[it.bureau = param.PRIMARY_BUREAU]) >= 1
+    onFail: { status: REFER, reasonCode: DATA_BUREAU_NOT_PULLED }
+    onMissing: REFER
+
+  - code: CR_NO_RECENT_DPD30
+    name: No 30+ DPD in the lookback window
+    scope: MEMBER
+    check: not any(recentHistory, it.dpd >= param.DPD_SEVERE_THRESHOLD)
+    onFail: { status: FAIL, reasonCode: CR_RECENT_DPD }
+    onMissing: REFER
+
+  # --- E10: bureau score, and the new-to-credit path -------------------------------------------
+  - code: CR_MIN_BUREAU_SCORE
+    name: Bureau score at or above minimum
+    scope: MEMBER
+    when: primaryReport.noHit = false
+    check: primaryReport.score >= param.MIN_BUREAU_SCORE
+    onFail: { status: FAIL, reasonCode: CR_SCORE_BELOW_MIN }
+    onMissing: REFER
+
+  - code: POL_NTC_AMOUNT_CAP
+    name: New-to-credit members held to a lower amount
+    scope: MEMBER
+    when: primaryReport.noHit = true
+    check: memberProposedAmount <= param.NTC_MAX_AMOUNT
+    onFail:
+      status: DEVIATION
+      reasonCode: POL_NTC_AMOUNT
+      deviationType: NTC_AMOUNT
+      measure: memberProposedAmount
+      worseWhen: HIGHER
+    onMissing: REFER
+
+  # --- E11: age ---------------------------------------------------------------------------------
+  - code: POL_MIN_AGE
+    name: Applicant is an adult
+    scope: MEMBER
+    check: ageInYears(member.dateOfBirth, asOf) >= param.MIN_AGE
+    onFail: { status: FAIL, reasonCode: KYC_UNDER_MIN_AGE }
+    onMissing: REFER
+
+  - code: POL_AGE_AT_MATURITY
+    name: Age at maturity within limit
+    scope: MEMBER
+    check: ageInYears(member.dateOfBirth, addMonths(asOf, application.tenureMonths)) <= param.MAX_AGE_AT_MATURITY
+    onFail:
+      status: DEVIATION
+      reasonCode: POL_AGE_AT_MATURITY
+      deviationType: AGE_AT_MATURITY
+      measure: ageInYears(member.dateOfBirth, addMonths(asOf, application.tenureMonths))
+      worseWhen: HIGHER
+    onMissing: REFER
+
+decisionTables:
+  # --- E1: village risk ------------------------------------------------------------------------
+  - code: GRP_VRM_CATEGORY
+    name: Village risk category
+    scope: GROUP
+    hitPolicy: FIRST
+    inputs:
+      - { name: vrm, expr: group.villageRiskCategory }
+    rows:
+      - { when: ['missing'],      then: { status: REFER, reasonCode: DATA_VRM_MISSING } }
+      - { when: ['in ["A","B"]'], then: { status: PASS } }
+      - { when: ['= "C"'],        then: { status: DEVIATION, deviationType: VRM_CATEGORY_C, reasonCode: POL_VRM_C, measure: group.villageRiskCategory } }
+      - { when: ['in ["D","E"]'], then: { status: FAIL, reasonCode: POL_VRM_DE } }
+      - { when: ['-'],            then: { status: REFER, reasonCode: POL_VRM_UNKNOWN } }
+
+  # --- E17: screening knockout -------------------------------------------------------------------
+  - code: SCR_SCREENING
+    name: Screening outcome
+    scope: MEMBER
+    hitPolicy: FIRST
+    inputs:
+      - { name: sanctions, expr: member.screening.sanctionsHit }
+      - { name: pep,       expr: member.screening.pepHit }
+      - { name: negative,  expr: member.screening.negativeListHit }
+    rows:
+      - { when: ['-, missing', '-, missing', '= true'],  then: { status: FAIL,  reasonCode: FRD_NEGATIVE_LIST } }
+      - { when: ['missing', '-, missing', '-, missing'], then: { status: REFER, reasonCode: DATA_SCREENING_MISSING } }
+      - { when: ['-, missing', 'missing', '-, missing'], then: { status: REFER, reasonCode: DATA_SCREENING_MISSING } }
+      - { when: ['-, missing', '-, missing', 'missing'], then: { status: REFER, reasonCode: DATA_SCREENING_MISSING } }
+      - { when: ['= true', '-, missing', '-, missing'],  then: { status: REFER, reasonCode: FRD_SANCTIONS_POTENTIAL } }
+      - { when: ['-, missing', '= true', '-, missing'],  then: { status: REFER, reasonCode: KYC_PEP_EDD } }
+      - { when: ['= false', '= false', '= false'],       then: { status: PASS } }
+
+  # --- E18: the score cut-off ---------------------------------------------------------------------
+  - code: MFI_SCORE_CUTOFF
+    name: Score cut-off
+    scope: MEMBER
+    hitPolicy: FIRST
+    inputs:
+      - { name: score, expr: MFI_APP_SCORE_V1.score }
+    rows:
+      - { when: ['missing'],                    then: { status: REFER, reasonCode: DATA_SCORE_MISSING } }
+      - { when: ['>= param.SCORE_APPROVE_MIN'], then: { status: PASS } }
+      - { when: ['>= param.SCORE_REFER_MIN'],   then: { status: REFER, reasonCode: CR_SCORE_BORDERLINE } }
+      - { when: ['-'],                          then: { status: FAIL,  reasonCode: CR_SCORE_LOW } }
+
+scorecards:
+  # --- E18 ---------------------------------------------------------------------------------------
+  - code: MFI_APP_SCORE_V1
+    name: MFI member application score
+    scope: MEMBER
+    baseScore: 300
+    characteristics:
+      - name: bureauScore
+        expr: primaryReport.score
+        reasonCode: SC_BUREAU_SCORE
+        bins:
+          - { when: 'missing',    points: 25, reasonCode: SC_NO_BUREAU_SCORE }
+          - { when: '< 650',      points: 0 }
+          - { when: '[650..700)', points: 30 }
+          - { when: '[700..750)', points: 50 }
+          - { when: '>= 750',     points: 70 }
+      - name: groupCycle
+        expr: group.cycleNumber
+        reasonCode: SC_GROUP_CYCLE_EARLY
+        bins:
+          - { when: 'missing', points: 0, reasonCode: SC_CYCLE_MISSING }
+          # DEVIATION from the guide's E18, which starts at '= 1' and so leaves every value
+          # below 1 uncovered. A cycleNumber of 0 is not hypothetical — it is what an
+          # unset field or an upstream data error looks like — and an uncovered bin
+          # contributes nothing silently, moving the score without anybody choosing to.
+          - { when: '< 1',     points: 0, reasonCode: SC_CYCLE_INVALID }
+          - { when: '[1..2)',  points: 20 }
+          - { when: '[2..4)',  points: 45 }
+          - { when: '>= 4',    points: 70 }
+      - name: recentDelinquencies
+        expr: recentDelinquencies
+        reasonCode: SC_RECENT_DELINQUENCY
+        bins:
+          # Same deviation as groupCycle: '= 0' upwards leaves everything below 0 uncovered.
+          # A count cannot be negative, but nothing in the type system says so, and a bin set
+          # that is total by construction costs one line.
+          - { when: 'missing', points: 0, reasonCode: SC_DPD_HISTORY_INCOMPLETE }
+          - { when: '< 1',     points: 60 }
+          - { when: '[1..2)',  points: 20 }
+          - { when: '>= 2',    points: 0 }
+    adverseReasons: 3
+
+flow:
+  stages:
+    # E17: anything here that FAILs stops the flow and declines.
+    - name: KNOCKOUT
+      knockout: true
+      steps:
+        - { ref: SCR_SCREENING, aggregate: ALL_MUST_PASS }
+
+    - name: DATA_INTEGRITY
+      steps:
+        - { ref: DATA_BUREAU_PRESENT, aggregate: WORST }
+        - { ref: MFI_MEMBER_HAS_HOUSEHOLD, aggregate: WORST }
+
+    - name: ELIGIBILITY
+      steps:
+        - { ref: GRP_VRM_CATEGORY, aggregate: WORST }
+        - { ref: GRP_JLG_SIZE, aggregate: WORST }
+        - { ref: GRP_SHG_SIZE, aggregate: WORST }
+        - { ref: GRP_MIN_AGE, aggregate: WORST }
+        - { ref: POL_MIN_AGE, aggregate: WORST }
+        - { ref: POL_AGE_AT_MATURITY, aggregate: WORST }
+
+    - name: CREDIT
+      steps:
+        - { ref: CR_MIN_BUREAU_SCORE, aggregate: WORST }
+        - { ref: CR_NO_RECENT_DPD30, aggregate: WORST }
+        - { ref: MFI_LENDER_CAP, aggregate: WORST }
+        - { ref: POL_NTC_AMOUNT_CAP, aggregate: WORST }
+
+    - name: AFFORDABILITY
+      steps:
+        - { ref: MFI_HH_INCOME_CEILING, aggregate: WORST }
+        - { ref: MFI_INDEBTEDNESS_HARD_CAP, aggregate: WORST }
+        # E7: one member over the soft cap is a deviation; a fifth of the group is a REFER.
+        - ref: MFI_INDEBTEDNESS_SOFT_CAP
+          aggregate: "THRESHOLD(percent >= 20, DEVIATION) -> REFER"
+
+    - name: SCORING
+      steps:
+        - { ref: MFI_APP_SCORE_V1, aggregate: NONE }
+        - { ref: MFI_SCORE_CUTOFF, aggregate: WORST }

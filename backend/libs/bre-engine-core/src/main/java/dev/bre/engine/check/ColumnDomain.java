@@ -88,7 +88,17 @@ public final class ColumnDomain {
     }
 
     List<String> names = new ArrayList<>(literals);
-    names.add("OTHER");
+    // A Boolean column is CLOSED: true and false, and nothing else. Adding an OTHER piece to it
+    // invents a third value that cannot exist, and then reports every total boolean table as
+    // having a gap — which is what it did to the specification's own E17 screening table. An
+    // enum is closed in the same way, but the engine cannot tell an enum from free text without
+    // the fact schema, so only the boolean case is closed here.
+    boolean closed =
+        !literals.isEmpty()
+            && literals.stream().allMatch(value -> "true".equals(value) || "false".equals(value));
+    if (!closed) {
+      names.add("OTHER");
+    }
     names.add("MISSING");
     return new ColumnDomain(Kind.CATEGORICAL, names, List.of(), List.copyOf(literals));
   }
