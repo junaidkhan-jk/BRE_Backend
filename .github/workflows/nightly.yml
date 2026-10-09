@@ -56,6 +56,50 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+  # M1-16's exit criterion: the engine's latency budgets, asserted rather than observed.
+  jmh:
+    name: JMH latency budgets
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up JDK 21 and 25
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@da187c8e6ffbd3802e00f2477aa5a822b25f2dda # v4.4.4
+        with:
+          build-root-directory: backend
+
+      - name: Run the engine benchmarks
+        run: |
+          ./gradlew :tests:perf:jmh \
+            --args="DecisionBenchmark -p ruleCount=100 -p ruleCount=1000 -rf json -rff jmh.json"
+        working-directory: backend
+
+      # A benchmark nobody compares to a ceiling is a number in a log. This fails the job, and it
+      # fails just as hard when a benchmark did not run at all — a budget whose benchmark is
+      # missing is a budget nobody checked.
+      - name: Assert the latency budgets
+        run: python3 tests/perf/check-budgets.py jmh.json
+        working-directory: backend
+
+      - name: Upload the raw results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jmh-results
+          path: backend/jmh.json
+          if-no-files-found: ignore
+          retention-days: 30
+
   # Still genuinely not built. Named so that nobody reads a green check as
   # coverage: these jobs assert the gap rather than echoing past it.
   not-yet-built:
@@ -70,7 +114,6 @@ jobs:
             echo
             echo "| Build Plan task | What is missing |"
             echo "|---|---|"
-            echo "| M2-02 | Testcontainers integration. Local dev uses embedded infra — this host has no Docker — so the decision-log SQL has still never executed anywhere. |"
-            echo "| M1-16 | The long JMH run. The short one does not exist either. |"
+            echo "| M4-01 | Kafka integration. The decision log runs in compact (PostgreSQL) mode only; the Kafka-first path does not exist. |"
             echo "| M6-02 | The 24-hour Jazzer campaign, as distinct from the 1-hour gate above. |"
           } >> "$GITHUB_STEP_SUMMARY"

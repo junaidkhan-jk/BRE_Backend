@@ -85,11 +85,32 @@ public class DecisionBenchmark {
     blackhole.consume(Evaluator.evaluate(PREPARSED, context));
   }
 
+  /**
+   * NFR-PERF-02's large case: a 40-member JLG group, every member evaluated per rule.
+   *
+   * <p>The shape that actually stresses this engine. A 100-rule application-scope policy runs 100
+   * evaluations; the same policy at MEMBER scope over a 40-member group runs 4,000, plus the
+   * per-entity coverage and aggregation on top. The LLD's own M1-16 note puts the engine at p99 <=
+   * 50 ms for this case against NFR-PERF-02's 250 ms whole-request budget.
+   */
+  @Benchmark
+  public void groupDecision(Blackhole blackhole) {
+    blackhole.consume(FlowEvaluator.evaluate(GROUP_POLICY, GROUP_CONTEXT));
+  }
+
   /** Parsing, measured separately because a lowered tree is built once and evaluated many times. */
   @Benchmark
   public void parseOnly(Blackhole blackhole) {
     blackhole.consume(Parser.parseExpression(EXPRESSION));
   }
+
+  /** Forty members, which is the upper end of a real JLG group. */
+  private static final int GROUP_SIZE = 40;
+
+  /** Twenty-five MEMBER-scope rules over forty members is a thousand evaluations per decision. */
+  private static final Ir.PolicyIr GROUP_POLICY = memberPolicy(25);
+
+  private static final EvaluationContext GROUP_CONTEXT = groupContext(GROUP_SIZE);
 
   private static final String EXPRESSION =
       "application.requestedAmount / application.tenureMonths <= application.monthlyIncome * 0.5"
@@ -130,6 +151,67 @@ public class DecisionBenchmark {
         Optional.empty(),
         Optional.empty(),
         Ir.PolicyIr.DEFAULT_CUSTOMER_REASON_LIMIT);
+  }
+
+  /** A MEMBER-scope policy: every rule runs once per member. */
+  private static Ir.PolicyIr memberPolicy(int ruleCount) {
+    List<Ir.RuleDef> rules = new ArrayList<>(ruleCount);
+    List<Ir.StepDef> steps = new ArrayList<>(ruleCount);
+    for (int i = 0; i < ruleCount; i++) {
+      String code = "M" + i;
+      rules.add(
+          new Ir.RuleDef(
+              code,
+              code,
+              Ir.Scope.MEMBER,
+              Optional.empty(),
+              "member.income.monthlyNet >= " + (5000 + (i % 20) * 100),
+              Ir.Outcome.fail("POL_" + code),
+              Ir.OnMissing.DEFAULT,
+              Map.of(),
+              Optional.empty()));
+      steps.add(Ir.StepDef.of(code, Ir.AggregateSpec.of(Ir.AggregateSpec.Kind.WORST)));
+    }
+    return new Ir.PolicyIr(
+        1,
+        List.of(),
+        rules,
+        List.of(),
+        List.of(),
+        new Ir.FlowDef(List.of(new Ir.StageDef("ELIGIBILITY", false, steps))),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Ir.PolicyIr.DEFAULT_CUSTOMER_REASON_LIMIT);
+  }
+
+  private static EvaluationContext groupContext(int members) {
+    List<Value> parties = new ArrayList<>(members);
+    List<Value> memberRefs = new ArrayList<>(members);
+    for (int i = 0; i < members; i++) {
+      String ref = String.format("P-%04d", i);
+      memberRefs.add(new Value.TextV(ref));
+      parties.add(
+          new Value.RecordV(
+              Map.of(
+                  "partyRef", new Value.TextV(ref),
+                  "role", new Value.TextV("MEMBER"),
+                  "type", new Value.TextV("INDIVIDUAL"),
+                  "income",
+                      new Value.RecordV(
+                          Map.of(
+                              "monthlyNet", Value.DecimalV.of(String.valueOf(5000 + i * 250)))))));
+    }
+    Map<String, Value> facts = new LinkedHashMap<>();
+    facts.put("parties", new Value.ListV(parties));
+    facts.put(
+        "group",
+        new Value.RecordV(
+            Map.of(
+                "groupRef", new Value.TextV("G-0001"),
+                "memberPartyRefs", new Value.ListV(memberRefs))));
+    return EvaluationContext.of(
+        new Value.RecordV(facts), Map.of(), Map.of(), LocalDate.parse("2026-10-01"));
   }
 
   private static EvaluationContext applicationContext() {

@@ -1,0 +1,17 @@
+{
+  "_comment": [
+    "Engine latency budgets (LLD M1-16). These are the ENGINE's share, not whole-request budgets.",
+    "00 §4 NFR-PERF-01 allows p50 <= 20 ms and p99 <= 100 ms for a 100-rule decision INCLUDING the",
+    "durable write; NFR-PERF-02 allows p99 <= 250 ms for the large case. The engine must be a small",
+    "fraction of those, so a regression is caught here rather than when it eats the write's budget.",
+    "Measured on 2026-10-09: decision/100 p99 198 us, groupDecision p99 2777 us.",
+    "The ceilings are set with headroom over the measurement, not at it — a budget a passing build",
+    "sits exactly on fails on the next noisy runner and gets raised until it means nothing."
+  ],
+  "budgets": [
+    { "benchmark": "decision",      "ruleCount": "100",  "p99Micros": 500,   "note": "LLD M1-16: engine p99 <= 0.5 ms for 100 rules" },
+    { "benchmark": "decision",      "ruleCount": "1000", "p99Micros": 10000, "note": "1,000 rules, 20x the 100-rule budget" },
+    { "benchmark": "groupDecision", "ruleCount": "100",  "p99Micros": 50000, "note": "LLD M1-16: engine p99 <= 50 ms for a 40-member group" },
+    { "benchmark": "expressionOnly","ruleCount": "100",  "p99Micros": 20,    "note": "one expression" }
+  ]
+}
