@@ -151,10 +151,11 @@ jobs:
             echo
             echo "| Build Plan task | What is missing |"
             echo "|---|---|"
-            echo "| M1-16 | JMH benchmarks and latency budgets. No performance figure for this engine exists. |"
-            echo "| M2-02 | The decision-log SQL has never been executed against a database. |"
+            echo "| M1-16 | The JMH latency budgets run NIGHTLY, not here — a microbenchmark on a shared PR runner is either slow or meaningless. |"
             echo "| M2-03 | Contract checks (buf breaking, OpenAPI, AsyncAPI) — no contracts module yet. |"
-            echo "| M2-04 | SBOM and licence scan — wired when services/* apply bre.spring-service. |"
+            echo "| M2-06 | SBOM and licence scan — wired when services/* apply bre.spring-service. |"
+            echo "| M3-09 | There is no authentication anywhere yet. The decision service must not face an untrusted network. |"
+            echo "| M4-09 | No deployment of any kind: no Dockerfile, no chart, no pipeline. |"
             echo
             echo "See \`docs/html/status.html\` for the full task state."
           } >> "$GITHUB_STEP_SUMMARY"
