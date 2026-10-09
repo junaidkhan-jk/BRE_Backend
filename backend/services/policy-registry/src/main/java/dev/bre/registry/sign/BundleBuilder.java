@@ -6,7 +6,6 @@ import dev.bre.bundle.Bundle;
 import dev.bre.bundle.BundleSigner;
 import dev.bre.engine.check.CheckFinding;
 import dev.bre.engine.check.StaticChecks;
-import dev.bre.irjson.AssetCodec;
 import dev.bre.irjson.IrCodec;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -45,6 +44,7 @@ public class BundleBuilder {
   private static final ObjectMapper JSON = new ObjectMapper();
 
   private final SigningKeySource keys;
+  private final TenantAssets tenantAssets;
   private final Path bundleDir;
   private final String engineVersion;
 
@@ -52,14 +52,18 @@ public class BundleBuilder {
    * Creates the builder.
    *
    * @param keys where the bundle signing key comes from
+   * @param tenantAssets resolves the tenant's parameter sets and lists — the same component the
+   *     compile step uses, so a version's tests and its bundle cannot disagree about thresholds
    * @param bundleDir where built bundles are written for pods to fetch
    * @param engineVersion the minimum engine version recorded on the bundle
    */
   public BundleBuilder(
       SigningKeySource keys,
+      TenantAssets tenantAssets,
       @Value("${bre.registry.bundle-dir:./var/bundles}") Path bundleDir,
       @Value("${bre.engine-version:0.1.0-SNAPSHOT}") String engineVersion) {
     this.keys = keys;
+    this.tenantAssets = tenantAssets;
     this.bundleDir = bundleDir;
     this.engineVersion = engineVersion;
   }
@@ -136,20 +140,20 @@ public class BundleBuilder {
     // Assets resolved into the bundle, where the policy names any. Without a resolved snapshot
     // every `param.X` is Missing at evaluation and the policy refers every applicant, so a bundle
     // signed without them is a bundle that cannot decide.
-    ObjectNode assets = JSON.createObjectNode();
     ObjectNode irToSign = ir.deepCopy();
+    ObjectNode assets;
     try {
-      ObjectNode source = assetSource(tenantId);
-      if (source != null) {
-        assets = AssetCodec.resolveForPolicy(source, irToSign.get("assets"));
-        AssetCodec.resolveAuthorityMatrix(source, irToSign.get("assets"))
-            .ifPresent(
-                matrix -> ((ObjectNode) irToSign.get("assets")).set("authorityMatrix", matrix));
-      } else if (declaresAssets(irToSign)) {
+      TenantAssets.Resolved resolved = tenantAssets.resolve(tenantId, irToSign.get("assets"));
+      assets = resolved.assets();
+      resolved
+          .authorityMatrix()
+          .ifPresent(
+              matrix -> ((ObjectNode) irToSign.get("assets")).set("authorityMatrix", matrix));
+      if (!resolved.present() && TenantAssets.declaresAssets(irToSign)) {
         log.warn(
             "policy {}@{} for tenant {} names a parameter set or reference lists but this"
-                + " installation has no asset source configured, so the bundle carries no resolved"
-                + " values and every param./list. reference will be Missing at evaluation.",
+                + " installation has no asset source, so the bundle carries no resolved values and"
+                + " every param./list. reference will be Missing at evaluation.",
             policyCode,
             version,
             tenantId);
@@ -188,36 +192,6 @@ public class BundleBuilder {
         signaturesJson(bundle));
   }
 
-  /**
-   * Where a tenant's asset source comes from.
-   *
-   * <p>ponytail: a JSON file per tenant under the bundle directory, which is the offline form the
-   * CLI already uses. §5.2's {@code parameters}, {@code parameter_values}, {@code
-   * reference_list_items} and {@code authority_entries} tables are the real home and are already
-   * migrated; reading from them is M3-03, because it needs the maker-checker and effective-dating
-   * those tables carry and that is a separate control, not a query.
-   *
-   * <p>Named so the gap is obvious: a parameter edited in a file beside the policy is not a
-   * parameter under maker-checker, and a lender's thresholds belong under maker-checker.
-   */
-  private ObjectNode assetSource(String tenantId) {
-    Path file = bundleDir.resolve("assets-" + tenantId + ".json");
-    if (!Files.isRegularFile(file)) {
-      return null;
-    }
-    try {
-      return (ObjectNode) JSON.readTree(Files.readString(file));
-    } catch (IOException | ClassCastException e) {
-      throw new BuildException("the asset source " + file + " could not be read", e);
-    }
-  }
-
-  private static boolean declaresAssets(ObjectNode ir) {
-    var assets = ir.get("assets");
-    return assets != null
-        && (!assets.path("parameterSet").isNull() || !assets.path("referenceLists").isEmpty());
-  }
-
   private void writeForPods(String bundleHash, String document) {
     try {
       Files.createDirectories(bundleDir);
@@ -229,8 +203,7 @@ public class BundleBuilder {
       throw new BuildException(
           "the bundle was signed but could not be written to "
               + bundleDir
-              + ", so no pod could"
-              + " fetch it. The approval is rolled back.",
+              + ", so no pod could fetch it. The approval is rolled back.",
           e);
     }
   }

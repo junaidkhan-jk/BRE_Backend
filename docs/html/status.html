@@ -95,9 +95,9 @@
   <div class="rule"></div><div class="rule"></div>
 
   <div class="totals">
-    <div class="tot g"><b>31</b><span>done</span></div>
-    <div class="tot a"><b>4</b><span>partial — usable, not finished</span></div>
-    <div class="tot s"><b>33</b><span>not started</span></div>
+    <div class="tot g"><b>32</b><span>done</span></div>
+    <div class="tot a"><b>8</b><span>partial — usable, not finished</span></div>
+    <div class="tot s"><b>28</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
 
@@ -190,7 +190,7 @@
     <div class="ms__head">
       <div><span class="kicker">M2 — Walking skeleton</span>
       <p class="ms__blurb">One thin path, end to end. The service runs and answers.</p></div>
-      <div class="ms__counts"><span class="pill g">7 done</span><span class="pill a">1 partial</span></div>
+      <div class="ms__counts"><span class="pill g">8 done</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M2-01</td><td class="ti">bre-platform-common
@@ -200,8 +200,8 @@
         <div class="no">Both schemas written and <b>executed against a real PostgreSQL</b>. Found a tenant-owned table with no row-level security (<code>audit_chain_heads</code>) and a wrong tenant-id pattern in TenantContext. See OPEN-QUESTIONS Q7 and Q8.</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M2-03</td><td class="ti">policy-registry — compile, sign, deploy, active pointer
-        <div class="no">The <b>Active Pointer Manifest is built, signed and verified</b>, the data plane's half of the contract is done, and <b>asset resolution</b> — parameter sets, reference lists and the Authority Matrix resolved into the signed bundle (§8.4) — now works offline through the CLI. <b>The registry's own HTTP surface is not built</b>: compile, sign, deploy, the §8.2 long-poll, and the storage those assets should come from rather than a local JSON file.</div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no"><b>The service exists.</b> A policy is written, saved, compiled, tested, submitted, reviewed, approved — which <b>builds and signs the bundle in the approval transaction</b> — and deployed, which publishes a signed Active Pointer Manifest. Compiling on <b>every save</b>, not at submit: an author who learns at submission time that their table has a gap has to re-read work they finished an hour ago. A policy that does not parse still saves, with the error as a finding. The submit gate refuses a version with a static-check error, a failing test, or <b>no tests at all</b>. <b>Still missing:</b> the §8.2 long-poll (pods read a file), and parameter storage under maker-checker — §5.2's tables exist, the bundle builder reads a JSON file.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M2-04</td><td class="ti">decision-service
         <div class="no"><b>The inline policy is gone.</b> Policy is resolved through the signed manifest, fetched by content address, verified and cached. Pin, challenger and champion selection; the pin window measured against arrival time, never the caller's <code>asOf</code>.</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
@@ -224,20 +224,29 @@
     <div class="ms__head">
       <div><span class="kicker">M3 — Control plane</span>
       <p class="ms__blurb">Authoring, review, deployment, identity. Needs a real identity provider.</p></div>
-      <div class="ms__counts"><span class="pill s">10 pending</span></div>
+      <div class="ms__counts"><span class="pill a">5 partial</span><span class="pill s">5 pending</span></div>
     </div>
     <table><tbody>
       <tr class="pend"><td class="id">M3-01</td><td class="ti">Full bre_ctl schema with row-level security and a hash-chained audit log</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M3-02</td><td class="ti">studio-service — version lifecycle, PSF import/export, diff</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M3-02</td><td class="ti">studio-service — version lifecycle, PSF import/export, diff
+        <div class="no"><b>The lifecycle is built, in policy-registry rather than a separate service</b> — one control-plane deployable while there is one database and one set of §5.2 tables; splitting it would give two services the same schema and no boundary between them. DRAFT → IN_REVIEW → APPROVED → ARCHIVED with both side transitions, optimistic locking so two authors in one draft is an error rather than a silent lost edit, and the author's PSF source kept verbatim beside the IR (V9) because translation discards every comment — and a credit policy's comments are where the reason for a threshold lives. <b>Diff and import/export are not built.</b></div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
       <tr class="pend"><td class="id">M3-03</td><td class="ti">Shared assets with maker-checker and effective dating</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M3-04</td><td class="ti">Test cases, coverage, submit gates, simulation API</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M3-05</td><td class="ti">Segregation of duties</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M3-06</td><td class="ti">Deployments, approvals, scheduling, rollback, manifests</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M3-05</td><td class="ti">Segregation of duties
+        <div class="no">Enforced twice — in the application and by <b>database triggers</b>, which is §5.2's own design and the reason it matters: a trigger holds for every writer, including <code>psql</code>. The reviewer cannot be <b>any</b> editor, not merely the creator, because a draft handed between two people must not become reviewable by either. A deployment approver can be neither author, reviewer nor requester. The <b>administrator override</b> is a tenant column, needs a granted role, and writes SOD_OVERRIDDEN to the hash-chained audit log on every use; V12 states plainly what it costs. <b>Asset reviews and the four-eyes rules on shared assets are not built</b> (M3-03).</div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
+      <tr><td class="id">M3-06</td><td class="ti">Deployments, approvals, scheduling, rollback, manifests
+        <div class="no">PENDING_APPROVAL → ACTIVE → SUPERSEDED, with ROLLED_BACK and CANCELLED; per-environment approval counts (DEV 0, UAT 1, PROD 2); and activation that <b>publishes a signed manifest in the same transaction</b> — a deployment row no pod can see is a statement of intent, not a deployment. A rollback is a <b>new deployment</b> pointing at a previous bundle: nothing is edited in place, which is the difference between being able to answer &ldquo;what was serving at 14:30 last Tuesday&rdquo; and not. <b>Scheduling is not built</b> — a deployment is effective immediately or waits for approvals.</div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
       <tr class="pend"><td class="id">M3-07</td><td class="ti">Bundle export and import between installations</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M3-08</td><td class="ti">tenant-admin-service</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M3-09</td><td class="ti">OIDC and OAuth2 client credentials
-        <div class="no">Why there is no authentication today.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M3-10</td><td class="ti">Studio audit events</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M3-09</td><td class="ti">OIDC and OAuth2 client credentials
+        <div class="no"><b>Local accounts, not OIDC</b> — a documented stand-in (V8) keyed on the same <code>subject</code> column <code>role_assignments</code> already uses, so an identity provider's subjects replace these rows without changing an authorisation rule. PBKDF2-HMAC-SHA256 at 600,000 iterations with the cost stored beside the hash, so raising it re-hashes on next login instead of resetting everybody. Opaque server-side sessions stored as a digest, because a JWT cannot be revoked and &ldquo;they left on Tuesday, their token works until Friday&rdquo; is not acceptable where approving a policy is a regulated act. Default-deny filter with a three-path allow-list, and the <b>tenant comes from the session, never a header</b>. One identical message for every login failure, so the form is not an account-enumeration oracle over a lender's staff directory. <b>No MFA, no SSO, no federation, no client-credentials flow</b> — those belong to the IdP. <b>The decision service is still unauthenticated.</b></div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
+      <tr><td class="id">M3-10</td><td class="ti">Studio audit events
+        <div class="no">Every lifecycle act writes to the <b>hash-chained, append-only</b> <code>audit_log</code>: created, saved, submitted, reviewed, approved, deployed, rolled back, logins and refusals, role grants, SoD overrides. The chaining is a <b>database trigger</b>, not application code — it assigns the sequence under a row lock, stamps the time from the server, and two further triggers forbid UPDATE, DELETE and TRUNCATE. The lifecycle test verifies the chain has no gaps and no broken links, by reading what the trigger built. <b>Not built:</b> the audit read API and the §10.4 export.</div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
     </tbody></table>
   </section>
 
@@ -270,7 +279,7 @@
     </div>
     <table><tbody>
       <tr><td class="id">M5-01</td><td class="ti">App shell — React, TypeScript, Vite, routing, role-aware navigation
-        <div class="no">Five screens built, running, and <b>verified in a browser</b> — zero console errors, routing works. <b>No login</b> (needs an identity provider) and <b>no masking</b> (belongs in the BFF — masking in the browser is wrong, the data has already been sent).</div></td>
+        <div class="no">Five screens built, running, and <b>verified in a browser</b> — zero console errors, routing works. <b>Login now exists</b>: a session guard around the whole shell, so a screen added later is protected by default rather than until somebody forgets a guard; the signed-in person, organisation and roles in the header, because in a multi-tenant system &ldquo;whose credit policy am I about to change&rdquo; has a wrong answer; and a permanent note when an administrator's approvals are being recorded as SoD overrides. The form is keyboard-completable and its error is announced — both asserted. The token is in <code>sessionStorage</code>, written down as a deliberate second-best: the right answer is an HttpOnly cookie the BFF issues. <b>Still no masking</b> — it belongs in the BFF, because masking in the browser is too late.</div></td>
         <td class="st"><span class="pill a">partial</span></td></tr>
       <tr class="pend"><td class="id">M5-02</td><td class="ti">Monaco BEL language — highlighting, autocomplete, diagnostics
         <div class="no">Needs the §13.3 language service; Monaco without one is a 2 MB textarea.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
@@ -389,7 +398,7 @@
         take unilaterally.</li>
   </ul>
 
-  <div class="foot">Generated from the repository · 42 commits · 596 tests passing · 9 October 2026</div>
+  <div class="foot">Generated from the repository · 42 commits · 616 tests passing · 9 October 2026</div>
 </div>
 </body>
 </html>

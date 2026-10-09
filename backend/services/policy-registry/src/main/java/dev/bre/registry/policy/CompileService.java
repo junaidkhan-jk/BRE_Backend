@@ -50,6 +50,18 @@ public class CompileService {
   private static final ObjectMapper JSON = new ObjectMapper();
   private static final FactReader FACT_READER = new FactReader(LendingFacts.schema());
 
+  private final dev.bre.registry.sign.TenantAssets assets;
+
+  /**
+   * Creates the compiler.
+   *
+   * @param assets resolves the tenant's parameter sets and reference lists, so test cases run
+   *     against the thresholds the bundle will actually carry
+   */
+  public CompileService(dev.bre.registry.sign.TenantAssets assets) {
+    this.assets = assets;
+  }
+
   /** A test case as stored (§5.2 {@code test_cases}). */
   public record TestCase(String name, java.time.LocalDate asOf, JsonNode facts, JsonNode expect) {}
 
@@ -173,11 +185,36 @@ public class CompileService {
                   : finding.message() + " (e.g. " + finding.witnesses().getFirst() + ")"));
     }
 
-    TestResults tests = runTests(policy, testCases);
+    // Resolved the same way the bundle builder resolves them, through the same component. Running
+    // tests with empty parameters made the reference policy — which reads nineteen of them — refer
+    // every applicant, so every test failed with "expected APPROVE, got REFER" against a policy
+    // that was correct.
+    dev.bre.registry.sign.TenantAssets.Resolved resolved =
+        assets.resolve(tenantId, ir.get("assets"));
+    if (!resolved.present() && dev.bre.registry.sign.TenantAssets.declaresAssets(ir)) {
+      findings.add(
+          new Finding(
+              "ASSET-000",
+              "WARN",
+              "assets",
+              "this policy names a parameter set or reference lists and this installation has no"
+                  + " asset source for the tenant, so every param. and list. reference is Missing."
+                  + " Test cases will refer rather than decide."));
+    }
+    resolved
+        .authorityMatrix()
+        .ifPresent(matrix -> ((ObjectNode) ir.get("assets")).set("authorityMatrix", matrix));
+
+    TestResults tests =
+        runTests(IrCodec.readPolicy(ir), testCases, resolved.parameters(), resolved.lists());
     return new Result(Optional.of(ir), findings, tests, schemaCode(ir), schemaVersion(ir));
   }
 
-  private static TestResults runTests(Ir.PolicyIr policy, List<TestCase> testCases) {
+  private static TestResults runTests(
+      Ir.PolicyIr policy,
+      List<TestCase> testCases,
+      Map<String, Value> parameters,
+      Map<String, Value> lists) {
     List<String> failures = new ArrayList<>();
     int passed = 0;
     for (TestCase test : testCases) {
@@ -186,13 +223,10 @@ public class CompileService {
         FlowEvaluator.DecisionResult result =
             FlowEvaluator.evaluate(
                 policy,
-                // Assets are Map.of() here, which matters: a policy that reads parameters cannot
-                // be meaningfully tested until the registry resolves its asset snapshot. That
-                // snapshot is per deployment, not per version, so a test result is about the
-                // RULES, not about the thresholds they will run against. Stated here because a
-                // green test suite on a parameterised policy would otherwise be read as more than
-                // it is.
-                EvaluationContext.of(facts, Map.of(), Map.of(), test.asOf()));
+                // The tenant's resolved parameters and lists — the same ones the bundle will be
+                // signed with. A test run against different thresholds from the deployed ones is
+                // not a test of anything.
+                EvaluationContext.of(facts, parameters, lists, test.asOf()));
 
         String expectedDecision = test.expect().path("decision").asText("");
         if (!expectedDecision.isEmpty() && !expectedDecision.equals(result.decision().name())) {

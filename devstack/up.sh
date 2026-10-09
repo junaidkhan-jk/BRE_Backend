@@ -6,9 +6,11 @@
 # corporate policy; requiring it would make "one command" mean "one command, after an afternoon
 # with IT".
 #
-#   ./devstack/up.sh          build, seed, start, and prove it decides
-#   ./devstack/up.sh --stop   stop it
-#   ./devstack/up.sh --seed   seed only: keys, bundle, manifest. No service.
+#   ./devstack/up.sh            build, seed, start, and prove it decides
+#   ./devstack/up.sh --registry  also start PostgreSQL and the policy registry, with an admin
+#                                account you can sign in to the studio with
+#   ./devstack/up.sh --stop     stop everything
+#   ./devstack/up.sh --seed     seed only: keys, bundle, manifest. No service.
 #
 # What it does:
 #   1. builds the CLI and the service
@@ -26,11 +28,36 @@ PORT="${BRE_PORT:-8080}"
 TENANT="t_devstack"
 KID="devstack-2026"
 PID_FILE="$VAR/decision-service.pid"
+REGISTRY_PID_FILE="$VAR/policy-registry.pid"
+POSTGRES_PID_FILE="$VAR/postgres.pid"
+PG_PROPERTIES="$VAR/postgres.properties"
+REGISTRY_PORT="${BRE_REGISTRY_PORT:-8081}"
+ADMIN_EMAIL="${BRE_ADMIN_EMAIL:-admin@lender.local}"
+ADMIN_PASSWORD="${BRE_ADMIN_PASSWORD:-devstack-admin-password}"
 
 log()  { printf '\033[36m==>\033[0m %s\n' "$*"; }
 fail() { printf '\033[31m!!!\033[0m %s\n' "$*" >&2; exit 1; }
 
+stop_pid() {
+  local file="$1" what="$2"
+  if [[ -f "$file" ]]; then
+    local pid; pid="$(cat "$file")"
+    if kill -0 "$pid" 2>/dev/null; then
+      log "stopping $what (pid $pid)"
+      kill "$pid" 2>/dev/null || true
+      for _ in $(seq 1 20); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
+      kill -9 "$pid" 2>/dev/null || true
+    fi
+    rm -f "$file"
+  fi
+}
+
 stop() {
+  stop_pid "$REGISTRY_PID_FILE" "policy-registry"
+  # PostgreSQL last: the registry holds connections to it, and killing the database first makes
+  # the service log a wall of connection errors on its way out.
+  stop_pid "$POSTGRES_PID_FILE" "embedded PostgreSQL"
+  rm -f "$PG_PROPERTIES"
   if [[ -f "$PID_FILE" ]]; then
     pid="$(cat "$PID_FILE")"
     if kill -0 "$pid" 2>/dev/null; then
@@ -72,17 +99,25 @@ JAVA="${JAVA_HOME:+$JAVA_HOME/bin/}java"
 # first process holding the port, the new one fails to bind, and the script reports "the service
 # did not start" — which sent me looking for a startup bug that did not exist. The pid file only
 # knows about the most recent run, so match on the jar as well.
-if [[ -f "$PID_FILE" ]] || pgrep -f "decision-service.jar" >/dev/null 2>&1; then
+WITH_REGISTRY=false
+[[ "${1:-}" == "--registry" ]] && WITH_REGISTRY=true
+
+if [[ -f "$PID_FILE" ]] || pgrep -f "decision-service.jar" >/dev/null 2>&1 \
+   || [[ -f "$REGISTRY_PID_FILE" ]] || pgrep -f "policy-registry.jar" >/dev/null 2>&1; then
   log "an instance is already running; stopping it first"
   stop
   pkill -f "decision-service.jar" 2>/dev/null || true
+  pkill -f "policy-registry.jar" 2>/dev/null || true
+  pkill -f "EmbeddedPostgresMain" 2>/dev/null || true
   sleep 1
 fi
 
 mkdir -p "$VAR/bundles"
 
 log "building"
-(cd "$ROOT/backend" && ./gradlew -q :tools:bre-cli:installDist :services:decision-service:bootJar) \
+BUILD_TARGETS=(:tools:bre-cli:installDist :services:decision-service:bootJar)
+$WITH_REGISTRY && BUILD_TARGETS+=(:services:policy-registry:bootJar :services:policy-registry:compileDevstackJava)
+(cd "$ROOT/backend" && ./gradlew -q "${BUILD_TARGETS[@]}") \
   || fail "the build failed; devstack will not start a service that does not compile"
 
 BRE="$ROOT/backend/tools/bre-cli/build/install/bre/bin/bre"
@@ -148,6 +183,93 @@ if [[ "${1:-}" == "--seed" ]]; then
   exit 0
 fi
 
+if $WITH_REGISTRY; then
+  log "starting embedded PostgreSQL (downloads a real server binary on first run)"
+  rm -f "$PG_PROPERTIES"
+  (cd "$ROOT/backend" && nohup ./gradlew -q :services:policy-registry:devPostgres \
+      --args="$PG_PROPERTIES" > "$VAR/postgres.log" 2>&1 & echo $! > "$POSTGRES_PID_FILE")
+  for _ in $(seq 1 180); do
+    [[ -s "$PG_PROPERTIES" ]] && break
+    sleep 1
+  done
+  [[ -s "$PG_PROPERTIES" ]] || { tail -20 "$VAR/postgres.log"; fail "PostgreSQL did not start"; }
+
+  PG_ADMIN_URL="$(grep '^admin.url=' "$PG_PROPERTIES" | cut -d= -f2-)"
+  PG_PSQL_URI="$(grep '^psql.uri=' "$PG_PROPERTIES" | cut -d= -f2-)"
+  log "PostgreSQL ready"
+
+  # Migrations run as the SUPERUSER and the service runs as bre_ctl_app, which is the production
+  # shape and the only one in which row-level security is actually exercised: a superuser bypasses
+  # RLS entirely, so running the service as one would hide every tenant-isolation mistake.
+  log "migrating bre_ctl and granting the application role a login"
+  REGISTRY_JAR="$(ls "$ROOT"/backend/services/policy-registry/build/libs/*.jar | grep -v plain | head -1)"
+  "$JAVA" -jar "$REGISTRY_JAR" \
+    --spring.main.web-application-type=none \
+    --spring.datasource.url="$PG_ADMIN_URL" \
+    --spring.datasource.username=postgres \
+    --spring.datasource.password= \
+    --spring.flyway.enabled=true \
+    --bre.registry.bootstrap-tenant= \
+    > "$VAR/migrate.log" 2>&1 \
+    || { tail -30 "$VAR/migrate.log"; fail "the bre_ctl migrations failed"; }
+
+  # -w so psql NEVER prompts. Without it a connection problem turns into a password prompt on a
+  # script's stdin and the whole thing hangs with no error anywhere.
+  psql -w "$PG_PSQL_URI" -q -v ON_ERROR_STOP=1 \
+    -c "ALTER ROLE bre_ctl_app LOGIN PASSWORD 'devstack-only'" \
+    || fail "could not grant bre_ctl_app a login. Is psql on PATH?"
+
+  if [[ ! -f "$VAR/registry-bundle.pkcs8" ]]; then
+    log "generating the registry's LOCAL signing keys (two of them — §8.6 keeps them separate)"
+    "$BRE" keygen "$VAR/registry-bundle.pkcs8"   "$VAR/registry-bundle.x509"   >/dev/null
+    "$BRE" keygen "$VAR/registry-manifest.pkcs8" "$VAR/registry-manifest.x509" >/dev/null
+  fi
+
+  log "starting policy-registry on port $REGISTRY_PORT"
+  nohup "$JAVA" -jar "$REGISTRY_JAR" \
+    --server.port="$REGISTRY_PORT" \
+    --spring.datasource.url="$PG_ADMIN_URL" \
+    --spring.datasource.username=bre_ctl_app \
+    --spring.datasource.password=devstack-only \
+    --spring.flyway.enabled=false \
+    --bre.registry.cell-id=1 \
+    --bre.registry.bundle-dir="$VAR/bundles" \
+    --bre.registry.manifest-dir="$VAR/manifests" \
+    --bre.registry.bundle-signing-key="$(cat "$VAR/registry-bundle.pkcs8")" \
+    --bre.registry.manifest-signing-key="$(cat "$VAR/registry-manifest.pkcs8")" \
+    --bre.registry.bootstrap-tenant=t_devstack \
+    --bre.registry.bootstrap-tenant-name="Devstack Lender" \
+    --bre.registry.bootstrap-admin-email="$ADMIN_EMAIL" \
+    --bre.registry.bootstrap-admin-password="$ADMIN_PASSWORD" \
+    > "$VAR/policy-registry.log" 2>&1 &
+  echo $! > "$REGISTRY_PID_FILE"
+
+  # Waits for the BOOTSTRAP line, not for "Started". The administrator is created on
+  # ApplicationReadyEvent, which fires after startup completes — so a script that logs in as soon
+  # as the port is listening races the account into existence and gets a 401 that looks exactly
+  # like a wrong password. Found that way.
+  for _ in $(seq 1 90); do
+    grep -qE "FIRST ADMINISTRATOR CREATED|bootstrap skipped" "$VAR/policy-registry.log" 2>/dev/null \
+      && break
+    grep -qi "APPLICATION FAILED TO START" "$VAR/policy-registry.log" 2>/dev/null \
+      && { tail -40 "$VAR/policy-registry.log"; fail "the registry failed to start"; }
+    sleep 1
+  done
+  grep -q "Started PolicyRegistryApplication" "$VAR/policy-registry.log" \
+    || { tail -40 "$VAR/policy-registry.log"; fail "the registry did not start in 90s"; }
+  grep -qE "FIRST ADMINISTRATOR CREATED|bootstrap skipped" "$VAR/policy-registry.log" \
+    || { tail -40 "$VAR/policy-registry.log"; fail "the registry started but never bootstrapped"; }
+
+  # "It started" and "you can sign in" are different claims, so prove the second one.
+  LOGIN="$(curl -sS -X POST "http://127.0.0.1:$REGISTRY_PORT/v1/auth/login" \
+      -H 'Content-Type: application/json' \
+      -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}")" \
+    || fail "the login request failed"
+  printf '%s' "$LOGIN" | grep -q '"token"' \
+    || { printf '%s\n' "$LOGIN"; fail "the bootstrapped administrator could not sign in"; }
+  log "administrator can sign in: $ADMIN_EMAIL"
+fi
+
 log "starting decision-service on port $PORT"
 JAR="$(ls "$ROOT"/backend/services/decision-service/build/libs/*.jar | grep -v plain | head -1)"
 
@@ -210,7 +332,7 @@ cat <<INFO
 
   devstack is up.
 
-    service    http://127.0.0.1:$PORT
+    decisions  http://127.0.0.1:$PORT
     tenant     $TENANT
     policy     MFI_JLG_CREDIT_UW
     bundle     $HASH

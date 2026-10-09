@@ -15,6 +15,17 @@ plugins {
     alias(libs.plugins.spring.boot)
 }
 
+sourceSets {
+    // A local-development entry point that starts a real PostgreSQL and blocks. Its own source set
+    // so it is never on the service's runtime classpath: embedded-postgres downloads and runs a
+    // database server, which is not something a deployed artefact should be able to do.
+    create("devstack") {
+        java.srcDir("src/devstack/java")
+    }
+}
+
+val devstackImplementation: Configuration by configurations.getting
+
 dependencies {
     // The compile pipeline: PSF in, IR out, static checks, and the engine to run test cases with.
     implementation(project(":libs:bre-ir-json"))
@@ -54,4 +65,23 @@ dependencies {
     testImplementation(libs.postgresql)
     testImplementation(libs.embedded.postgres)
     testImplementation(platform(libs.embedded.postgres.binaries.bom))
+
+    devstackImplementation(libs.embedded.postgres)
+    devstackImplementation(platform(libs.embedded.postgres.binaries.bom))
+    devstackImplementation(libs.postgresql)
+    devstackImplementation(libs.flyway.core)
+    devstackImplementation(libs.flyway.postgresql)
+}
+
+// ./gradlew :services:policy-registry:devPostgres --args="var/pg.properties"
+//
+// Starts a real PostgreSQL and blocks. devstack/up.sh runs this in the background, waits for the
+// properties file, migrates, and then starts the registry against it.
+tasks.register<JavaExec>("devPostgres") {
+    group = "application"
+    description = "Starts an embedded PostgreSQL for local development, and blocks."
+    mainClass.set("dev.bre.registry.devstack.EmbeddedPostgresMain")
+    classpath = sourceSets["devstack"].runtimeClasspath
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+    workingDir = rootProject.layout.projectDirectory.asFile
 }
