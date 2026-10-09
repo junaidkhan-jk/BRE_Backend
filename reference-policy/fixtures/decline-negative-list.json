@@ -1,0 +1,403 @@
+{
+  "application": {
+    "applicationRef": "APP-100001",
+    "productLine": "MFI_JLG",
+    "productCode": "JLG_INCOME_GEN",
+    "stage": "CREDIT_UW",
+    "channel": "FIELD_APP",
+    "branchCode": "BR-0012",
+    "requestedAmount": "150000.00",
+    "tenureMonths": 24,
+    "repaymentFrequency": "MONTHLY",
+    "purpose": "INCOME_GENERATION"
+  },
+  "parties": [
+    {
+      "partyRef": "P-0001",
+      "role": "MEMBER",
+      "type": "INDIVIDUAL",
+      "dateOfBirth": "1991-05-12",
+      "gender": "F",
+      "householdRef": "H-0001",
+      "proposedAmount": "30000.00",
+      "kyc": {
+        "status": "VERIFIED",
+        "verifiedAt": "2026-09-20T09:00:00+05:30",
+        "method": "AADHAAR_OTP"
+      },
+      "income": {
+        "monthlyGross": "15000.00",
+        "monthlyNet": "14000.00",
+        "verified": true,
+        "source": "SELF_DECLARED"
+      },
+      "bureauReports": [
+        {
+          "bureau": "HIGHMARK",
+          "scoreType": "MFI_SCORE",
+          "score": 720,
+          "noHit": false,
+          "pulledAt": "2026-09-25T10:15:00+05:30",
+          "tradelines": [
+            {
+              "lenderRef": "LN-0042",
+              "accountType": "MICROFINANCE",
+              "lenderType": "NBFC_MFI",
+              "ownership": "INDIVIDUAL",
+              "sanctionedAmount": "40000.00",
+              "currentBalance": "18000.00",
+              "instalmentAmount": "2100.00",
+              "overdueAmount": "0.00",
+              "status": "ACTIVE",
+              "openedOn": "2025-06-10",
+              "reportedOn": "2026-09-20",
+              "dpdHistory": [
+                {
+                  "month": "2026-09-01",
+                  "dpd": 0
+                },
+                {
+                  "month": "2026-08-01",
+                  "dpd": 0
+                },
+                {
+                  "month": "2026-07-01",
+                  "dpd": 0
+                }
+              ]
+            }
+          ],
+          "enquiries": []
+        }
+      ],
+      "screening": {
+        "sanctionsHit": false,
+        "pepHit": false,
+        "negativeListHit": true,
+        "matchScore": "0.00"
+      }
+    },
+    {
+      "partyRef": "P-0002",
+      "role": "MEMBER",
+      "type": "INDIVIDUAL",
+      "dateOfBirth": "1991-05-12",
+      "gender": "F",
+      "householdRef": "H-0002",
+      "proposedAmount": "30000.00",
+      "kyc": {
+        "status": "VERIFIED",
+        "verifiedAt": "2026-09-20T09:00:00+05:30",
+        "method": "AADHAAR_OTP"
+      },
+      "income": {
+        "monthlyGross": "15000.00",
+        "monthlyNet": "14000.00",
+        "verified": true,
+        "source": "SELF_DECLARED"
+      },
+      "bureauReports": [
+        {
+          "bureau": "HIGHMARK",
+          "scoreType": "MFI_SCORE",
+          "score": 720,
+          "noHit": false,
+          "pulledAt": "2026-09-25T10:15:00+05:30",
+          "tradelines": [
+            {
+              "lenderRef": "LN-0042",
+              "accountType": "MICROFINANCE",
+              "lenderType": "NBFC_MFI",
+              "ownership": "INDIVIDUAL",
+              "sanctionedAmount": "40000.00",
+              "currentBalance": "18000.00",
+              "instalmentAmount": "2100.00",
+              "overdueAmount": "0.00",
+              "status": "ACTIVE",
+              "openedOn": "2025-06-10",
+              "reportedOn": "2026-09-20",
+              "dpdHistory": [
+                {
+                  "month": "2026-09-01",
+                  "dpd": 0
+                },
+                {
+                  "month": "2026-08-01",
+                  "dpd": 0
+                },
+                {
+                  "month": "2026-07-01",
+                  "dpd": 0
+                }
+              ]
+            }
+          ],
+          "enquiries": []
+        }
+      ],
+      "screening": {
+        "sanctionsHit": false,
+        "pepHit": false,
+        "negativeListHit": false,
+        "matchScore": "0.00"
+      }
+    },
+    {
+      "partyRef": "P-0003",
+      "role": "MEMBER",
+      "type": "INDIVIDUAL",
+      "dateOfBirth": "1991-05-12",
+      "gender": "F",
+      "householdRef": "H-0003",
+      "proposedAmount": "30000.00",
+      "kyc": {
+        "status": "VERIFIED",
+        "verifiedAt": "2026-09-20T09:00:00+05:30",
+        "method": "AADHAAR_OTP"
+      },
+      "income": {
+        "monthlyGross": "15000.00",
+        "monthlyNet": "14000.00",
+        "verified": true,
+        "source": "SELF_DECLARED"
+      },
+      "bureauReports": [
+        {
+          "bureau": "HIGHMARK",
+          "scoreType": "MFI_SCORE",
+          "score": 720,
+          "noHit": false,
+          "pulledAt": "2026-09-25T10:15:00+05:30",
+          "tradelines": [
+            {
+              "lenderRef": "LN-0042",
+              "accountType": "MICROFINANCE",
+              "lenderType": "NBFC_MFI",
+              "ownership": "INDIVIDUAL",
+              "sanctionedAmount": "40000.00",
+              "currentBalance": "18000.00",
+              "instalmentAmount": "2100.00",
+              "overdueAmount": "0.00",
+              "status": "ACTIVE",
+              "openedOn": "2025-06-10",
+              "reportedOn": "2026-09-20",
+              "dpdHistory": [
+                {
+                  "month": "2026-09-01",
+                  "dpd": 0
+                },
+                {
+                  "month": "2026-08-01",
+                  "dpd": 0
+                },
+                {
+                  "month": "2026-07-01",
+                  "dpd": 0
+                }
+              ]
+            }
+          ],
+          "enquiries": []
+        }
+      ],
+      "screening": {
+        "sanctionsHit": false,
+        "pepHit": false,
+        "negativeListHit": false,
+        "matchScore": "0.00"
+      }
+    },
+    {
+      "partyRef": "P-0004",
+      "role": "MEMBER",
+      "type": "INDIVIDUAL",
+      "dateOfBirth": "1991-05-12",
+      "gender": "F",
+      "householdRef": "H-0004",
+      "proposedAmount": "30000.00",
+      "kyc": {
+        "status": "VERIFIED",
+        "verifiedAt": "2026-09-20T09:00:00+05:30",
+        "method": "AADHAAR_OTP"
+      },
+      "income": {
+        "monthlyGross": "15000.00",
+        "monthlyNet": "14000.00",
+        "verified": true,
+        "source": "SELF_DECLARED"
+      },
+      "bureauReports": [
+        {
+          "bureau": "HIGHMARK",
+          "scoreType": "MFI_SCORE",
+          "score": 720,
+          "noHit": false,
+          "pulledAt": "2026-09-25T10:15:00+05:30",
+          "tradelines": [
+            {
+              "lenderRef": "LN-0042",
+              "accountType": "MICROFINANCE",
+              "lenderType": "NBFC_MFI",
+              "ownership": "INDIVIDUAL",
+              "sanctionedAmount": "40000.00",
+              "currentBalance": "18000.00",
+              "instalmentAmount": "2100.00",
+              "overdueAmount": "0.00",
+              "status": "ACTIVE",
+              "openedOn": "2025-06-10",
+              "reportedOn": "2026-09-20",
+              "dpdHistory": [
+                {
+                  "month": "2026-09-01",
+                  "dpd": 0
+                },
+                {
+                  "month": "2026-08-01",
+                  "dpd": 0
+                },
+                {
+                  "month": "2026-07-01",
+                  "dpd": 0
+                }
+              ]
+            }
+          ],
+          "enquiries": []
+        }
+      ],
+      "screening": {
+        "sanctionsHit": false,
+        "pepHit": false,
+        "negativeListHit": false,
+        "matchScore": "0.00"
+      }
+    },
+    {
+      "partyRef": "P-0005",
+      "role": "MEMBER",
+      "type": "INDIVIDUAL",
+      "dateOfBirth": "1991-05-12",
+      "gender": "F",
+      "householdRef": "H-0005",
+      "proposedAmount": "30000.00",
+      "kyc": {
+        "status": "VERIFIED",
+        "verifiedAt": "2026-09-20T09:00:00+05:30",
+        "method": "AADHAAR_OTP"
+      },
+      "income": {
+        "monthlyGross": "15000.00",
+        "monthlyNet": "14000.00",
+        "verified": true,
+        "source": "SELF_DECLARED"
+      },
+      "bureauReports": [
+        {
+          "bureau": "HIGHMARK",
+          "scoreType": "MFI_SCORE",
+          "score": 720,
+          "noHit": false,
+          "pulledAt": "2026-09-25T10:15:00+05:30",
+          "tradelines": [
+            {
+              "lenderRef": "LN-0042",
+              "accountType": "MICROFINANCE",
+              "lenderType": "NBFC_MFI",
+              "ownership": "INDIVIDUAL",
+              "sanctionedAmount": "40000.00",
+              "currentBalance": "18000.00",
+              "instalmentAmount": "2100.00",
+              "overdueAmount": "0.00",
+              "status": "ACTIVE",
+              "openedOn": "2025-06-10",
+              "reportedOn": "2026-09-20",
+              "dpdHistory": [
+                {
+                  "month": "2026-09-01",
+                  "dpd": 0
+                },
+                {
+                  "month": "2026-08-01",
+                  "dpd": 0
+                },
+                {
+                  "month": "2026-07-01",
+                  "dpd": 0
+                }
+              ]
+            }
+          ],
+          "enquiries": []
+        }
+      ],
+      "screening": {
+        "sanctionsHit": false,
+        "pepHit": false,
+        "negativeListHit": false,
+        "matchScore": "0.00"
+      }
+    }
+  ],
+  "group": {
+    "groupRef": "GRP-000077",
+    "type": "JLG",
+    "formedOn": "2024-02-15",
+    "cycleNumber": 2,
+    "memberPartyRefs": [
+      "P-0001",
+      "P-0002",
+      "P-0003",
+      "P-0004",
+      "P-0005"
+    ],
+    "meetingFrequency": "FORTNIGHTLY",
+    "centreRef": "CEN-004",
+    "villageRiskCategory": "A"
+  },
+  "households": [
+    {
+      "householdRef": "H-0001",
+      "memberPartyRefs": [
+        "P-0001"
+      ],
+      "annualIncome": "180000.00",
+      "monthlyRepaymentObligations": "2100.00"
+    },
+    {
+      "householdRef": "H-0002",
+      "memberPartyRefs": [
+        "P-0002"
+      ],
+      "annualIncome": "180000.00",
+      "monthlyRepaymentObligations": "2100.00"
+    },
+    {
+      "householdRef": "H-0003",
+      "memberPartyRefs": [
+        "P-0003"
+      ],
+      "annualIncome": "180000.00",
+      "monthlyRepaymentObligations": "2100.00"
+    },
+    {
+      "householdRef": "H-0004",
+      "memberPartyRefs": [
+        "P-0004"
+      ],
+      "annualIncome": "180000.00",
+      "monthlyRepaymentObligations": "2100.00"
+    },
+    {
+      "householdRef": "H-0005",
+      "memberPartyRefs": [
+        "P-0005"
+      ],
+      "annualIncome": "180000.00",
+      "monthlyRepaymentObligations": "2100.00"
+    }
+  ],
+  "consent": {
+    "consentRef": "CNS-55010",
+    "purposeCode": "CREDIT_UNDERWRITING"
+  }
+}

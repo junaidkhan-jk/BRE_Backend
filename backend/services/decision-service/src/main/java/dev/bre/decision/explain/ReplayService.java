@@ -5,7 +5,6 @@ import dev.bre.decision.policy.BundleCache;
 import dev.bre.engine.decide.FlowEvaluator;
 import dev.bre.engine.eval.EvaluationContext;
 import dev.bre.engine.eval.Value;
-import dev.bre.engine.ir.Ir;
 import dev.bre.engine.trace.TraceRecorder;
 import java.util.ArrayList;
 import java.util.List;
@@ -88,14 +87,17 @@ public final class ReplayService {
                             + record.decisionId()
                             + " has no bundleHash, so there is"
                             + " nothing to pin a replay to"));
-    Ir.PolicyIr policy = bundles.policy(bundleHash);
+    // The bundle's OWN parameters and lists, not any configured now. They were resolved into this
+    // hash when it was signed (§8.4), so pinning the hash pins the parameter values too — which is
+    // what makes a replay years later reproduce the decision rather than re-take it.
+    BundleCache.Compiled served = bundles.compiled(bundleHash);
 
     TraceRecorder recorder = masked ? TraceRecorder.masking() : TraceRecorder.unmasked();
     EvaluationContext context =
-        EvaluationContext.of(facts, Map.of(), Map.of(), record.response().asOf())
+        EvaluationContext.of(facts, served.parameters(), served.lists(), record.response().asOf())
             .recording(recorder);
 
-    FlowEvaluator.DecisionResult replayed = FlowEvaluator.evaluate(policy, context);
+    FlowEvaluator.DecisionResult replayed = FlowEvaluator.evaluate(served.policy(), context);
 
     List<String> mismatches = new ArrayList<>();
     String recordedDecision = record.response().decision();

@@ -12,6 +12,7 @@ import dev.bre.engine.check.CheckFinding;
 import dev.bre.engine.check.StaticChecks;
 import dev.bre.engine.ir.DependencyGraph;
 import dev.bre.engine.ir.Ir;
+import dev.bre.irjson.AssetCodec;
 import dev.bre.irjson.IrCodec;
 import dev.bre.irjson.IrSchemaValidator;
 import dev.bre.irjson.PsfCodec;
@@ -20,12 +21,8 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
-import java.util.Base64;
 import java.util.List;
 
 /**
@@ -167,12 +164,17 @@ public final class PsfCommands {
     }
   }
 
-  /** {@code psf bundle <policy.psf.yaml> --key <key.pkcs8> --kid <id> [-o out.json]}. */
+  /**
+   * {@code psf bundle <policy.psf.yaml> --key <k> --kid <id> [--assets <f.json>] [-o out.json]}.
+   */
   private static int bundle(String[] args, PrintStream out, PrintStream err) {
     String keyPath = flag(args, "--key");
     String kid = flag(args, "--kid");
+    String assetsPath = flag(args, "--assets");
     if (args.length < 3 || keyPath == null || kid == null) {
-      err.println("usage: bre psf bundle <policy.psf.yaml> --key <key.pkcs8> --kid <id> [-o <f>]");
+      err.println(
+          "usage: bre psf bundle <policy.psf.yaml> --key <key.pkcs8> --kid <id>"
+              + " [--assets <assets.json>] [-o <f>]");
       return Main.EXIT_USAGE;
     }
     try {
@@ -200,14 +202,32 @@ public final class PsfCommands {
       manifest.set("factSchema", ir.get("factSchema"));
       manifest.putObject("staticCheck").put("errors", 0).put("warnings", findings.size());
 
+      // The bundle's assets are the RESOLVED values, not the refs. The refs are already in the
+      // IR; what a pod needs is the parameter values and list contents those refs stood for, fixed
+      // at this hash (§8.4, D2). Without --assets the bundle carries none, every `param.X` is
+      // Missing, and a policy that reads parameters will REFER on every request — so say that,
+      // rather than let it be discovered from an inexplicable decision.
+      ObjectNode resolvedAssets;
+      if (assetsPath == null) {
+        resolvedAssets = MAPPER.createObjectNode();
+        if (declaresAssets(ir)) {
+          out.println(
+              "note: this policy names a parameter set or reference lists but no --assets source"
+                  + " was given, so the bundle carries no resolved values. Every param./list."
+                  + " reference will be Missing at evaluation.");
+        }
+      } else {
+        JsonNode source = MAPPER.readTree(read(Path.of(assetsPath)));
+        resolvedAssets = AssetCodec.resolveForPolicy(source, ir.get("assets"));
+        // The Authority Matrix goes back into the IR, where IrCodec reads it from. See
+        // AssetCodec.resolveAuthorityMatrix for why it is the one asset that does.
+        AssetCodec.resolveAuthorityMatrix(source, ir.get("assets"))
+            .ifPresent(matrix -> ((ObjectNode) ir.get("assets")).set("authorityMatrix", matrix));
+      }
+
       Bundle bundle =
           BundleSigner.sign(
-              manifest,
-              ir,
-              ir.has("assets") ? ir.get("assets") : MAPPER.createObjectNode(),
-              kid,
-              Bundle.Role.ORIGIN,
-              privateKey(Path.of(keyPath)));
+              manifest, ir, resolvedAssets, kid, Bundle.Role.ORIGIN, privateKey(Path.of(keyPath)));
 
       Path target = outputPath(args);
       if (target == null) {
@@ -256,40 +276,32 @@ public final class PsfCommands {
 
   // ---------------------------------------------------------------------------------------------
 
+  private static boolean declaresAssets(ObjectNode ir) {
+    JsonNode assets = ir.get("assets");
+    if (assets == null) {
+      return false;
+    }
+    return !assets.path("parameterSet").isNull() || !assets.path("referenceLists").isEmpty();
+  }
+
   private static String read(Path file) throws IOException {
     return Files.readString(file);
   }
 
   private static Path outputPath(String[] args) {
-    String value = flag(args, "-o");
-    return value == null ? null : Path.of(value);
+    return Keys.outputPath(args);
   }
 
   private static String flag(String[] args, String name) {
-    for (int i = 0; i < args.length - 1; i++) {
-      if (args[i].equals(name)) {
-        return args[i + 1];
-      }
-    }
-    return null;
+    return Keys.flag(args, name);
   }
 
   private static PrivateKey privateKey(Path file) throws IOException {
-    try {
-      return KeyFactory.getInstance(BundleSigner.ALGORITHM)
-          .generatePrivate(new PKCS8EncodedKeySpec(Base64.getDecoder().decode(read(file).trim())));
-    } catch (java.security.GeneralSecurityException | IllegalArgumentException e) {
-      throw new IOException(file + " is not a base64 PKCS#8 Ed25519 private key");
-    }
+    return Keys.privateKey(file);
   }
 
   private static PublicKey publicKey(Path file) throws IOException {
-    try {
-      return KeyFactory.getInstance(BundleSigner.ALGORITHM)
-          .generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(read(file).trim())));
-    } catch (java.security.GeneralSecurityException | IllegalArgumentException e) {
-      throw new IOException(file + " is not a base64 X.509 Ed25519 public key");
-    }
+    return Keys.publicKey(file);
   }
 
   /**
@@ -300,11 +312,7 @@ public final class PsfCommands {
    * @throws IOException if either cannot be written
    */
   public static void writeKeyPair(Path privateFile, Path publicFile) throws IOException {
-    var pair = BundleSigner.generateKeyPair();
-    Files.writeString(
-        privateFile, Base64.getEncoder().encodeToString(pair.getPrivate().getEncoded()));
-    Files.writeString(
-        publicFile, Base64.getEncoder().encodeToString(pair.getPublic().getEncoded()));
+    Keys.writeKeyPair(privateFile, publicFile);
   }
 
   /** Reads a JSON document, for a caller that already has the text. */

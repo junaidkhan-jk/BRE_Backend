@@ -32,3 +32,6 @@ local.properties
 # A crash is different and IS committed: it lives under src/test/resources/.../<TestClass>/<method>/
 # and becomes a permanent regression case.
 .cifuzz-corpus/
+
+# devstack working directory: local keys, bundles and logs. Never committed.
+devstack/var/

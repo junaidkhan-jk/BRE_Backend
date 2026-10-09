@@ -4,7 +4,7 @@ M6-01 assembles the Rule Authoring Guide's MFI examples (E1–E11, E17, E18, E21
 policy and runs the real toolchain over it. Ninety conformance vectors prove the engine
 implements §13's semantics; this proves the engine can express a lender's actual credit policy,
 which is a different and larger claim — and the first time the two were put together, it found
-six things.
+six things. Running it against **facts** then found four more, three of them in the engine.
 
 ## Defects in the static checker, fixed
 
@@ -48,19 +48,102 @@ uncovered, which for an Integer is empty and for a Decimal is real. This policy 
 bins half-open — `[1..2)`, `[2..4)`, `>= 4` — which is total for either type and is better style
 regardless, because it removes the question.
 
+## Defects found by evaluating the policy, not just compiling it
+
+Assembling the policy proved it well-formed. Deciding with it proved something else, and these
+four are the reason the distinction matters: **every one of them produced a plausible-looking
+REFER**, which is indistinguishable from an integrator sending incomplete data. A suite that
+only compiled the policy would never have reported any of them, and in production each would
+have been investigated as a data-quality problem.
+
+**7. Component outputs were never published between flow steps.** A scorecard computes a score;
+the table one step below it reads `MFI_APP_SCORE_V1.score`. The outputs were computed, returned
+on the result, and then dropped before the next step ran — so the reference policy referred
+**every applicant** with `DATA_SCORE_MISSING` while the scorecard immediately above had just
+scored them 455. Fixed in `FlowEvaluator`: a step's named outputs are bound into the context the
+later steps see, **keyed by entity**. That keying is the part with teeth — a MEMBER-scope
+scorecard produces one score per member, and binding the first member's for all of them would
+decide one applicant's loan on another applicant's credit score with no outward sign. A forward
+reference reads as Missing and fails closed (§3.9), so a mis-ordered flow cannot score against
+a stale value.
+
+**8. HOUSEHOLD scope was never bound.** It fell through to a single application-scope entity, so
+`household.annualIncome` was unbound and E2's regulatory income ceiling — the RBI 3,00,000 cap,
+the one rule in this policy that is not the lender's own choice — could not be evaluated at all.
+Implemented: HOUSEHOLD iterates `households` in declaration order, which is the only order the
+snapshot carries (unlike members, which `group.memberPartyRefs` orders).
+
+**9. Facts were typed by their JSON shape, not by the fact schema.** A date arrives as a JSON
+string and became `Text`, so `ageInYears(member.dateOfBirth, asOf)` and
+`monthsBetween(group.formedOn, asOf)` were type errors on every real applicant. In the other
+direction, any digits-only string became a `Decimal` — so a branch code of `"0012"` compared
+equal to `"12"`. Replaced with `FactReader`, which takes each value's type from the schema, and
+maps a bound entity to the collection it is a view of (`member.` → `parties[].`, §3.8) so the
+single-entity form the §13 vectors use is typed too. An ill-formed value reads as Missing rather
+than throwing: one bad field must not 500 a whole application, and naming the path is the
+validator's job.
+
+**10. `dpdHistory[].month` had no `format: date`.** E8 compares it against
+`addMonths(asOf, -param.DPD_LOOKBACK_MONTHS)`, a Date, and its mask is `MONTH_ONLY` — both only
+make sense for a date. Added to the schema.
+
+## The assets, resolved
+
+The limitation this document used to close on is gone. `bre psf bundle --assets` now resolves a
+policy's parameter set, its reference lists and its Authority Matrix into the bundle, and
+`reference-policy/assets.json` holds the reference policy's — the RBI figures where the Master
+Direction sets one, a plausible lender's own limits elsewhere.
+
+**They are resolved at bundle time, and that is the design, not a shortcut.** D2 makes a decision
+a pure function of `(facts, policy, asOf)`. A parameter fetched live would mean two replays of the
+same decision could differ because somebody edited a threshold in between, and the bundle hash
+would no longer identify what was evaluated. Resolving them into the signed, content-addressed
+bundle makes a parameter change a new bundle with a new hash — reviewable, deployable and
+revertable like any other policy change.
+
+Two consequences worth stating:
+
+- **The Authority Matrix goes into the IR, not the bundle's `assets`.** That is where `IrCodec`
+  reads it from, and PSF source can only carry the `CODE@version` reference. Left unresolved the
+  engine sees a matrix with no levels — which is not "no matrix", it is a matrix under which
+  nobody can approve anything, so every deviation became `DEV_NO_AUTHORITY` and the policy's
+  deviation bands never applied. With it resolved, E7 behaves as the guide describes: one member
+  over the soft cap routes to a named level; a fifth of the group refers.
+- **The reason catalogue is still unresolved.** `assets.reasonCodes` is a reference and nothing
+  reads it yet, so `customerReasons` is empty and only internal reason codes appear. That is a
+  presentation gap, not a decision gap — the decision and its internal reasons are unaffected —
+  and it waits on the catalogue's own storage (§5.2).
+
 ## Still reported, and correctly
 
 **6. `MFI_SCORE_CUTOFF` is opaque (CHK-014).** Its cells compare against `param.SCORE_APPROVE_MIN`
-and `param.SCORE_REFER_MIN`, so the table cannot be checked for gaps until the parameter set is
-resolved. §4.13.1 says such a column is analysed once per parameter epoch; that needs the asset
-snapshot, which is M2-03's registry work. The INFO finding is the honest answer meanwhile.
+and `param.SCORE_REFER_MIN`, so the table cannot be checked for gaps without the parameter values.
+§4.13.1 says such a column is analysed once per parameter epoch.
 
-## What this policy does not yet prove
+This one changed status while the rest of this document was being written: the asset snapshot now
+exists at bundle time, so the values *are* available — `psf bundle` resolves them a few lines after
+it runs the static checks. Analysing the table against resolved parameters is therefore a concrete
+piece of work rather than a blocked one, and it is **not** done: the checks still run before
+resolution and still report the INFO. Doing it needs one decision first, which is why it is not a
+one-line change — a gap found only under epoch *n* of a parameter set is a finding about that
+epoch, not about the policy, so it has to be reported in a way that does not make a parameter edit
+look like a policy defect.
 
-Lint, compile, bundle and verify all pass. **The policy has not been evaluated against facts**,
-because that needs the asset snapshot — the parameter values, the three reference lists, the
-reason catalogue and the authority matrix — which only the registry can resolve (M2-03). Until
-then the policy is proven well-formed and signable, not proven to decide correctly.
+## What this policy proves, and what it still does not
 
-That gap is the honest state of M6-01: the acceptance suite exists and is clean, and the half of
-it that needs resolved assets waits on the registry.
+Lint, compile, bundle and verify pass. The policy **decides**, against documents that conform to
+the published fact schema, and three cases are asserted in CI
+(`ReferencePolicyAcceptanceTest`): a clean five-member JLG approves straight through with a
+score of 455; one member on the negative list declines the whole application at the knockout
+while the other four are still reported as screened (§4.8); and a soft-cap deviation on a fifth
+of the group refers, with the approval routed to AREA_MANAGER by the amount band. `devstack/up.sh`
+posts all three over HTTP against the running service, so the same three answers are checked
+through the real API as through the engine.
+
+Still not proven:
+
+- **Customer-facing reasons.** Pending the reason catalogue above.
+- **Scale.** The acceptance cases are five-member groups. M1-16's benchmark covers a 40-member
+  group at 2.9 ms p99, but not with this policy.
+- **The registry.** Bundles and the manifest are produced by the CLI and read from disk. The
+  §8.2 long-poll, deployment records and parameter-set storage are M2-03 and M3.

@@ -3,6 +3,7 @@ package dev.bre.cli;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.bre.facts.FactSchema;
+import dev.bre.facts.FactsValidator;
 import dev.bre.facts.LendingFacts;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -64,6 +65,12 @@ public final class Main {
     }
     if ("psf".equals(args[0])) {
       return PsfCommands.run(args, out, err);
+    }
+    if ("decide".equals(args[0])) {
+      return DecideCommand.run(args, out, err);
+    }
+    if ("manifest".equals(args[0])) {
+      return ManifestCommands.run(args, out, err);
     }
     if ("keygen".equals(args[0])) {
       return keygen(args, out, err);
@@ -211,6 +218,15 @@ public final class Main {
 
           bre psf verify <bundle> --pub <k> --kid <id>
                                             Recompute the hash and check the signature.
+
+          bre decide <bundle> --facts <f>    Evaluate a signed bundle against a facts document,
+                 --pub <k> --kid <id>        offline. Same engine, assets and fact typing the
+                 [--as-of <YYYY-MM-DD>]      decision service uses.
+
+          bre manifest sign <f> --key <k>    Sign an Active Pointer Manifest with a LOCAL key.
+                 --kid <id> [-o <f>]         A production manifest is signed by the registry.
+          bre manifest verify <f> --pub <k>  Verify one.
+          bre manifest show <f>              Print what a cell serves. Does NOT verify.
 
           bre keygen <private> <public>     An Ed25519 key pair for LOCAL work. A production
                                             key never leaves the KMS.

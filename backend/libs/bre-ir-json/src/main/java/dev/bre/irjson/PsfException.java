@@ -21,7 +21,11 @@ public final class PsfException extends RuntimeException {
     /** Unknown key. */
     PSF_003("PSF-003"),
     /** Non-integer JSON number in a canonical document. */
-    CANON_001("CANON-001");
+    CANON_001("CANON-001"),
+    /** A policy names a parameter set or reference list the asset source does not define. */
+    ASSET_001("ASSET-001"),
+    /** A parameter or list element is not well-formed for its declared type. */
+    ASSET_002("ASSET-002");
 
     private final String wire;
 

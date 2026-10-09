@@ -8,6 +8,9 @@ dependencies {
     testImplementation(project(":libs:bre-engine-core"))
     // The policy vectors carry IR fragments, which the codec turns into engine records.
     testImplementation(project(":libs:bre-ir-json"))
+    // The reference-policy acceptance test reads real facts documents, which have to be typed by
+    // the real fact schema — the whole point is that it exercises the same path production does.
+    testImplementation(project(":libs:bre-fact-model"))
     testImplementation(libs.jackson.databind)
 
     testImplementation(platform(libs.junit.bom))
@@ -24,4 +27,9 @@ tasks.named<Test>("test") {
     systemProperty("bre.conformance.vectors", layout.projectDirectory.dir("vectors").asFile.absolutePath)
     // The PII log guard scans every module's sources, not just this one.
     systemProperty("bre.repo.root", rootProject.layout.projectDirectory.asFile.absolutePath)
+    // The reference policy, its assets and its fixtures live outside backend/ (they are product
+    // artefacts, not test resources) so the acceptance test is given the repository root.
+    systemProperty(
+        "bre.reference.policy",
+        rootProject.layout.projectDirectory.dir("../reference-policy").asFile.absolutePath)
 }

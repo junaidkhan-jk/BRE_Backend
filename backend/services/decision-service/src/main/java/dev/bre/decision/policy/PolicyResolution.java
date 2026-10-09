@@ -1,6 +1,8 @@
 package dev.bre.decision.policy;
 
+import dev.bre.engine.eval.Value;
 import dev.bre.engine.ir.Ir;
+import java.util.Map;
 
 /**
  * Which policy a decision was taken against, and why that one (LLD §8.1, §4.11).
@@ -9,6 +11,8 @@ import dev.bre.engine.ir.Ir;
  * record: it cannot be replayed, and nobody can say later which rules were in force.
  *
  * @param policy the decoded policy
+ * @param parameters the {@code param.} namespace resolved into this bundle (§8.4)
+ * @param lists the {@code list.} namespace resolved into this bundle
  * @param bundleHash the content address actually served
  * @param deploymentId the deployment that put it there
  * @param kind how this bundle came to be chosen
@@ -16,6 +20,8 @@ import dev.bre.engine.ir.Ir;
  */
 public record PolicyResolution(
     Ir.PolicyIr policy,
+    Map<String, Value> parameters,
+    Map<String, Value> lists,
     String bundleHash,
     String deploymentId,
     Kind kind,

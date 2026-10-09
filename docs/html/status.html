@@ -95,9 +95,9 @@
   <div class="rule"></div><div class="rule"></div>
 
   <div class="totals">
-    <div class="tot g"><b>21</b><span>done</span></div>
-    <div class="tot a"><b>5</b><span>partial — usable, not finished</span></div>
-    <div class="tot s"><b>42</b><span>not started</span></div>
+    <div class="tot g"><b>29</b><span>done</span></div>
+    <div class="tot a"><b>4</b><span>partial — usable, not finished</span></div>
+    <div class="tot s"><b>35</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
 
@@ -146,7 +146,7 @@
     <div class="ms__head">
       <div><span class="kicker">M1 — Rule engine</span>
       <p class="ms__blurb">The critical path, and where nearly all the finished work is. All 90 conformance vectors pass.</p></div>
-      <div class="ms__counts"><span class="pill g">12 done</span><span class="pill a">1 partial</span><span class="pill s">3 pending</span></div>
+      <div class="ms__counts"><span class="pill g">16 done</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M1-01</td><td class="ti">Value model, exact decimal and date semantics</td><td class="st"><span class="pill g">done</span></td></tr>
@@ -164,22 +164,25 @@
       <tr><td class="id">M1-08</td><td class="ti">Flow, per-entity iteration, aggregation, knockout</td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-09</td><td class="ti">Precedence, coverage, authority, champion/challenger
         <div class="no">Customer-reason selection, EACH and HIGHEST_ONLY routing, and the fail-closed property against the real engine at 10⁶ cases.</div></td><td class="st"><span class="pill g">done</span></td></tr>
-      <tr class="pend"><td class="id">M1-10</td><td class="ti">Static checks — table gaps, overlaps, unreachable rows
-        <div class="no">Bad policies are caught at runtime instead of at authoring time.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M1-11</td><td class="ti">Explanation trace recorder
-        <div class="no">Blocks M2-05, the replay endpoint.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M1-10</td><td class="ti">Static checks — table gaps, overlaps, unreachable rows
+        <div class="no">Box algebra over §4.13.1's column domains: gaps, overlaps and unreachable rows, plus CHK-001/002/003/004/005/012/014/015/016/018. Ten entries in the catalogue are not implemented and <code>StaticChecks.notYetImplemented()</code> names each one and what it waits on, rather than leaving an author to assume the checker covers everything. The reference policy found <b>two defects in this checker</b> — a Boolean column given an OTHER piece, and unreachability reported for opaque columns.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M1-11</td><td class="ti">Explanation trace recorder
+        <div class="no">Per-expression spans with sub-expression values. <code>TraceRecorder.NONE</code> costs nothing on the decision path, and masking happens <b>at record time</b>, not at render time — an unmasked value never enters a trace that might be serialised.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-12</td><td class="ti">IR codec, PSF YAML, BRE-JCS, schema validation
         <div class="no">IR codec, PSF v1 YAML, BRE-JCS canonical JSON and §2.2 schema validation.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-13</td><td class="ti">Bundle format, SHA-256, Ed25519 signing, trust store
         <div class="no">Bundle format, SHA-256 content addressing, Ed25519 signing, trust store with overlap rotation. The verifier <b>recomputes</b> the hash before checking any signature — two tests stage the attack where the IR is swapped and the original hash and signature are kept.</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-14</td><td class="ti">Fact model, canonical schema, Aadhaar/PAN detector
-        <div class="no">Fact model, canonical lending schema, Verhoeff Aadhaar detector. Pulled in as M1-03's prerequisite.</div></td><td class="st"><span class="pill g">done</span></td></tr>
-      <tr class="pend"><td class="id">M1-15</td><td class="ti">bre-cli — psf lint / compile / test / bundle / verify
-        <div class="no">An analyst cannot test a policy locally.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+        <div class="no">Fact model, canonical lending schema, Verhoeff Aadhaar detector, and <code>FactReader</code> — which types every value <b>from the schema</b>. The reader it replaced inferred types from JSON shape, so a date became Text and <code>ageInYears(member.dateOfBirth, asOf)</code> was a type error on every real applicant; the symptom was a REFER for missing data, indistinguishable from bad input.</div></td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M1-15</td><td class="ti">bre-cli — psf lint / compile / bundle / verify, decide, manifest
+        <div class="no"><code>psf lint|compile|bundle|verify</code>, <code>facts validate|schema</code>, <code>decide</code>, <code>manifest sign|verify|show</code>, <code>keygen</code>. <code>psf bundle</code> refuses to sign a policy that fails its own static checks — a signature over a known gap is worse than no signature, because everything downstream trusts it instead of looking. <code>decide</code> evaluates a signed bundle against a facts document offline, through the same engine, the same resolved assets and the same fact typing the service uses.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-16</td><td class="ti">JMH benchmarks and latency budgets
-        <div class="no">First benchmark of this engine exists (JMH, three rule counts, percentile mode). <b>No latency budget is asserted in CI yet</b>, and the 40-member group case is not benchmarked.</div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Budgets <b>asserted</b> nightly, not merely observed: <code>check-budgets.py</code> fails the job when a percentile exceeds its ceiling <i>and</i> when a benchmark did not run at all — a budget whose benchmark is missing is a budget nobody checked. 100-rule p99 0.198 ms against 0.5 ms; 40-member group p99 2.9 ms against 50 ms.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
     </tbody></table>
   </section>
 
@@ -187,7 +190,7 @@
     <div class="ms__head">
       <div><span class="kicker">M2 — Walking skeleton</span>
       <p class="ms__blurb">One thin path, end to end. The service runs and answers.</p></div>
-      <div class="ms__counts"><span class="pill g">3 done</span><span class="pill a">1 partial</span><span class="pill s">4 pending</span></div>
+      <div class="ms__counts"><span class="pill g">5 done</span><span class="pill a">1 partial</span><span class="pill s">2 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M2-01</td><td class="ti">bre-platform-common
@@ -197,16 +200,19 @@
         <div class="no">Both schemas written and <b>executed against a real PostgreSQL</b>. Found a tenant-owned table with no row-level security (<code>audit_chain_heads</code>) and a wrong tenant-id pattern in TenantContext. See OPEN-QUESTIONS Q7 and Q8.</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M2-03</td><td class="ti">policy-registry — compile, sign, deploy, active pointer
-        <div class="no">The <b>Active Pointer Manifest is built, signed and verified</b>, and the data plane's half of the contract is done. <b>The registry's own HTTP surface is not</b> — compile, sign, deploy and the §8.2 long-poll.</div></td>
+        <div class="no">The <b>Active Pointer Manifest is built, signed and verified</b>, the data plane's half of the contract is done, and <b>asset resolution</b> — parameter sets, reference lists and the Authority Matrix resolved into the signed bundle (§8.4) — now works offline through the CLI. <b>The registry's own HTTP surface is not built</b>: compile, sign, deploy, the §8.2 long-poll, and the storage those assets should come from rather than a local JSON file.</div></td>
         <td class="st"><span class="pill a">partial</span></td></tr>
       <tr><td class="id">M2-04</td><td class="ti">decision-service
         <div class="no"><b>The inline policy is gone.</b> Policy is resolved through the signed manifest, fetched by content address, verified and cached. Pin, challenger and champion selection; the pin window measured against arrival time, never the caller's <code>asOf</code>.</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
-      <tr class="pend"><td class="id">M2-05</td><td class="ti">Explanation by replay
-        <div class="no">Needs M1-11 and stored facts.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M2-05</td><td class="ti">Explanation by replay
+        <div class="no">Replay <b>compares</b> rather than just producing: it pins the record's own bundle hash and <code>asOf</code> — never today's — and reports per-decision and per-step disagreement. A record with no bundle hash is refused rather than replayed against whatever is live. Facts are not stored by default (§9.2), so <code>cannotReplay()</code> says so explicitly instead of returning an empty explanation.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M2-06</td><td class="ti">Facts encryption behind KmsPort, masked view
         <div class="no">Why fact snapshots are not persisted by default.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M2-07</td><td class="ti">devstack — one command, seeded demo tenant</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M2-07</td><td class="ti">devstack — one command, seeded demo tenant
+        <div class="no"><code>./devstack/up.sh</code>: builds, generates two local signing keys, bundles and signs the reference policy with its resolved assets, signs an Active Pointer Manifest, starts the service with only the public halves, then <b>posts all three reference fixtures and prints the decisions</b> — because &ldquo;it started&rdquo; and &ldquo;it decides correctly&rdquo; are different claims, and a devstack that comes up referring everything looks fine. No Docker: embedded where it can be, and the durable PostgreSQL path is opt-in.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M2-08</td><td class="ti">Gatling smoke load test at 500 decisions/s</td><td class="st"><span class="pill s">pending</span></td></tr>
     </tbody></table>
   </section>
@@ -257,7 +263,7 @@
     <div class="ms__head">
       <div><span class="kicker">M5 — Rule Studio</span>
       <p class="ms__blurb">The front end. Five screens build and run over sample data.</p></div>
-      <div class="ms__counts"><span class="pill a">1 partial</span><span class="pill s">9 pending</span></div>
+      <div class="ms__counts"><span class="pill g">1 done</span><span class="pill a">1 partial</span><span class="pill s">8 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M5-01</td><td class="ti">App shell — React, TypeScript, Vite, routing, role-aware navigation
@@ -272,7 +278,9 @@
       <tr class="pend"><td class="id">M5-06</td><td class="ti">Review inbox, deployment console, rollback</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M5-07</td><td class="ti">Shared-asset screens</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M5-08</td><td class="ti">Decision lookup, explanation viewer, audit trail</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M5-09</td><td class="ti">Playwright end-to-end tests and an axe accessibility audit</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M5-09</td><td class="ti">Playwright end-to-end tests and an axe accessibility audit
+        <div class="no">Runs against the <b>production bundle</b> via <code>vite preview</code>, not the dev server — the one UI defect this project shipped was a bundling defect, and a suite exercising only the dev server would have stayed green through it. It found two bugs on first run: the production page was blank (a module script, then a classic one that ran before <code>#root</code> existed), and <b>67 colour-contrast violations that had been invisible because the page was blank</b>. The axe audit fails the build on any WCAG 2.1 A or AA violation; an audit that only reports is an audit nobody reads.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M5-10</td><td class="ti">Usability sessions with credit-policy analysts</td><td class="st"><span class="pill s">pending</span></td></tr>
     </tbody></table>
   </section>
@@ -281,16 +289,17 @@
     <div class="ms__head">
       <div><span class="kicker">M6 — Reference policy and pilot</span>
       <p class="ms__blurb">Acceptance. Needs a penetration test and a pilot lender.</p></div>
-      <div class="ms__counts"><span class="pill a">1 partial</span><span class="pill s">6 pending</span></div>
+      <div class="ms__counts"><span class="pill g">1 done</span><span class="pill a">1 partial</span><span class="pill s">5 pending</span></div>
     </div>
     <table><tbody>
-      <tr class="pend"><td class="id">M6-01</td><td class="ti">The complete MFI JLG/SHG reference policy in PSF
-        <div class="no">This is the acceptance suite for the whole product.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M6-01</td><td class="ti">The complete MFI JLG/SHG reference policy in PSF
+        <div class="no">Eleven rules, three decision tables, a scorecard, a five-stage flow with a knockout and a THRESHOLD aggregate — assembled from the Rule Authoring Guide's MFI examples, with resolved parameters, three reference lists and a delegation-of-powers matrix. It lints, bundles, verifies and <b>decides</b>: three fixtures asserted in CI give APPROVE, DECLINE and REFER, and devstack posts the same three over HTTP. It found <b>ten defects</b> — two in the static checker, two gaps in the guide's own examples, and four that only appeared once it was run against facts, three of those in the engine. See <code>reference-policy/FINDINGS.md</code>. Customer-facing reasons still need the reason catalogue.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M6-02</td><td class="ti">Threat model, external penetration test, 24 h Jazzer campaign</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M6-03</td><td class="ti">Disaster-recovery drill — region failover and backup restore</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M6-04</td><td class="ti">Runbooks and the on-call rota</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr><td class="id">M6-05</td><td class="ti">Integration guide and sandbox tenant
-        <div class="no">Decision API reference written, and the <b>fact-schema validation CLI is built</b>: catches mistyped paths, decimals sent as JSON numbers, and raw Aadhaar or PAN hidden in an open <code>ext</code> map — reporting paths, never values, exit 1 so CI fails. <b>The sandbox tenant needs a deployed environment.</b></div></td>
+        <div class="no">Decision API reference written, the <b>fact-schema validation CLI is built</b> — mistyped paths, decimals sent as JSON numbers, raw Aadhaar or PAN hidden in an open <code>ext</code> map, reporting paths and never values, exit 1 so CI fails — and <code>bre decide</code> lets an integrator evaluate a signed policy against their own fixtures with no service at all. <b>The sandbox tenant needs a deployed environment.</b></div></td>
         <td class="st"><span class="pill a">partial</span></td></tr>
       <tr class="pend"><td class="id">M6-06</td><td class="ti">Pilot parallel run — four or more weeks of shadow decisions</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M6-07</td><td class="ti">Compliance sign-off</td><td class="st"><span class="pill s">pending</span></td></tr>
@@ -298,56 +307,80 @@
   </section>
 
   <div class="warn">
-    <h2>Four things that exist but are unproven</h2>
-    <p>Different from work that is simply not done — these are written and reviewed, but nothing has
-       demonstrated them working.</p>
+    <h2>What still has not been demonstrated</h2>
+    <p>Different from work that is simply not done — this is written and reviewed, but nothing has
+       shown it working. The list used to have four entries; three have since been demonstrated,
+       and each of them was wrong in some way when it finally ran.</p>
     <ul>
-      <li><b>The decision-log SQL has never been executed.</b> The migrations are written against
-          LLD §5.3 and read through, but no database has run them. Embedded PostgreSQL works on this
-          machine — verified, about four minutes — if you want them proven.</li>
-      <li><b>CI has never run.</b> The workflows are written and lint-clean, but there is no git
-          remote, so no pipeline has ever executed them.</li>
-      <li><b>The engine has not been benchmarked.</b> All 90 conformance vectors pass, and the
-          fail-closed property now runs against the real engine at 10⁶ cases. Fuzzing has been
-          done and found a real parser crash, since fixed, with roughly 18 million executions clean
-          after it — though no single campaign ran its full 30-minute budget to a clean exit in one
-          go. The JMH latency budgets (M1-16) have not been run at all, so <b>no performance figure
-          for this engine exists</b>.</li>
-      <li><b>The front end was not opened in a browser.</b> The blank-page fix is verified by
-          mechanism (classic script tag, IIFE bundle, nothing fetched at load) but not by sight:
-          the Playwright server failed to connect.</li>
-      <li><b>Two green signals turned out to be hiding nothing-happened.</b> A Jupiter
-          <code>@Tag</code> on a jqwik property made the platform filter skip it while the build
-          stayed green, and a <code>grep</code> in a pipeline swallowed a failing build's exit
-          status. Both were caught by reading the test XML rather than the summary line, and both
-          are worth distrusting a BUILD SUCCESSFUL for.</li>
+      <li><b>CI has never run.</b> The only entry left. The workflows are valid YAML and SHA-pinned,
+          but there is no git remote, so no pipeline has executed them. Worth distrusting: an
+          earlier version of this page called them &ldquo;lint-clean&rdquo; when in fact both files
+          were <i>invalid YAML</i> and could never have started — a <code>run:</code> line
+          containing <code>&quot;: &quot;</code> in a plain scalar.</li>
+      <li><b>No deployment of any kind.</b> No Dockerfile, no chart, no image, no environment.
+          Everything that exists runs from a build directory or <code>devstack/up.sh</code>.</li>
+      <li><b>Nothing is authenticated.</b> <code>X-Tenant-Id</code> is an unverified header
+          (M3-09), so the decision service must not be exposed to a network you do not control.
+          This is a deliberate ordering choice, not an oversight — but it is the kind of choice that
+          gets forgotten, so it is written here.</li>
     </ul>
+    <p><b>Demonstrated since, and what each one cost.</b> The decision-log SQL now runs against a
+       real PostgreSQL — which found a tenant-owned table with no row-level security and a wrong
+       tenant-id pattern. The engine is benchmarked — which found that half of a 100-rule decision
+       was re-parsing expressions it had already parsed. The front end has been opened in a browser
+       by Playwright — which found that the production page was blank, and then that 67
+       colour-contrast violations had been invisible <i>because</i> it was blank. Not one of the
+       three was fine when it was finally checked.</p>
+    <p><b>Three green signals have turned out to be hiding nothing-happened.</b> A Jupiter
+       <code>@Tag</code> on a jqwik property made the platform filter skip it while the build stayed
+       green; a <code>grep</code> in a pipeline swallowed a failing build's exit status; and an
+       accessibility audit passed because the page it audited was empty. All three were caught by
+       reading the test XML rather than the summary line.</p>
   </div>
 
   <h2 class="sec">What does work</h2>
-  <p class="lead">All <b>90 conformance vectors from LLD §13 pass</b>, across all twenty families —
-     363 tests, none failing. That covers BEL, three-valued logic, exact decimals and dates,
+  <p class="lead">All <b>90 conformance vectors from LLD §13 pass</b>, across all twenty families.
+     <b>542 tests, none failing and none skipped</b> — the skip count is asserted, because a skipped
+     test is not a passing test and this project has been fooled by one. That covers BEL, three-valued logic, exact decimals and dates,
      decision tables with every hit policy, scorecards with adverse reasons, per-entity iteration,
      the four aggregation modes, deviation coverage with authority resolution, knockout, fuel, and
      champion/challenger bucketing.</p>
   <p class="lead">The decision service runs: <code>POST /v1/decisions</code> returns a decision and
      <code>GET /v1/decisions/{id}</code> reads it back, behind a decision-log port with a durable
-     PostgreSQL mode and an in-memory mode for local work.</p>
+     PostgreSQL mode and an in-memory mode for local work. The policy is <b>resolved</b>, never
+     supplied — the caller names a policy code and may pin a bundle hash, and what gets evaluated is
+     a signed, content-addressed bundle this pod fetched and verified.</p>
+  <p class="lead">And a real credit policy decides with it. <code>./devstack/up.sh</code> builds,
+     signs, starts and then posts the MFI reference policy's three fixtures, printing
+     <b>APPROVE</b>, <b>DECLINE</b> and <b>REFER</b> — the same three answers the CI acceptance test
+     asserts against the engine directly. That is the end-to-end claim: a lender's policy, in PSF,
+     signed into a bundle with its parameters resolved, served through a verified pointer manifest,
+     deciding over documents that conform to the published fact schema.</p>
 
   <h2 class="sec">What is worth doing next</h2>
-  <p class="lead">All three are possible without a Kafka cluster, Kubernetes, a penetration test or
-     a pilot lender — which everything in M3, M4 and M6 does need.</p>
+  <p class="lead">Everything below is possible without a Kafka cluster, Kubernetes, an identity
+     provider, a penetration test or a pilot lender — which is what the whole of M3 and M4, and
+     most of what remains in M5 and M6, does need.</p>
   <ul class="plain">
-    <li><b>M1-10, static checks.</b> Reject a policy with a decision-table gap at authoring time
-        rather than mid-decision. A policy that fails mid-decision has already cost a decision.</li>
-    <li><b>M1-13, bundle signing.</b> Without a signed, content-addressed bundle there is no
-        registry — which is why the policy still arrives inline on every request, the largest
-        deviation in the API today.</li>
-    <li><b>M1-14, the fact model.</b> Unblocks M2-05 replay, and is the first step toward the §9.2
-        encryption that would let facts be stored at all.</li>
+    <li><b>M2-03, the registry's HTTP surface.</b> The largest remaining gap, and the one most
+        other things are waiting behind. Bundles, the manifest and now the resolved assets are all
+        produced by a CLI and read from local files. Compile, sign, deploy, the §8.2 long-poll and
+        parameter-set storage are what turn that into something an organisation can operate — and
+        until parameter sets are stored rather than kept in a JSON file next to the policy, a
+        lender's credit thresholds live in whatever a developer happened to commit.</li>
+    <li><b>The reason catalogue.</b> A decision currently returns its internal reason codes and an
+        empty list of customer-facing ones. That is the gap between a decision a credit officer can
+        act on and one a lender can send to an applicant, and it is small: the catalogue is
+        referenced by every policy already, and nothing reads it.</li>
+    <li><b>M2-08, the load test.</b> The engine is benchmarked and the service is not. A 0.198 ms
+        p99 inside the engine says nothing about what the decision-log write, the connection pool
+        and virtual-thread scheduling do to it under 500 decisions a second.</li>
+    <li><b>M2-06, facts encryption behind KmsPort.</b> Fact snapshots are not stored at all today,
+        which is the safe default and also means replay cannot be used for the thing it exists for.
+        The §9.2 two-envelope scheme is what unblocks it.</li>
   </ul>
 
-  <div class="foot">Generated from the repository · 32 commits · 465 tests passing · 9 October 2026</div>
+  <div class="foot">Generated from the repository · 42 commits · 542 tests passing · 9 October 2026</div>
 </div>
 </body>
 </html>

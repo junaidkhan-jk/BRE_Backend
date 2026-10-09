@@ -411,6 +411,7 @@
                           "properties": {
                             "month": {
                               "type": "string",
+                              "format": "date",
                               "x-bre-tags": [
                                 "regulated"
                               ],

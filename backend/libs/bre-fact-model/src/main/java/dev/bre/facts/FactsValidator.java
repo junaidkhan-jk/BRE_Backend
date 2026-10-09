@@ -1,14 +1,17 @@
-package dev.bre.cli;
+package dev.bre.facts;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import dev.bre.facts.FactSchema;
-import dev.bre.facts.ProhibitedData;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Validates a facts document against the canonical fact schema (M6-05).
+ *
+ * <p>Lives beside the schema rather than in the CLI, because the CLI is not the only caller: the
+ * reference policy's acceptance suite validates its own fixtures with it, and a fixture that drifts
+ * from the schema is otherwise typed as undeclared text and fails the acceptance test for a reason
+ * that has nothing to do with the policy.
  *
  * <p>Built for the pilot integrator's CI, which is what shapes it. The Loan Origination System team
  * runs this over their fixtures on every build, so it has to answer three questions precisely and

@@ -158,6 +158,11 @@ public final class FlowEvaluator {
                         dev.bre.engine.bel.parse.Compiled.expression(expr), context));
     List<StepResult> steps = new ArrayList<>();
     boolean knockedOut = false;
+    // What earlier steps published, so a later step can reference `CODE.output` (§4.10). Mutated
+    // as the flow runs, which is sound precisely because the flow is ordered: a step can only ever
+    // see the outputs of steps before it, so the result does not depend on evaluation order within
+    // a step and a forward reference reads as Missing rather than as a stale value.
+    Published published = new Published();
 
     for (StageDef stage : policy.flow().stages()) {
       if (knockedOut) {
@@ -167,7 +172,9 @@ public final class FlowEvaluator {
 
       List<StepResult> stageSteps = new ArrayList<>(stage.steps().size());
       for (StepDef step : stage.steps()) {
-        stageSteps.add(runStep(step, components, context, policy, authorityAmount));
+        StepResult result = runStep(step, components, context, policy, authorityAmount, published);
+        published.record(result);
+        stageSteps.add(result);
       }
       steps.addAll(stageSteps);
 
@@ -234,7 +241,8 @@ public final class FlowEvaluator {
       Components components,
       EvaluationContext context,
       PolicyIr policy,
-      Optional<Value> authorityAmount) {
+      Optional<Value> authorityAmount,
+      Published published) {
 
     Scope scope = components.scopeOf(step.ref());
 
@@ -253,8 +261,9 @@ public final class FlowEvaluator {
 
     List<ComponentResult> results = new ArrayList<>(entities.size());
     for (Entity entity : entities) {
+      EvaluationContext entityContext = published.visibleTo(entity);
       ComponentResult raw =
-          components.evaluate(step.ref(), entity.context()).forEntity(scope.name(), entity.ref());
+          components.evaluate(step.ref(), entityContext).forEntity(scope.name(), entity.ref());
       // §4.9: coverage and authority are resolved per entity, BEFORE aggregation — so an approved
       // deviation is already an effective PASS by the time the step's status is computed.
       if (raw.status() == RuntimeStatus.ERROR && raw.reasonCode().isEmpty()) {
@@ -265,12 +274,86 @@ public final class FlowEvaluator {
               raw,
               policy.authorityMatrix(),
               authorityAmount,
-              entity.context().facts(),
-              entity.context().asOf()));
+              entityContext.facts(),
+              entityContext.asOf()));
     }
 
     RuntimeStatus status = Aggregation.aggregate(step.aggregate(), results, context);
     return new StepResult(step.ref(), status, results);
+  }
+
+  /**
+   * What earlier steps published, and how a later step sees it (§4.10).
+   *
+   * <p>A component's named outputs are addressable as {@code CODE.output} — a scorecard's {@code
+   * score} and {@code reasons}, a rule's declared {@code outputs}, a decision table's row outputs.
+   * Without this they were computed, returned on the result, and then discarded before the next
+   * step ran, so the reference evaluated to Missing: the reference policy's score cut-off table
+   * read {@code MFI_APP_SCORE_V1.score} and referred every applicant for missing data while the
+   * scorecard sitting one step above it had just computed the score.
+   *
+   * <p><b>Outputs are keyed by entity, which is the part that has to be right.</b> A MEMBER-scope
+   * scorecard produces one score per member. A later MEMBER-scope step evaluating member P-0003
+   * must see P-0003's score and nothing else — binding the first member's, or the last one's, would
+   * hand one applicant another applicant's credit score and the decision would still look entirely
+   * plausible. An application-scope component's outputs are visible to every entity, because there
+   * is only one of it.
+   *
+   * <p>A component that ran for a different entity, or has not run, reads as Missing and propagates
+   * strictly (§3.9) — so a mis-ordered flow fails closed rather than silently scoring against
+   * nothing.
+   */
+  private static final class Published {
+
+    /** component code -> entity ref ({@code ""} for application scope) -> that result's outputs. */
+    private final Map<String, Map<String, Value>> byCode = new LinkedHashMap<>();
+
+    void record(StepResult step) {
+      for (ComponentResult entity : step.entities()) {
+        if (entity.outputs().isEmpty()) {
+          continue;
+        }
+        byCode
+            .computeIfAbsent(entity.code(), code -> new LinkedHashMap<>())
+            .put(entity.entityRef().orElse(""), new RecordV(entity.outputs()));
+      }
+    }
+
+    EvaluationContext visibleTo(Entity entity) {
+      if (byCode.isEmpty()) {
+        return entity.context();
+      }
+      Map<String, Value> bindings = new LinkedHashMap<>();
+      byCode.forEach(
+          (code, byEntity) -> {
+            Value mine = byEntity.get(entity.ref() == null ? "" : entity.ref());
+            if (mine == null && byEntity.size() == 1) {
+              // The one application-scope result, visible to everybody. Size one is the test
+              // rather than an empty key, because a GROUP-scope component is keyed by the
+              // application ref while a MEMBER-scope step is keyed by a party ref.
+              mine = byEntity.values().iterator().next();
+            }
+            if (mine != null) {
+              bindings.put(code, mine);
+            }
+          });
+      if (bindings.isEmpty()) {
+        return entity.context();
+      }
+      Map<String, Value> fields = new LinkedHashMap<>(entity.context().facts().fields());
+      fields.putAll(bindings);
+      EvaluationContext base = entity.context();
+      return new EvaluationContext(
+          new RecordV(fields),
+          base.parameters(),
+          base.lists(),
+          base.asOf(),
+          base.it(),
+          base.fuel(),
+          base.variables(),
+          base.listCap(),
+          base.recorder());
+    }
   }
 
   /**
@@ -288,10 +371,12 @@ public final class FlowEvaluator {
    * MEMBER, in {@code group.memberPartyRefs} order. Deriving it rather than reading a {@code
    * members[]} array is what keeps one party list as the single source of truth.
    *
-   * <p>ponytail: PARTY, HOUSEHOLD and COLLATERAL scopes fall back to a single application-scope
-   * entity. MEMBER is the scope the MFI MVP needs (D4) and the one the vectors exercise; the others
-   * arrive with the retail and MSME catalogues in Phase 2, and each needs its own ordering rule
-   * from §4.5 rather than a guess here.
+   * <p>ponytail: COLLATERAL scope still falls back to a single application-scope entity. It arrives
+   * with the housing and MSME catalogues in Phase 2 and needs §4.5's ordering rule for a secured
+   * product rather than a guess here. HOUSEHOLD is implemented because the MFI reference policy's
+   * income ceiling is household-scope (Guide E2) and an unimplemented scope does not fail — it
+   * evaluates against an unbound root, so every household rule REFERs on missing data and looks
+   * like a data-quality problem rather than a missing feature.
    */
   private static List<Entity> entitiesInScope(
       Scope scope, EvaluationContext context, List<String> roles) {
@@ -308,6 +393,26 @@ public final class FlowEvaluator {
         entities.add(new Entity(bind(context, "party", party), partyRef(party)));
       }
       return entities;
+    }
+
+    // HOUSEHOLD scope iterates `households`, in declaration order. §3.8 gives households no
+    // ordering key of their own — unlike members, which are ordered by group.memberPartyRefs — so
+    // declaration order is the only order the snapshot actually carries.
+    if (scope == Scope.HOUSEHOLD) {
+      if (context.facts().field("households") instanceof ListV households
+          && !households.elements().isEmpty()) {
+        List<Entity> entities = new ArrayList<>(households.elements().size());
+        for (Value household : households.elements()) {
+          entities.add(new Entity(bind(context, "household", household), householdRef(household)));
+        }
+        return entities;
+      }
+      // Same reasoning as a directly-bound `member` below: a snapshot that binds `household`
+      // itself is one household already selected, which is how the §13 household vectors read.
+      if (!context.facts().field("household").isMissing()) {
+        return List.of(new Entity(context, householdRef(context.facts().field("household"))));
+      }
+      return List.of();
     }
 
     if (scope != Scope.MEMBER) {
@@ -369,6 +474,12 @@ public final class FlowEvaluator {
       return ref.value();
     }
     return null;
+  }
+
+  private static String householdRef(Value household) {
+    return household instanceof RecordV record && record.field("householdRef") instanceof TextV ref
+        ? ref.value()
+        : null;
   }
 
   private static String partyRef(Value party) {

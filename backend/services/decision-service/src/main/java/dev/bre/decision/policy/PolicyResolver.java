@@ -102,8 +102,11 @@ public final class PolicyResolver {
               .findFirst()
               .map(PointerManifest.Servable::deploymentId)
               .orElse(entry.champion().deploymentId());
+      BundleCache.Compiled served = bundles.compiled(pinned);
       return new PolicyResolution(
-          bundles.policy(pinned),
+          served.policy(),
+          served.parameters(),
+          served.lists(),
           pinned,
           deploymentId,
           PolicyResolution.Kind.PINNED,
@@ -113,8 +116,11 @@ public final class PolicyResolver {
     for (PointerManifest.Challenger challenger : entry.challengers()) {
       int bucket = TrafficSplitter.bucketOf(tenantId, applicationRef, challenger.experimentId());
       if (bucket >= challenger.bucketFrom() && bucket < challenger.bucketTo()) {
+        BundleCache.Compiled served = bundles.compiled(challenger.bundleHash());
         return new PolicyResolution(
-            bundles.policy(challenger.bundleHash()),
+            served.policy(),
+            served.parameters(),
+            served.lists(),
             challenger.bundleHash(),
             challenger.deploymentId(),
             PolicyResolution.Kind.CHALLENGER,
@@ -122,8 +128,11 @@ public final class PolicyResolver {
       }
     }
 
+    BundleCache.Compiled champion = bundles.compiled(entry.champion().bundleHash());
     return new PolicyResolution(
-        bundles.policy(entry.champion().bundleHash()),
+        champion.policy(),
+        champion.parameters(),
+        champion.lists(),
         entry.champion().bundleHash(),
         entry.champion().deploymentId(),
         PolicyResolution.Kind.CHAMPION,

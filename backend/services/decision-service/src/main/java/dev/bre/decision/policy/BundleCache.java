@@ -3,7 +3,9 @@ package dev.bre.decision.policy;
 import dev.bre.bundle.Bundle;
 import dev.bre.bundle.BundleException;
 import dev.bre.bundle.BundleVerifier;
+import dev.bre.engine.eval.Value;
 import dev.bre.engine.ir.Ir;
+import dev.bre.irjson.AssetCodec;
 import dev.bre.irjson.IrCodec;
 import java.util.Map;
 import java.util.Optional;
@@ -27,7 +29,22 @@ public final class BundleCache {
 
   private final BundleStore store;
   private final BundleVerifier verifier;
-  private final Map<String, Ir.PolicyIr> compiled = new ConcurrentHashMap<>();
+  private final Map<String, Compiled> compiled = new ConcurrentHashMap<>();
+
+  /**
+   * A verified bundle, decoded: the policy and the asset values it was signed with.
+   *
+   * <p>The assets travel with the policy because they were resolved into the same hash (§8.4). A
+   * cache that held the policy and fetched parameters separately would be able to evaluate a policy
+   * against values it was never signed with, which is exactly the drift content addressing exists
+   * to prevent.
+   *
+   * @param policy the decoded policy
+   * @param parameters the {@code param.} namespace
+   * @param lists the {@code list.} namespace
+   */
+  public record Compiled(
+      Ir.PolicyIr policy, Map<String, Value> parameters, Map<String, Value> lists) {}
 
   /**
    * Creates a cache.
@@ -48,7 +65,18 @@ public final class BundleCache {
    * @throws BundleException if the bundle is absent, unverifiable or untrusted
    */
   public Ir.PolicyIr policy(String bundleHash) {
-    Ir.PolicyIr cached = compiled.get(bundleHash);
+    return compiled(bundleHash).policy();
+  }
+
+  /**
+   * Returns the policy and its resolved assets, fetching, verifying and decoding on first use.
+   *
+   * @param bundleHash the content address
+   * @return the decoded bundle
+   * @throws BundleException if the bundle is absent, unverifiable or untrusted
+   */
+  public Compiled compiled(String bundleHash) {
+    Compiled cached = compiled.get(bundleHash);
     if (cached != null) {
       return cached;
     }
@@ -77,9 +105,13 @@ public final class BundleCache {
     // and nothing is cached on that path.
     verifier.verify(bundle);
 
-    Ir.PolicyIr policy = IrCodec.readPolicy(bundle.ir());
-    compiled.put(bundleHash, policy);
-    return policy;
+    Compiled decoded =
+        new Compiled(
+            IrCodec.readPolicy(bundle.ir()),
+            AssetCodec.parameters(bundle.assets()),
+            AssetCodec.lists(bundle.assets()));
+    compiled.put(bundleHash, decoded);
+    return decoded;
   }
 
   /**
@@ -108,6 +140,6 @@ public final class BundleCache {
    * @return the policy, if already cached
    */
   public Optional<Ir.PolicyIr> peek(String bundleHash) {
-    return Optional.ofNullable(compiled.get(bundleHash));
+    return Optional.ofNullable(compiled.get(bundleHash)).map(Compiled::policy);
   }
 }

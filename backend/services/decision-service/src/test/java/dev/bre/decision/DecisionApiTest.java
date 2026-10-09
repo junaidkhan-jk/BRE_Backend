@@ -50,6 +50,9 @@ class DecisionApiTest {
 
   private static final ObjectMapper JSON = new ObjectMapper();
 
+  /** The instalment-to-income ratio, over schema fact paths. */
+  private static final String FOIR = "member.proposedMonthlyInstalment / member.income.monthlyNet";
+
   private static final KeyPair BUNDLE_KEY = BundleSigner.generateKeyPair();
   private static final KeyPair MANIFEST_KEY = BundleSigner.generateKeyPair();
 
@@ -67,11 +70,10 @@ class DecisionApiTest {
     foirBundleHash =
         seed(
             store,
-            rule("MFI_FOIR_CAP", "member.emi / member.income <= 0.5", "POL_FOIR_EXCEEDED"),
-            rule("MFI_MIN_AGE", "member.age >= 18", "POL_UNDERAGE"));
+            rule("MFI_FOIR_CAP", FOIR + " <= 0.5", "POL_FOIR_EXCEEDED"),
+            rule("MFI_MIN_AGE", "ageInYears(member.dateOfBirth, asOf) >= 18", "POL_UNDERAGE"));
     brokenBundleHash = seed(store, rule("BROKEN", "a < b < c", "POL_BROKEN"));
-    retiredBundleHash =
-        seed(store, rule("MFI_FOIR_CAP", "member.emi / member.income <= 0.9", "POL_FOIR_EXCEEDED"));
+    retiredBundleHash = seed(store, rule("MFI_FOIR_CAP", FOIR + " <= 0.9", "POL_FOIR_EXCEEDED"));
 
     Path manifest = policyDir.resolve("manifest.json");
     Files.writeString(manifest, manifestDocument());
@@ -87,6 +89,12 @@ class DecisionApiTest {
     return Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());
   }
 
+  // The checks below are written against REAL fact paths — parties[].income.monthlyNet,
+  // parties[].proposedMonthlyInstalment, parties[].dateOfBirth — because the service now reads
+  // facts through the fact schema (M1-14). They were invented paths (member.income, member.emi,
+  // member.age), and once the reader took its types from the schema those became untyped text: a
+  // policy that cannot divide two strings REFERRED on every request, and the test would have been
+  // asserting APPROVE against a service that could no longer approve anything.
   private static ObjectNode rule(String code, String check, String reasonCode) {
     ObjectNode rule = JSON.createObjectNode();
     rule.put("code", code).put("name", code).put("scope", "APPLICATION").put("check", check);
@@ -161,9 +169,11 @@ class DecisionApiTest {
     return """
         { "tenantId": "T-001", "requestId": "%s", "asOf": "2026-10-01",
           "environment": "PROD", "policyCode": "MFI_JLG_CREDIT_UW",
-          "facts": { "member": { "income": "%s", "emi": "%s", "age": 34 } } }
+          "facts": { "member": { "partyRef": "P-0001", "dateOfBirth": "1992-03-04",
+                                 "proposedMonthlyInstalment": "%s",
+                                 "income": { "monthlyNet": "%s" } } } }
         """
-        .formatted(requestId, income, emi);
+        .formatted(requestId, emi, income);
   }
 
   private HttpResponse<String> post(String body) throws IOException, InterruptedException {
@@ -227,7 +237,8 @@ class DecisionApiTest {
         """
         { "tenantId": "T-001", "requestId": "REQ-3", "asOf": "2026-10-01",
           "environment": "PROD", "policyCode": "MFI_JLG_CREDIT_UW",
-          "facts": { "member": { "emi": "5000", "age": 34 } } }
+          "facts": { "member": { "partyRef": "P-0001", "dateOfBirth": "1992-03-04",
+                                 "proposedMonthlyInstalment": "5000.00" } } }
         """;
 
     JsonNode decision = body(post(withoutIncome));
@@ -295,7 +306,7 @@ class DecisionApiTest {
     String request =
         """
         { "requestId": "REQ-7", "environment": "PROD", "policyCode": "MFI_JLG_CREDIT_UW",
-          "facts": { "member": { "income": "20000" } } }
+          "facts": { "member": { "income": { "monthlyNet": "20000" } } } }
         """;
 
     HttpResponse<String> response = post(request);
@@ -332,7 +343,9 @@ class DecisionApiTest {
         { "tenantId": "T-001", "requestId": "REQ-9", "asOf": "2026-10-01",
           "environment": "PROD", "policyCode": "MFI_JLG_CREDIT_UW",
           "bundleHash": "%s",
-          "facts": { "member": { "income": "10000", "emi": "8000", "age": 34 } } }
+          "facts": { "member": { "partyRef": "P-0001", "dateOfBirth": "1992-03-04",
+                                 "proposedMonthlyInstalment": "8000.00",
+                                 "income": { "monthlyNet": "10000.00" } } } }
         """
             .formatted(retiredBundleHash);
 
@@ -350,7 +363,9 @@ class DecisionApiTest {
         { "tenantId": "T-001", "requestId": "REQ-10", "environment": "PROD",
           "policyCode": "MFI_JLG_CREDIT_UW",
           "bundleHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-          "facts": { "member": { "income": "20000", "emi": "5000", "age": 34 } } }
+          "facts": { "member": { "partyRef": "P-0001", "dateOfBirth": "1992-03-04",
+                                 "proposedMonthlyInstalment": "5000.00",
+                                 "income": { "monthlyNet": "20000.00" } } } }
         """;
 
     HttpResponse<String> response = post(pinned);

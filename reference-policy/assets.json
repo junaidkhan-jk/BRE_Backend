@@ -1,0 +1,217 @@
+{
+  "_comment": [
+    "Resolved assets for MFI_JLG_CREDIT_UW (M6-01). JSON, not YAML: every value here carries an",
+    "explicit type and every decimal is a quoted string, so YAML's scalar inference would add a",
+    "second parser to the signing path and buy nothing.",
+    "",
+    "The numbers follow the RBI Master Direction on microfinance loans (2022) where it sets one \u2014",
+    "the 300,000 household income ceiling and the 50% FOIR cap are regulatory, not ours. The rest",
+    "are a plausible lender's own limits and exist so the reference policy has something to",
+    "evaluate against; a real deployment's parameter set is the lender's credit policy and comes",
+    "from the registry's parameter tables (LLD 5.2), where a change to one is a new policy",
+    "version with a new bundle hash."
+  ],
+  "parameterSets": {
+    "MFI_PARAMS@1": {
+      "MFI_HH_ANNUAL_INCOME_MAX": {
+        "type": "Decimal",
+        "value": "300000.00"
+      },
+      "INDEBTEDNESS_HARD_CAP": {
+        "type": "Decimal",
+        "value": "200000.00"
+      },
+      "INDEBTEDNESS_SOFT_CAP": {
+        "type": "Decimal",
+        "value": "125000.00"
+      },
+      "MAX_MFI_LENDERS": {
+        "type": "Integer",
+        "value": 3
+      },
+      "OWN_LENDER_REF": {
+        "type": "Text",
+        "value": "LENDER-SELF"
+      },
+      "JLG_MIN_SIZE": {
+        "type": "Integer",
+        "value": 5
+      },
+      "JLG_MAX_SIZE": {
+        "type": "Integer",
+        "value": 20
+      },
+      "SHG_MIN_SIZE": {
+        "type": "Integer",
+        "value": 10
+      },
+      "SHG_MAX_SIZE": {
+        "type": "Integer",
+        "value": 20
+      },
+      "MIN_GROUP_AGE_MONTHS": {
+        "type": "Integer",
+        "value": 3
+      },
+      "PRIMARY_BUREAU": {
+        "type": "Text",
+        "value": "HIGHMARK"
+      },
+      "MIN_BUREAU_SCORE": {
+        "type": "Integer",
+        "value": 600
+      },
+      "DPD_LOOKBACK_MONTHS": {
+        "type": "Integer",
+        "value": 24
+      },
+      "DPD_SEVERE_THRESHOLD": {
+        "type": "Integer",
+        "value": 30
+      },
+      "NTC_MAX_AMOUNT": {
+        "type": "Decimal",
+        "value": "40000.00"
+      },
+      "MIN_AGE": {
+        "type": "Integer",
+        "value": 18
+      },
+      "MAX_AGE_AT_MATURITY": {
+        "type": "Integer",
+        "value": 60
+      },
+      "SCORE_APPROVE_MIN": {
+        "type": "Integer",
+        "value": 420
+      },
+      "SCORE_REFER_MIN": {
+        "type": "Integer",
+        "value": 380
+      }
+    }
+  },
+  "referenceLists": {
+    "UNSECURED_ACCOUNT_TYPES@1": {
+      "type": "Text",
+      "values": [
+        "MICROFINANCE",
+        "PERSONAL_LOAN",
+        "CONSUMER_DURABLE",
+        "CREDIT_CARD",
+        "OVERDRAFT",
+        "BUSINESS_LOAN_UNSECURED",
+        "EDUCATION_LOAN"
+      ]
+    },
+    "OPEN_TRADELINE_STATUSES@1": {
+      "type": "Text",
+      "values": [
+        "ACTIVE",
+        "CURRENT",
+        "OVERDUE",
+        "SUBSTANDARD",
+        "DOUBTFUL",
+        "RESTRUCTURED"
+      ]
+    },
+    "MFI_LENDER_TYPES@1": {
+      "type": "Text",
+      "values": [
+        "NBFC_MFI",
+        "MFI",
+        "SFB",
+        "BANK_SHG",
+        "NGO_MFI",
+        "SECTION_8_MFI"
+      ]
+    }
+  },
+  "authorityMatrices": {
+    "MFI_DOP@1": {
+      "_comment": [
+        "Delegation of powers (Guide E21). HIGHEST_ONLY: one approver, the highest level any of",
+        "the application's deviations needs - not a signature from every level in between.",
+        "Bands are on the authority amount (settings.authorityAmount), so a larger loan with the",
+        "same deviation escalates."
+      ],
+      "routingMode": "HIGHEST_ONLY",
+      "levels": [
+        {
+          "levelCode": "BRANCH_MANAGER",
+          "rank": 1
+        },
+        {
+          "levelCode": "AREA_MANAGER",
+          "rank": 2
+        },
+        {
+          "levelCode": "REGIONAL_CREDIT",
+          "rank": 3
+        },
+        {
+          "levelCode": "CHIEF_CREDIT",
+          "rank": 4
+        }
+      ],
+      "entries": [
+        {
+          "entryNo": 1,
+          "deviationType": "INDEBTEDNESS_CAP",
+          "productLine": "MFI_JLG",
+          "amountUpTo": "100000.00",
+          "levelCode": "BRANCH_MANAGER"
+        },
+        {
+          "entryNo": 2,
+          "deviationType": "INDEBTEDNESS_CAP",
+          "productLine": "MFI_JLG",
+          "amountAbove": "100000.00",
+          "amountUpTo": "300000.00",
+          "levelCode": "AREA_MANAGER"
+        },
+        {
+          "entryNo": 3,
+          "deviationType": "INDEBTEDNESS_CAP",
+          "productLine": "MFI_JLG",
+          "amountAbove": "300000.00",
+          "levelCode": "REGIONAL_CREDIT"
+        },
+        {
+          "entryNo": 4,
+          "deviationType": "NTC_AMOUNT",
+          "productLine": "MFI_JLG",
+          "amountUpTo": "200000.00",
+          "levelCode": "BRANCH_MANAGER"
+        },
+        {
+          "entryNo": 5,
+          "deviationType": "NTC_AMOUNT",
+          "productLine": "MFI_JLG",
+          "amountAbove": "200000.00",
+          "levelCode": "AREA_MANAGER"
+        },
+        {
+          "entryNo": 6,
+          "deviationType": "AGE_AT_MATURITY",
+          "productLine": "MFI_JLG",
+          "levelCode": "AREA_MANAGER"
+        },
+        {
+          "entryNo": 7,
+          "deviationType": "VRM_CATEGORY_C",
+          "productLine": "MFI_JLG",
+          "amountUpTo": "200000.00",
+          "levelCode": "AREA_MANAGER"
+        },
+        {
+          "entryNo": 8,
+          "deviationType": "VRM_CATEGORY_C",
+          "productLine": "MFI_JLG",
+          "amountAbove": "200000.00",
+          "levelCode": "REGIONAL_CREDIT"
+        }
+      ]
+    }
+  }
+}

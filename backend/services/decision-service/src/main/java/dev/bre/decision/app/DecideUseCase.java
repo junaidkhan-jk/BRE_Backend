@@ -11,7 +11,8 @@ import dev.bre.decision.policy.PolicyResolution;
 import dev.bre.decision.policy.PolicyResolver;
 import dev.bre.engine.decide.FlowEvaluator;
 import dev.bre.engine.eval.EvaluationContext;
-import dev.bre.engine.eval.Value;
+import dev.bre.facts.FactReader;
+import dev.bre.facts.LendingFacts;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -123,7 +124,12 @@ public class DecideUseCase {
     FlowEvaluator.DecisionResult result =
         FlowEvaluator.evaluate(
             resolved.policy(),
-            EvaluationContext.of(FactMapper.toRecord(request.facts()), Map.of(), Map.of(), asOf));
+            EvaluationContext.of(
+                FACT_READER.toRecord(request.facts()),
+                // The parameters and lists the bundle was SIGNED with, not any fetched now (§8.4).
+                resolved.parameters(),
+                resolved.lists(),
+                asOf));
 
     DecisionResponse response =
         new DecisionResponse(
@@ -231,12 +237,12 @@ public class DecideUseCase {
     }
   }
 
-  /** Converts request facts to engine values. Separate class so it can be unit-tested alone. */
-  static final class FactMapper {
-    private FactMapper() {}
-
-    static Value.RecordV toRecord(Map<String, Object> facts) {
-      return dev.bre.decision.app.JsonFactReader.toRecord(facts);
-    }
-  }
+  /**
+   * Converts request facts to engine values, through the fact schema (§3.4).
+   *
+   * <p>One reader, built once. {@link FactReader} is immutable and holds only the schema, and the
+   * schema is a few hundred paths parsed from a resource — building one per request would parse
+   * nothing again but would still allocate per decision for no reason.
+   */
+  private static final FactReader FACT_READER = new FactReader(LendingFacts.schema());
 }

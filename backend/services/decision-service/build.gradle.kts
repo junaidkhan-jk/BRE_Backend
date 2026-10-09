@@ -13,6 +13,9 @@ plugins {
 
 dependencies {
     implementation(project(":libs:bre-bundle"))
+    // The fact schema types the facts document (M1-14). Without it the service has to infer a
+    // value's type from its JSON shape, which cannot tell a date from a string.
+    implementation(project(":libs:bre-fact-model"))
     implementation(platform("org.springframework.boot:spring-boot-dependencies:${libs.versions.spring.boot.get()}"))
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
