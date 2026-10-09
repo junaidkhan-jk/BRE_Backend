@@ -5,6 +5,7 @@ plugins { id("bre.java-library") }
 dependencies {
     api(project(":libs:bre-engine-core"))
     api(project(":libs:bre-ir-json"))
+    implementation(libs.jackson.databind)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
