@@ -15,11 +15,23 @@
 -- ALL STATEMENTS BELOW ARE READ-ONLY. No DML, no DDL.
 -- Run PULL G (sweeps) off-peak or on a read replica — full scans.
 --
+-- v3. LIVE-VERIFIED. Entire file executed against mfi_qa6
+--     (172.31.2.61:5433) on 2026-10-09.
+--       20 of 20 statements executed       0 errors
+--       17 of 17 tables exist              ~95 of ~95 columns exist
+--     Pulls A-F return 0 rows on QA6 — the prod account ids do not
+--     exist there. That is expected; their value here was proving the
+--     SQL is syntactically valid and every identifier resolves.
+--     Pulls G and H returned real QA6 data — see the RESULTS section
+--     at the foot of this file. The defect class REPRODUCES on QA6.
+--     No statement needed correcting at this stage.
+--
 -- v2. Table and column names corrected against the JPA entity
 --     definitions in trustt-platform-accounting / -payments. QA3 was
 --     unreachable at the time of writing (172.31.2.138:5433 timeout),
---     so these are entity-derived, not live-verified. Corrections
---     against v1, with the entity each name comes from:
+--     so these were entity-derived; v3 confirmed every one of them
+--     live. Corrections against v1, with the entity each name
+--     comes from:
 --       waiver_loan_due_details
 --         -> waiver__loan_due_details   (DOUBLE underscore)
 --            WaiverLoanDueDetailsEntity. Has no waiver_details_id —
@@ -457,6 +469,169 @@ select acc_id,
 select count(*) as invisible_rows
   from mfi_payments.collection
  where total_overdue_amount < 0;
+
+
+-- =====================================================================
+-- PULL I — PROVENANCE DIAGNOSTICS.
+--
+-- Added in v3. These were not in v1/v2; they were written while
+-- validating against QA6 and turned out to be the most informative
+-- queries in the file. They name the WORKFLOW responsible rather than
+-- just counting damage. Run them on prod alongside PULL G.
+-- =====================================================================
+
+-- I1. Over-settled rows split by component, and by WHICH mechanism
+--     pushed them over: an inflated waiver, or an over-allocated
+--     payment with no waiver involved at all.
+select ldd.component_type,
+       count(*)                                                        as n_rows,
+       count(*) filter (where ldd.waived_amount > 0)                   as with_waiver,
+       count(*) filter (where ldd.paid_amount > ldd.due_amount)        as paid_alone_exceeds_due,
+       round(sum(ldd.paid_amount + ldd.waived_amount - ldd.due_amount),2) as excess
+  from mfi_accounting.loan_due_details ldd
+ where ldd.is_deleted = false
+   and ldd.paid_amount + ldd.waived_amount > ldd.due_amount
+ group by 1
+ order by excess desc;
+
+-- I2. Which workflow claimed the waiver on each over-settled row.
+--     identifier_type is the workflow name; a NULL means no waiver
+--     link exists, i.e. the payment allocator alone over-settled it.
+select coalesce(wl.identifier_type, '(no waiver link)') as identifier_type,
+       count(distinct ldd.id)                           as bad_rows,
+       round(sum(wl.waived_amount),2)                   as waived_via_this_path
+  from mfi_accounting.loan_due_details ldd
+  left join mfi_accounting.waiver__loan_due_details wl
+         on wl.loan_due_details_id = ldd.id
+ where ldd.is_deleted = false
+   and ldd.paid_amount + ldd.waived_amount > ldd.due_amount
+ group by 1
+ order by bad_rows desc;
+
+-- I3. The DEATH_FORECLOSURE-linked over-settled rows in detail — the
+--     workflow that applies to this ticket. Shows group role so the
+--     parent-vs-child pattern is visible.
+select la.la_account_number,
+       ldd.loan_account_id,
+       case when la.has_child_accounts              then 'GROUP PARENT'
+            when la.parent_loan_account_id is not null then 'child'
+            else 'individual' end                              as role,
+       ldd.component_type,
+       ldd.due_date::date,
+       ldd.due_amount, ldd.paid_amount, ldd.waived_amount,
+       round(ldd.paid_amount + ldd.waived_amount - ldd.due_amount,2) as excess,
+       lid.is_settled, lid.settled_amount
+  from mfi_accounting.loan_due_details ldd
+  join mfi_accounting.waiver__loan_due_details wl
+    on wl.loan_due_details_id = ldd.id
+   and wl.identifier_type = 'DEATH_FORECLOSURE'
+  join mfi_accounting.loan_account la on la.account_id = ldd.loan_account_id
+  left join mfi_accounting.loan_installment_details lid
+    on lid.id = ldd.loan_installment_details_id
+ where ldd.is_deleted = false
+   and ldd.paid_amount + ldd.waived_amount > ldd.due_amount
+ order by excess desc;
+
+-- I4. Rows matching the PROD signature exactly: a waiver applied on
+--     top of a payment that ALREADY exceeded the due amount. This is
+--     the 2026-09-15 INT row's shape.
+select la.la_account_number, ldd.loan_account_id,
+       la.parent_loan_account_id is not null as is_child,
+       la.has_child_accounts                 as is_parent,
+       ldd.component_type, ldd.due_date::date,
+       ldd.due_amount, ldd.paid_amount, ldd.waived_amount,
+       round(ldd.paid_amount + ldd.waived_amount - ldd.due_amount,2) as excess,
+       lid.is_settled, lid.settled_amount,
+       ldd.updated_by, ldd.updated_on
+  from mfi_accounting.loan_due_details ldd
+  join mfi_accounting.loan_account la on la.account_id = ldd.loan_account_id
+  left join mfi_accounting.loan_installment_details lid
+    on lid.id = ldd.loan_installment_details_id
+ where ldd.is_deleted = false
+   and ldd.paid_amount + ldd.waived_amount > ldd.due_amount
+   and ldd.waived_amount > 0
+   and ldd.paid_amount   > ldd.due_amount
+ order by excess desc;
+
+-- I5. Characterise the G3 ledger mismatch before treating it as a
+--     defect — direction and whether the instalment is settled.
+--     See the RESULTS note on G3: this one needs triage, not a verdict.
+select lid.is_settled,
+       count(*)                            as installments,
+       count(*) filter (where d > 0)       as ldd_exceeds_settled,
+       count(*) filter (where d < 0)       as settled_exceeds_ldd,
+       round(max(abs(d)),2)                as max_abs_delta
+  from (select lid.id, lid.is_settled,
+               sum(ldd.paid_amount + ldd.waived_amount) - lid.settled_amount as d
+          from mfi_accounting.loan_installment_details lid
+          join mfi_accounting.loan_due_details ldd
+            on ldd.loan_installment_details_id = lid.id and ldd.is_deleted = false
+         where lid.is_deleted = false
+         group by lid.id, lid.is_settled, lid.settled_amount
+        having sum(ldd.paid_amount + ldd.waived_amount) <> lid.settled_amount) lid
+ group by 1;
+
+
+-- =====================================================================
+-- RESULTS — mfi_qa6 baseline, captured 2026-10-09
+--
+-- Run the same statements on prod and compare. These QA6 numbers are
+-- the control: they prove the defect class is NOT unique to the
+-- customer in this ticket, and that it is reproducible off-prod.
+--
+--   PULL G
+--     G1  over-settled rows (paid+waived > due)
+--           72 rows / 45 accounts / 57,687.08 total excess
+--     G2  accounts reporting a NEGATIVE overdue
+--           16 accounts / -10,725.72 total
+--     G3  instalment-ledger vs due-ledger mismatch
+--           1,298 instalments / 418 accounts / 3,111,816.45 abs delta
+--           NEEDS TRIAGE, NOT YET A VERDICT. Direction is consistent
+--           (1,286 of 1,298 have ldd_sum > settled_amount) but some of
+--           these may be by design. Restricting to PRIN+INT makes it
+--           WORSE (5,317), which confirms settled_amount is meant to
+--           span all components — so the all-components form above is
+--           the correct comparison. Split: 670 unsettled / 628 settled.
+--     G4  SHG groups that have had a member death foreclosure
+--           54 groups  (the population at risk of this exact sequence)
+--
+--   PULL H
+--     H3  collection rows carrying a negative total_overdue_amount
+--           30 rows. Each one is invisible to ALL THREE Br coll
+--           worklist filters (> 0 / = 0 / = 0), so those accounts
+--           appear in neither OVERDUE, DUE nor UPCOMING.
+--
+--   PULL I
+--     I1  by component and mechanism
+--           PRIN  26 rows,  8 with waiver, 18 paid-alone-exceeds-due,  34,707.94
+--           INT   35 rows, 22 with waiver, 17 paid-alone-exceeds-due,  17,854.00
+--           PINT  11 rows, 11 with waiver,  0 paid-alone-exceeds-due,   5,125.14
+--     I2  by workflow
+--           (no waiver link)    34 rows   <- allocator alone over-settled
+--           DEATH_FORECLOSURE   17 rows   <- THE WORKFLOW IN THIS TICKET
+--           FORECLOSURE         16 rows
+--           WAIVER               4 rows
+--           DISB_CNCL            1 row
+--     I3/I4  two distinct mechanisms are visible in the detail rows:
+--           (a) an AGGREGATE dumped onto one row
+--                 e.g. due 37, paid 0, waived 446  — waiver is 12x the
+--                 row's own due. Cannot come from the clamped loop in
+--                 UpdateDueDetailsForPrepaymentProcessor (that caps at
+--                 the row residual), so an account- or instalment-level
+--                 figure is being assigned to a single row upstream.
+--           (b) the SAME AMOUNT COUNTED TWICE
+--                 e.g. due 5.03, paid 5.03, waived 5.03 — row paid in
+--                 full, then waived in full. The settlement writes
+--                 paid_amount, the waiver step writes waived_amount,
+--                 neither checks the other. This is the prod +97
+--                 mechanism in miniature.
+--           (c) group parent 6002329725: PINT due 200, paid 0,
+--                 waived 400 — exactly 2x, on two identical rows.
+--                 Waiver applied once per child onto the shared
+--                 parent row.
+--           The prod row exhibits (b) and a waiver simultaneously:
+--                 INT due 6778, paid 6875, waived 937.
+-- =====================================================================
 
 
 -- =====================================================================

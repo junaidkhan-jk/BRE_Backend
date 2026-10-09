@@ -16,6 +16,8 @@ dependencies {
     // The fact schema types the facts document (M1-14). Without it the service has to infer a
     // value's type from its JSON shape, which cannot tell a date from a string.
     implementation(project(":libs:bre-fact-model"))
+    // §9.2 envelope encryption and the key hierarchy, behind KmsPort (M2-06).
+    implementation(project(":libs:bre-crypto"))
     implementation(platform("org.springframework.boot:spring-boot-dependencies:${libs.versions.spring.boot.get()}"))
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
@@ -23,6 +25,9 @@ dependencies {
     // stored verbatim on the decision record, so the JSON codec is a direct dependency of the
     // decision path, and its version belongs in the catalogue with everything else.
     implementation(libs.jackson.databind)
+    // The decision record carries a LocalDate; Jackson cannot write one without this module, and
+    // the POSTGRES decision log serialises the record on every write.
+    implementation(libs.jackson.jsr310)
     // Spring Boot 4 split Jackson auto-configuration out of starter-web, so the ObjectMapper
     // bean the decision path needs is not there by default.
     implementation("org.springframework.boot:spring-boot-starter-jackson")

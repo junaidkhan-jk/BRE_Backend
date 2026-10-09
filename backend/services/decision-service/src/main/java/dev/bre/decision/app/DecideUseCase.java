@@ -45,13 +45,13 @@ public class DecideUseCase {
   private static final ZoneId TENANT_ZONE = ZoneId.of("Asia/Kolkata");
 
   /**
-   * The fact schema the snapshot is assumed to conform to.
+   * The fact schema the snapshot conforms to.
    *
-   * <p>A placeholder until the canonical schema lands with {@code bre-fact-model} (M1-14). Recorded
-   * rather than omitted because a replay has to know which schema the stored facts were written
-   * against; a record that does not say is a record that cannot be replayed with confidence.
+   * <p>Taken from the schema itself rather than written as a literal. A replay has to know which
+   * schema the stored facts were written against — a record that does not say cannot be replayed
+   * with confidence — and a literal here would keep saying 1.0.0 after the schema moved on.
    */
-  private static final String FACT_SCHEMA = "lending-facts@unversioned";
+  private static final String FACT_SCHEMA = LendingFacts.CODE + "@" + LendingFacts.VERSION;
 
   private final PolicyResolver policyResolver;
   private final DecisionLog decisionLog;
@@ -158,9 +158,18 @@ public class DecideUseCase {
             Duration.between(receivedAt, completedAt).toNanos() / 1_000,
             TENANT_ZONE.getId(),
             0L,
+            Optional.of(request.policyCode()),
+            // Still empty: Ir.PolicyIr does not carry the version, only the code — the IR's
+            // `policy` node has it and IrCodec drops it. Left empty rather than defaulted to 1,
+            // because a wrong version on an audit record is worse than an absent one. The
+            // bundleHash below identifies the policy exactly in the meantime.
             Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
+            // The bundle hash the decision was ACTUALLY taken against — not the policy code, which
+            // names a moving target. These three were Optional.empty() placeholders, which meant
+            // the record could not say which rules decided it and no decision could be replayed at
+            // all: ReplayService refuses a record with no bundleHash, correctly, and that refusal
+            // is what surfaced this.
+            Optional.of(resolved.bundleHash()),
             FACT_SCHEMA,
             response,
             writeFacts(request.facts())));

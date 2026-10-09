@@ -207,3 +207,60 @@ fails on a real request, and the reverse writes a row that RLS will never read b
 
 **Worth deciding:** whether `t_` should in fact be mandatory. If it should, §2.2 and §5.2 both need
 the tighter pattern — not just the application.
+
+## Q9 — the two fact envelopes cannot be rejoined as §9.2 specifies
+
+**Status:** deviated in code, deliberately; §9.2 needs a sentence.
+
+§9.2 splits a fact snapshot by `x-bre-group`: identifying fields are sealed per data principal
+under that person's DPK, non-identifying fields under the tenant's TDK. Both envelopes are written
+to `decision_facts`, and a replay has to put them back together.
+
+It cannot, as written. The canonical schema tags **`parties[].partyRef` itself as identifying**, so
+a literal reading seals it under the DPK — and then nothing left in the non-identifying half says
+which party each identifying group belongs to. Rejoining is impossible; so is rendering a
+five-member group's explanation when one member has been erased.
+
+`FieldGroupSplitter` therefore keeps `partyRef` in the non-identifying half as the join key, and
+moves `principalRef` — the *cross-application* identity, which is the one worth protecting — into
+the DPK group as tagged. The argument for it being safe: every per-entity result in
+`results_envelope` already carries the same `partyRef` as its `entityRef` (§4.5), and that envelope
+is TDK-sealed, so excluding `partyRef` from the facts half would break the join while leaving the
+value exactly as exposed as it already is.
+
+**To confirm:** that this is the intended reading. The alternative — keying the identifying groups
+by array position — makes the join fragile under any re-ordering, and a joint application where two
+parties share a `principalRef` makes position the only distinguishing key, which is worse.
+
+## Q10 — identifying facts that belong to no data principal
+
+**Status:** dropped in code, reported; §9.2 has no rule for them.
+
+§9.2 says identifying fields are "grouped per party, by `principalRef`, falling back to
+`partyRef`". Several fields the schema tags `identifying` are not under a party at all:
+
+- `application.applicationRef`
+- `households[].memberPartyRefs[]`, `households[].annualIncome`,
+  `households[].monthlyRepaymentObligations`
+- `group.memberPartyRefs[]`
+- `collaterals[].ownerPartyRefs[]`
+- `deviationApprovals[].approvedBy`
+
+There is no principal to key them to. Three options, and none is free:
+
+1. **Seal them under the TDK.** They then survive every erasure, because a TDK is never destroyed —
+   so §9.5's promise is quietly false for exactly these fields, and nothing says so.
+2. **Refuse the decision.** Rejects a sound credit decision because of a defect in the *storage*
+   path.
+3. **Drop them.** The snapshot is then incomplete, so a replay sees them as missing and the rules
+   that read them fail closed.
+
+`FactsSealer` does (3), lists them in `Sealed.excludedPaths`, and logs them by path. It is the only
+option that is both lawful and visible — but it means `household.annualIncome` is absent from a
+replay, and that is a rule the MFI reference policy actually uses (E2's RBI income ceiling), so a
+replayed decision for a household-scope rule will REFER where the original passed.
+
+**Needs deciding, and it is not a small decision.** Either the household is a data principal in its
+own right with its own key, or household income is not identifying, or §9.2 gains a rule for
+application-scope identifying data. The first looks most likely to be correct — a household is a
+set of people — but it changes the key hierarchy, so it is not a code change to make unilaterally.

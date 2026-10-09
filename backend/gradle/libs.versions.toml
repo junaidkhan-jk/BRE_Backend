@@ -48,6 +48,11 @@ re2j = { module = "com.google.re2j:re2j", version.ref = "re2j" }
 
 jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+# java.time support. NOT optional, and not a convenience: a DecisionResponse carries a LocalDate
+# asOf, so without this module every write to the POSTGRES decision log throws while serialising
+# the results JSON. Found by the first test that wrote a decision to a real database — the
+# IN_MEMORY log stores the object and never serialises it, so nothing had exercised the path.
+jackson-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson" }
 snakeyaml-engine = { module = "org.snakeyaml:snakeyaml-engine", version.ref = "snakeyaml-engine" }
 json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
 zstd-jni = { module = "com.github.luben:zstd-jni", version.ref = "zstd-jni" }

@@ -1,11 +1,14 @@
 package dev.bre.decision.explain;
 
+import dev.bre.decision.log.DecisionLog;
 import dev.bre.decision.log.DecisionRecord;
 import dev.bre.decision.policy.BundleCache;
 import dev.bre.engine.decide.FlowEvaluator;
 import dev.bre.engine.eval.EvaluationContext;
 import dev.bre.engine.eval.Value;
 import dev.bre.engine.trace.TraceRecorder;
+import dev.bre.facts.FactReader;
+import dev.bre.facts.LendingFacts;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -31,15 +34,23 @@ import java.util.Optional;
  */
 public final class ReplayService {
 
+  private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER =
+      new com.fasterxml.jackson.databind.ObjectMapper();
+
   private final BundleCache bundles;
+  private final DecisionLog decisionLog;
 
   /**
    * Creates a replay service.
    *
    * @param bundles the verified policy cache, keyed by content address
+   * @param decisionLog where stored fact snapshots come from (§9.2); the log is asked for them
+   *     through a method separate from an ordinary record lookup, so facts travel only to the
+   *     replay path
    */
-  public ReplayService(BundleCache bundles) {
+  public ReplayService(BundleCache bundles, DecisionLog decisionLog) {
     this.bundles = bundles;
+    this.decisionLog = decisionLog;
   }
 
   /**
@@ -125,10 +136,67 @@ public final class ReplayService {
   }
 
   /**
+   * Replays a decision from its stored snapshot, resolving the facts itself.
+   *
+   * <p>The preferred entry point, because it is the one that can report <em>why</em> a replay does
+   * not match. Two causes are expected rather than exceptional, and both are reported as a mismatch
+   * reason instead of as a failure:
+   *
+   * <ul>
+   *   <li><b>{@code SHREDDED}</b> — a data principal has been erased (§9.5), so their identifying
+   *       fields are gone and the rules that read them now fail closed. §9.5 says explicitly that
+   *       this raises no alert: it is the erasure working.
+   *   <li><b>{@code INTEGRITY}</b> — the stored HMAC does not match (§9.2), so the bytes on disk
+   *       are not the bytes the decision was taken on. A restore from the wrong backup, or a
+   *       migration that re-serialised them.
+   * </ul>
+   *
+   * <p>Distinguishing the two is the point. Both make {@code matched} false, and treating them
+   * alike would mean every honoured erasure request looked like possible tampering — which is
+   * exactly the signal that gets muted after the third false alarm.
+   *
+   * @param record the decision to explain
+   * @param masked whether to mask fact values in the trace (§9.4)
+   * @return the replay, or empty when the facts were never stored
+   */
+  public Optional<Replay> replayFromStore(DecisionRecord record, boolean masked) {
+    return decisionLog
+        .facts(record.tenantId(), record.decisionId())
+        .map(
+            stored -> {
+              Replay replay =
+                  replay(
+                      record,
+                      new FactReader(LendingFacts.schema()).toRecord(toMap(stored.facts())),
+                      masked);
+              List<String> reasons = new ArrayList<>(replay.mismatches());
+              if (!stored.shreddedParties().isEmpty()) {
+                reasons.add(
+                    "SHREDDED: the identifying facts of "
+                        + stored.shreddedParties()
+                        + " were erased under §9.5, so rules reading them now fail closed. This is"
+                        + " the erasure working and raises no alert.");
+              } else if (!stored.integrityVerified()) {
+                // Only when nothing was shredded. A shredded snapshot cannot match its own HMAC by
+                // construction, so reporting INTEGRITY there would be a false positive every time.
+                reasons.add(
+                    "INTEGRITY: the stored facts do not match the HMAC recorded with the decision"
+                        + " (§9.2), so they are not the facts this decision was taken on.");
+              }
+              return new Replay(
+                  reasons.isEmpty(),
+                  reasons,
+                  replay.decision(),
+                  replay.steps(),
+                  replay.bundleHash());
+            });
+  }
+
+  /**
    * Whether a decision can be explained at all.
    *
-   * <p>Facts are not stored by default (§9.2 envelope encryption is M4), so most decisions cannot
-   * be replayed yet. Saying so is better than returning an explanation built from nothing.
+   * <p>Fact snapshots are off by default (§9.2), so a decision taken with them off cannot be
+   * replayed. Saying so is better than returning an explanation built from nothing.
    *
    * @param facts the stored facts, if any
    * @return the reason it cannot be replayed, or empty when it can
@@ -137,9 +205,18 @@ public final class ReplayService {
     if (facts.isEmpty()) {
       return Optional.of(
           "the facts for this decision were not stored, so it cannot be replayed. Fact snapshots"
-              + " are off by default because §9.2 envelope encryption does not exist yet (M4-04);"
-              + " bre.decision-log.store-facts enables the development-only plaintext table.");
+              + " are off by default because they are the applicant's personal data; turning"
+              + " bre.decision-log.store-facts on stores them sealed per §9.2 — the"
+              + " non-identifying half under the tenant key, each party's identifying fields under"
+              + " that person's own key, so erasure is key destruction.");
     }
     return Optional.empty();
+  }
+
+  private static java.util.Map<String, Object> toMap(
+      com.fasterxml.jackson.databind.JsonNode facts) {
+    return MAPPER.convertValue(
+        facts,
+        new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, Object>>() {});
   }
 }

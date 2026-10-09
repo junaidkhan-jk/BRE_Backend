@@ -68,6 +68,17 @@ JDK="$(find_jdk25)" || fail "no Java 25 found. The build targets 25 (ADR-012); r
 [[ -n "$JDK" ]] && export JAVA_HOME="$JDK"
 JAVA="${JAVA_HOME:+$JAVA_HOME/bin/}java"
 
+# Stop whatever is already running before starting another. Without this, a second run leaves the
+# first process holding the port, the new one fails to bind, and the script reports "the service
+# did not start" — which sent me looking for a startup bug that did not exist. The pid file only
+# knows about the most recent run, so match on the jar as well.
+if [[ -f "$PID_FILE" ]] || pgrep -f "decision-service.jar" >/dev/null 2>&1; then
+  log "an instance is already running; stopping it first"
+  stop
+  pkill -f "decision-service.jar" 2>/dev/null || true
+  sleep 1
+fi
+
 mkdir -p "$VAR/bundles"
 
 log "building"

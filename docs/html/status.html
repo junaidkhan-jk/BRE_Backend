@@ -95,9 +95,9 @@
   <div class="rule"></div><div class="rule"></div>
 
   <div class="totals">
-    <div class="tot g"><b>30</b><span>done</span></div>
+    <div class="tot g"><b>31</b><span>done</span></div>
     <div class="tot a"><b>4</b><span>partial — usable, not finished</span></div>
-    <div class="tot s"><b>34</b><span>not started</span></div>
+    <div class="tot s"><b>33</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
 
@@ -190,7 +190,7 @@
     <div class="ms__head">
       <div><span class="kicker">M2 — Walking skeleton</span>
       <p class="ms__blurb">One thin path, end to end. The service runs and answers.</p></div>
-      <div class="ms__counts"><span class="pill g">6 done</span><span class="pill a">1 partial</span><span class="pill s">1 pending</span></div>
+      <div class="ms__counts"><span class="pill g">7 done</span><span class="pill a">1 partial</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M2-01</td><td class="ti">bre-platform-common
@@ -208,8 +208,9 @@
       <tr><td class="id">M2-05</td><td class="ti">Explanation by replay
         <div class="no">Replay <b>compares</b> rather than just producing: it pins the record's own bundle hash and <code>asOf</code> — never today's — and reports per-decision and per-step disagreement. A record with no bundle hash is refused rather than replayed against whatever is live. Facts are not stored by default (§9.2), so <code>cannotReplay()</code> says so explicitly instead of returning an empty explanation.</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
-      <tr class="pend"><td class="id">M2-06</td><td class="ti">Facts encryption behind KmsPort, masked view
-        <div class="no">Why fact snapshots are not persisted by default.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M2-06</td><td class="ti">Facts encryption behind KmsPort, masked view
+        <div class="no"><code>bre-crypto</code>: KmsPort with wrap/unwrap only — <b>no <code>getKey</code>, so a heap dump is not a key compromise</b> — tenant-hour TDKs, per-person DPKs, AES-256-GCM envelopes with <b>mandatory</b> AAD binding tenant, purpose, decision and principal, and HKDF + HMAC facts integrity tested against <b>RFC 5869's own vectors</b>. Two envelopes, because that is what makes §9.5 erasure possible at all: destroying one person's key makes their data unreadable everywhere while the lending decision — which a lender must retain — stays intact. The masked view implements all six §9.4 rules, hides undeclared <code>ext</code> fields rather than publishing them, and bands age at the decision's <code>asOf</code> rather than today. <code>GET /v1/decisions/{id}/explanation</code> serves it; <b>there is no unmask path</b>, because unmasking is a privilege and nothing authenticates anyone yet. Proven against real PostgreSQL, which found a missing Jackson module that would have made every durable write throw.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M2-07</td><td class="ti">devstack — one command, seeded demo tenant
         <div class="no"><code>./devstack/up.sh</code>: builds, generates two local signing keys, bundles and signs the reference policy with its resolved assets, signs an Active Pointer Manifest, starts the service with only the public halves, then <b>posts all three reference fixtures and prints the decisions</b> — because &ldquo;it started&rdquo; and &ldquo;it decides correctly&rdquo; are different claims, and a devstack that comes up referring everything looks fine. No Docker: embedded where it can be, and the durable PostgreSQL path is opt-in.</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
@@ -379,12 +380,16 @@
         and the one thing M2-08 does not yet measure is the PostgreSQL path with its sixteen-
         connection pool. That is the number that decides whether compact mode (D6) is enough or
         whether M4's Kafka-first path is needed sooner than planned.</li>
-    <li><b>M2-06, facts encryption behind KmsPort.</b> Fact snapshots are not stored at all today,
-        which is the safe default and also means replay cannot be used for the thing it exists for.
-        The §9.2 two-envelope scheme is what unblocks it.</li>
+    <li><b>Q10: which key protects a household's income.</b> The §9.2 split keys identifying facts
+        to a data principal, and several fields the schema tags identifying belong to no person —
+        a household's annual income, an application reference, a deviation approver. They are
+        currently dropped from the stored snapshot, which is the only lawful and visible option but
+        means a replay of E2's RBI income ceiling refers where the original passed. Either a
+        household is a data principal with its own key, or §9.2 needs a rule. Not a decision to
+        take unilaterally.</li>
   </ul>
 
-  <div class="foot">Generated from the repository · 42 commits · 542 tests passing · 9 October 2026</div>
+  <div class="foot">Generated from the repository · 42 commits · 596 tests passing · 9 October 2026</div>
 </div>
 </body>
 </html>

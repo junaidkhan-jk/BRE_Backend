@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.bre.common.UuidV7;
 import dev.bre.decision.api.DecisionApi.DecisionResponse;
 import dev.bre.decision.api.DecisionApi.RuleOutcome;
+import dev.bre.decision.crypto.FactsSealer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -14,6 +15,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -56,6 +58,7 @@ public class OutboxDecisionLog implements DecisionLog {
   private final String engineVersion;
   private final String envCode;
   private final boolean storeFacts;
+  private final FactsSealer sealer;
 
   /**
    * Creates the log.
@@ -64,23 +67,29 @@ public class OutboxDecisionLog implements DecisionLog {
    * @param objectMapper used for the results and event payloads
    * @param engineVersion the engine version pinned on every decision (D8)
    * @param envCode the environment code recorded on every decision
-   * @param storeFacts whether to persist fact snapshots — plaintext PII, off by default
+   * @param storeFacts whether to persist fact snapshots, sealed per §9.2; off by default
+   * @param sealer seals the snapshot into its two envelopes (M2-06)
    */
   public OutboxDecisionLog(
       JdbcTemplate jdbc,
       ObjectMapper objectMapper,
       String engineVersion,
       String envCode,
-      boolean storeFacts) {
+      boolean storeFacts,
+      FactsSealer sealer) {
     this.jdbc = jdbc;
     this.objectMapper = objectMapper;
     this.engineVersion = engineVersion;
     this.envCode = envCode;
     this.storeFacts = storeFacts;
+    this.sealer = sealer;
     if (storeFacts) {
-      log.warn(
-          "bre.decision-log.store-facts is ON: fact snapshots are persisted as PLAINTEXT personal "
-              + "data. The §9.2 envelope encryption is not implemented. Development only.");
+      log.info(
+          "bre.decision-log.store-facts is ON: snapshots are sealed per §9.2 — the"
+              + " non-identifying half under the tenant-hour TDK, each party's identifying fields"
+              + " under that principal's DPK, so erasure is key destruction (§9.5). Check that the"
+              + " key stores are durable: with the in-memory defaults a restart makes every stored"
+              + " snapshot unreadable.");
     }
   }
 
@@ -183,18 +192,97 @@ public class OutboxDecisionLog implements DecisionLog {
   }
 
   private void insertFacts(DecisionRecord record, UUID decisionId, LocalDate decisionDate) {
+    FactsSealer.Sealed sealed;
+    try {
+      sealed =
+          sealer.seal(
+              record.tenantId(),
+              record.response().decisionId(),
+              objectMapper.readTree(record.factsJson()),
+              // The hour the DECISION happened in, not now: the kid has to agree with the record,
+              // and a write retried across an hour boundary must not seal under a different key
+              // from the one the decision's own timestamp implies.
+              record.receivedAt());
+    } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+      // Do not put the facts in the message: that is the PII leak §9.6 forbids.
+      throw new IllegalStateException("the fact snapshot could not be read back for sealing");
+    }
+
     jdbc.update(
         """
         INSERT INTO bre_dec.decision_facts (
-            tenant_id, decision_date, decision_id, facts_json_plaintext, facts_sha256, fact_schema)
-        VALUES (?, ?, ?, ?::jsonb, ?, ?)
+            tenant_id, decision_date, decision_id, facts_envelope, facts_kid,
+            principal_envelopes, facts_hmac, fact_schema)
+        VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?)
         """,
         record.tenantId(),
         decisionDate,
         decisionId,
-        record.factsJson(),
-        sha256(record.factsJson()),
+        sealed.factsEnvelope(),
+        sealed.factsKid(),
+        writeJson(sealed.principalEnvelopes()),
+        sealed.factsHmac(),
         record.factSchema());
+  }
+
+  @Override
+  public Optional<StoredFacts> facts(String tenantId, String decisionId) {
+    if (!storeFacts) {
+      return Optional.empty();
+    }
+    UUID id = UUID.fromString(decisionId);
+    // Partition-pruned by the id's own UUIDv7 timestamp (§5.3), which is why the id is a v7.
+    LocalDate decisionDate =
+        id.version() == 7 ? LocalDate.ofInstant(UuidV7.instantOf(id), ZoneOffset.UTC) : null;
+
+    List<StoredFacts> found =
+        jdbc.query(
+            decisionDate != null
+                ? """
+                  SELECT facts_envelope, principal_envelopes, facts_hmac
+                    FROM bre_dec.decision_facts
+                   WHERE tenant_id = ? AND decision_id = ? AND decision_date = ?
+                  """
+                : """
+                  SELECT facts_envelope, principal_envelopes, facts_hmac
+                    FROM bre_dec.decision_facts
+                   WHERE tenant_id = ? AND decision_id = ?
+                  """,
+            (rs, rowNum) -> {
+              FactsSealer.Opened opened =
+                  sealer.open(
+                      tenantId,
+                      decisionId,
+                      rs.getBytes("facts_envelope"),
+                      readEnvelopeMap(rs.getString("principal_envelopes")),
+                      rs.getString("facts_hmac"));
+              return new StoredFacts(
+                  opened.facts(), opened.shreddedParties(), opened.integrityVerified());
+            },
+            decisionDate != null
+                ? new Object[] {tenantId, id, decisionDate}
+                : new Object[] {tenantId, id});
+    return found.stream().findFirst();
+  }
+
+  private Map<String, String> readEnvelopeMap(String json) {
+    if (json == null || json.isBlank()) {
+      return Map.of();
+    }
+    try {
+      return objectMapper.readValue(
+          json, new com.fasterxml.jackson.core.type.TypeReference<Map<String, String>>() {});
+    } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+      throw new IllegalStateException("principal_envelopes is not a JSON object of envelopes");
+    }
+  }
+
+  private String writeJson(Map<String, String> envelopes) {
+    try {
+      return objectMapper.writeValueAsString(envelopes);
+    } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+      throw new IllegalStateException("the principal envelopes could not be serialised");
+    }
   }
 
   private void insertOutboxEvent(DecisionRecord record, UUID decisionId) {
@@ -343,6 +431,6 @@ public class OutboxDecisionLog implements DecisionLog {
   public String describe() {
     return "PostgreSQL compact mode (durable; decision + idempotency key + outbox in one"
         + " transaction)"
-        + (storeFacts ? " — STORING PLAINTEXT FACTS, development only" : "");
+        + (storeFacts ? " — storing fact snapshots, sealed per §9.2" : " — not storing facts");
   }
 }

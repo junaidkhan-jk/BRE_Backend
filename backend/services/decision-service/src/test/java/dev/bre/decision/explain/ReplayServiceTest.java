@@ -11,6 +11,7 @@ import dev.bre.bundle.TrustStore;
 import dev.bre.decision.api.DecisionApi.DecisionResponse;
 import dev.bre.decision.api.DecisionApi.RuleOutcome;
 import dev.bre.decision.log.DecisionRecord;
+import dev.bre.decision.log.InMemoryDecisionLog;
 import dev.bre.decision.policy.BundleCache;
 import dev.bre.decision.policy.FileBundleStore;
 import dev.bre.engine.eval.Value;
@@ -104,7 +105,8 @@ class ReplayServiceTest {
   @DisplayName("a replay that agrees with the record matches")
   void anAgreeingReplayMatches() {
     ReplayService.Replay replay =
-        new ReplayService(cache).replay(record("APPROVE", "PASS"), facts(712), true);
+        new ReplayService(cache, new InMemoryDecisionLog())
+            .replay(record("APPROVE", "PASS"), facts(712), true);
 
     assertThat(replay.matched()).isTrue();
     assertThat(replay.mismatches()).isEmpty();
@@ -122,7 +124,8 @@ class ReplayServiceTest {
   void aDisagreeingReplayIsReported() {
     // The record claims APPROVE, but these facts decide DECLINE.
     ReplayService.Replay replay =
-        new ReplayService(cache).replay(record("APPROVE", "PASS"), facts(600), true);
+        new ReplayService(cache, new InMemoryDecisionLog())
+            .replay(record("APPROVE", "PASS"), facts(600), true);
 
     assertThat(replay.matched()).isFalse();
     assertThat(replay.mismatches())
@@ -136,7 +139,8 @@ class ReplayServiceTest {
   @DisplayName("the explanation carries a trace for every step")
   void theExplanationCarriesTraces() {
     ReplayService.Replay replay =
-        new ReplayService(cache).replay(record("APPROVE", "PASS"), facts(712), false);
+        new ReplayService(cache, new InMemoryDecisionLog())
+            .replay(record("APPROVE", "PASS"), facts(712), false);
 
     assertThat(replay.steps()).isNotEmpty();
     assertThat(replay.steps().get(0).ref()).isEqualTo("CR_SCORE");
@@ -146,7 +150,7 @@ class ReplayServiceTest {
   @Test
   @DisplayName("masking is the caller's right, not the record's property")
   void maskingIsDecidedPerCaller() {
-    ReplayService service = new ReplayService(cache);
+    ReplayService service = new ReplayService(cache, new InMemoryDecisionLog());
 
     assertThat(service.replay(record("APPROVE", "PASS"), facts(712), true).matched()).isTrue();
     assertThat(service.replay(record("APPROVE", "PASS"), facts(712), false).matched())
@@ -190,7 +194,9 @@ class ReplayServiceTest {
             "{}");
 
     org.assertj.core.api.Assertions.assertThatThrownBy(
-            () -> new ReplayService(cache).replay(unpinned, facts(712), true))
+            () ->
+                new ReplayService(cache, new InMemoryDecisionLog())
+                    .replay(unpinned, facts(712), true))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("nothing to pin a replay to");
   }

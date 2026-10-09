@@ -60,9 +60,21 @@ class BreDecMigrationTest {
   }
 
   @Test
-  void everyMigrationApplies() {
+  void everyMigrationApplies() throws Exception {
     assertThat(result.success).isTrue();
-    assertThat(result.migrationsExecuted).isEqualTo(3);
+    // Counted from the files rather than hard-coded. A literal here goes stale the first time a
+    // migration is added, and then fails for a reason that has nothing to do with the migration:
+    // it reports "expected 3 but was 4" about a migration that applied perfectly.
+    assertThat(result.migrationsExecuted)
+        .as("every V__ script on the classpath must have run")
+        .isEqualTo(migrationScriptCount());
+  }
+
+  private static int migrationScriptCount() throws Exception {
+    var dir = java.nio.file.Path.of(BreDecMigrationTest.class.getResource("/db/migration").toURI());
+    try (var files = java.nio.file.Files.list(dir)) {
+      return (int) files.filter(f -> f.getFileName().toString().matches("V\\d+__.*\\.sql")).count();
+    }
   }
 
   @Test

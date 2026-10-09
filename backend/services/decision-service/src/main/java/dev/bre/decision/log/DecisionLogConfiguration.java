@@ -50,7 +50,8 @@ public class DecisionLogConfiguration {
    * @param objectMapper the JSON codec
    * @param engineVersion the engine version pinned on every decision (D8)
    * @param envCode the environment code recorded on every decision
-   * @param storeFacts whether to persist fact snapshots — plaintext PII, off by default
+   * @param storeFacts whether to persist fact snapshots, sealed per §9.2; off by default
+   * @param sealer the §9.2 sealer (M2-06)
    * @return the decision log
    */
   @Bean
@@ -60,7 +61,8 @@ public class DecisionLogConfiguration {
       ObjectMapper objectMapper,
       @Value("${bre.engine-version:0.1.0-SNAPSHOT}") String engineVersion,
       @Value("${bre.env-code:LOCAL}") String envCode,
-      @Value("${bre.decision-log.store-facts:false}") boolean storeFacts) {
+      @Value("${bre.decision-log.store-facts:false}") boolean storeFacts,
+      dev.bre.decision.crypto.FactsSealer sealer) {
 
     return switch (mode) {
       case POSTGRES -> {
@@ -74,7 +76,7 @@ public class DecisionLogConfiguration {
         }
         log.info("decision log: PostgreSQL compact mode (durable)");
         yield new OutboxDecisionLog(
-            new JdbcTemplate(configured), objectMapper, engineVersion, envCode, storeFacts);
+            new JdbcTemplate(configured), objectMapper, engineVersion, envCode, storeFacts, sealer);
       }
       case IN_MEMORY -> {
         log.warn(
@@ -87,5 +89,23 @@ public class DecisionLogConfiguration {
               "bre.decision-log.mode=KAFKA is not implemented yet (M4). Use POSTGRES for a durable"
                   + " log, or IN_MEMORY for local development.");
     };
+  }
+
+  /**
+   * The replay service, which explains a decision by re-running it (D7).
+   *
+   * <p>Declared here rather than annotated, because it needs the decision log <em>this</em>
+   * configuration chose: a replay reads the stored fact snapshot, and in IN_MEMORY mode there is
+   * nothing sealed to read. Wiring it beside the log keeps the two from disagreeing about which
+   * store is in force.
+   *
+   * @param bundles the verified policy cache
+   * @param decisionLog the log chosen above
+   * @return the replay service
+   */
+  @Bean
+  public dev.bre.decision.explain.ReplayService replayService(
+      dev.bre.decision.policy.BundleCache bundles, DecisionLog decisionLog) {
+    return new dev.bre.decision.explain.ReplayService(bundles, decisionLog);
   }
 }
