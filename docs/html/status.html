@@ -95,9 +95,9 @@
   <div class="rule"></div><div class="rule"></div>
 
   <div class="totals">
-    <div class="tot g"><b>16</b><span>done</span></div>
-    <div class="tot a"><b>7</b><span>partial — usable, not finished</span></div>
-    <div class="tot s"><b>45</b><span>not started</span></div>
+    <div class="tot g"><b>19</b><span>done</span></div>
+    <div class="tot a"><b>5</b><span>partial — usable, not finished</span></div>
+    <div class="tot s"><b>44</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
 
@@ -146,7 +146,7 @@
     <div class="ms__head">
       <div><span class="kicker">M1 — Rule engine</span>
       <p class="ms__blurb">The critical path, and where nearly all the finished work is. All 90 conformance vectors pass.</p></div>
-      <div class="ms__counts"><span class="pill g">10 done</span><span class="pill a">1 partial</span><span class="pill s">5 pending</span></div>
+      <div class="ms__counts"><span class="pill g">11 done</span><span class="pill a">1 partial</span><span class="pill s">4 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M1-01</td><td class="ti">Value model, exact decimal and date semantics</td><td class="st"><span class="pill g">done</span></td></tr>
@@ -157,7 +157,8 @@
       <tr><td class="id">M1-04</td><td class="ti">Variable DAG, cycle detection, topological order
         <div class="no">Dependency graph with compile-time BEL-015 cycle detection and a deterministic topological order.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-05</td><td class="ti">Closure-tree lowering, fuel, list cap, function registry
-        <div class="no">List cap and fuel done. <b>Still tree-walking rather than closure-lowered</b> — right answers, not the designed speed.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Fuel, list cap and registry done. <b>Benchmarked first</b> — the engine had never been measured — and the baseline showed dispatch was not the bottleneck: every expression was being re-parsed on every decision. Compile-once gives <b>2.4–2.7×</b> (100-rule p99 0.490 ms → 0.198 ms against a 0.5 ms budget). Closure lowering deliberately not done; the numbers do not justify it.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-06</td><td class="ti">Three-valued logic and missing-value semantics</td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-07</td><td class="ti">Rules, decision tables with every hit policy, scorecards</td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-08</td><td class="ti">Flow, per-entity iteration, aggregation, knockout</td><td class="st"><span class="pill g">done</span></td></tr>
@@ -175,8 +176,9 @@
         <div class="no">Fact model, canonical lending schema, Verhoeff Aadhaar detector. Pulled in as M1-03's prerequisite.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M1-15</td><td class="ti">bre-cli — psf lint / compile / test / bundle / verify
         <div class="no">An analyst cannot test a policy locally.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M1-16</td><td class="ti">JMH benchmarks and latency budgets
-        <div class="no">No performance figure has been measured.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M1-16</td><td class="ti">JMH benchmarks and latency budgets
+        <div class="no">First benchmark of this engine exists (JMH, three rule counts, percentile mode). <b>No latency budget is asserted in CI yet</b>, and the 40-member group case is not benchmarked.</div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
     </tbody></table>
   </section>
 
@@ -184,13 +186,15 @@
     <div class="ms__head">
       <div><span class="kicker">M2 — Walking skeleton</span>
       <p class="ms__blurb">One thin path, end to end. The service runs and answers.</p></div>
-      <div class="ms__counts"><span class="pill a">3 partial</span><span class="pill s">5 pending</span></div>
+      <div class="ms__counts"><span class="pill g">2 done</span><span class="pill a">1 partial</span><span class="pill s">5 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M2-01</td><td class="ti">bre-platform-common
-        <div class="no">UUIDv7, scoped tenant context and problem+json done. <b>OpenTelemetry helpers missing.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">UUIDv7, scoped tenant context, problem+json and the OpenTelemetry helpers — span attributes restricted to §9.6's allow-list, metric labels stricter still.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M2-02</td><td class="ti">Flyway migrations for bre_ctl and bre_dec
-        <div class="no">The bre_dec subset is written. <b>bre_ctl missing, and the SQL has never been executed.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Both schemas written and <b>executed against a real PostgreSQL</b>. Found a tenant-owned table with no row-level security (<code>audit_chain_heads</code>) and a wrong tenant-id pattern in TenantContext. See OPEN-QUESTIONS Q7 and Q8.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M2-03</td><td class="ti">policy-registry — compile, sign, deploy, active pointer</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr><td class="id">M2-04</td><td class="ti">decision-service
         <div class="no">POST, GET, the durable outbox log and PostgreSQL idempotency are done. <b>No policy resolution, pinning, PointerWatcher or BundleCache</b> — the policy still arrives inline on the request.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
@@ -253,7 +257,8 @@
     </div>
     <table><tbody>
       <tr><td class="id">M5-01</td><td class="ti">App shell — React, TypeScript, Vite, routing, role-aware navigation
-        <div class="no">Built and running over fixtures. <b>No login and no masking.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Five screens built, running, and <b>verified in a browser</b> — zero console errors, routing works. <b>No login</b> (needs an identity provider) and <b>no masking</b> (belongs in the BFF — masking in the browser is wrong, the data has already been sent).</div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
       <tr class="pend"><td class="id">M5-02</td><td class="ti">Monaco BEL language — highlighting, autocomplete, diagnostics
         <div class="no">Needs the §13.3 language service; Monaco without one is a 2 MB textarea.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M5-03</td><td class="ti">Decision-table grid, scorecard and flow editors
@@ -281,7 +286,8 @@
       <tr class="pend"><td class="id">M6-03</td><td class="ti">Disaster-recovery drill — region failover and backup restore</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M6-04</td><td class="ti">Runbooks and the on-call rota</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr><td class="id">M6-05</td><td class="ti">Integration guide and sandbox tenant
-        <div class="no">The Decision API reference is written — a first step. <b>The sandbox tenant and fact-schema CLI are not.</b></div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Decision API reference written, and the <b>fact-schema validation CLI is built</b>: catches mistyped paths, decimals sent as JSON numbers, and raw Aadhaar or PAN hidden in an open <code>ext</code> map — reporting paths, never values, exit 1 so CI fails. <b>The sandbox tenant needs a deployed environment.</b></div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
       <tr class="pend"><td class="id">M6-06</td><td class="ti">Pilot parallel run — four or more weeks of shadow decisions</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M6-07</td><td class="ti">Compliance sign-off</td><td class="st"><span class="pill s">pending</span></td></tr>
     </tbody></table>
@@ -337,7 +343,7 @@
         encryption that would let facts be stored at all.</li>
   </ul>
 
-  <div class="foot">Generated from the repository · 22 commits · 363 tests passing · 8 October 2026</div>
+  <div class="foot">Generated from the repository · 29 commits · 408 tests passing · 9 October 2026</div>
 </div>
 </body>
 </html>
