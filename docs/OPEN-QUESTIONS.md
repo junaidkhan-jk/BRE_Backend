@@ -161,3 +161,49 @@ each was settled with a recorded choice the vectors now exercise.
   aggregation, so an approved deviation contributes a PASS to the step — while the raw DEVIATION
   stays on the entity record for the audit trail. `stpEligible` reads the raw status, which is why
   a covered deviation approves but is not straight-through (P-02).
+
+## Q7 — `bre_ctl.audit_chain_heads` has no row-level security in §5.2
+
+**Status:** deviation taken, needs confirmation.
+
+§5.2's row-level-security block enables and forces RLS over an explicit array of 30 tables. The
+array omits `audit_chain_heads`, whose primary key *is* `tenant_id` — so as specified, that table
+is tenant-owned and unprotected.
+
+Found by executing the DDL against PostgreSQL for the first time (M2-02). A reviewer reading the
+`DO $$ … FOREACH t IN ARRAY ARRAY[…]` block would have to diff a thirty-element list against the
+schema's table list by eye to notice.
+
+**Why it matters.** The grants revoke `INSERT` and `UPDATE` on `audit_chain_heads` from
+`bre_ctl_app`, so no tenant can corrupt another's hash chain through the application role. But
+`GRANT SELECT ON ALL TABLES IN SCHEMA bre_ctl` includes it, so one lender's session can read
+another lender's `last_seq` and `last_hash`. That is not a decision or a fact, but it is
+cross-tenant audit state in a platform whose first design decision is tenant isolation (D1), and
+it is readable by exactly the role every control-plane service connects as.
+
+**Deviation taken.** `audit_chain_heads` is added to the RLS array in
+`V7__bre_ctl_locking_rls_and_grants.sql`, with a comment pointing here. A test asserts that *every*
+table in `bre_ctl` carrying a `tenant_id` column has RLS both enabled and forced, so the next table
+added to the schema cannot repeat the omission silently.
+
+**To confirm:** whether the omission was deliberate — for instance if the chain head is meant to be
+maintained by a `BYPASSRLS` role and read by nobody else. If so, the fix is a comment in §5.2
+saying so, not a policy. Either way §5.2 should change, because the current text reads as an
+oversight.
+
+## Q8 — `tenantId` pattern: no `t_` prefix
+
+**Status:** resolved in code; noting it because the convention is ambiguous in practice.
+
+§2.2 `$defs/tenantId` and §5.2's CHECK on `bre_ctl.tenants` agree exactly:
+`^[a-z][a-z0-9_]{2,31}$`. Neither requires a `t_` prefix, although every example in the
+specification uses one (`t_acme`).
+
+`TenantContext` had been written to enforce `^t_[a-z0-9_]{1,30}$`, inferred from the examples. That
+would have rejected a tenant legitimately called `hdfc_bank` at the application boundary while the
+database accepted it. Corrected to the specification's pattern, with the regex and the CHECK now
+documented as having to stay identical: a value the application accepts and the database refuses
+fails on a real request, and the reverse writes a row that RLS will never read back.
+
+**Worth deciding:** whether `t_` should in fact be mandatory. If it should, §2.2 and §5.2 both need
+the tighter pattern — not just the application.

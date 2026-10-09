@@ -87,7 +87,10 @@ class TenantContextTest {
 
   @Test
   void aMalformedTenantIdIsRejectedAtTheBoundary() {
-    for (String invalid : new String[] {"", "  ", "acme", "t_ACME", "t_acme-1", "t_"}) {
+    // "acme" is NOT here, and that is the correction: §2.2 $defs/tenantId is
+    // ^[a-z][a-z0-9_]{2,31}$ with no t_ prefix, so a tenant called acme or hdfc_bank is valid.
+    // This test previously asserted the opposite and locked in a bug.
+    for (String invalid : new String[] {"", "  ", "ab", "T_ACME", "t_acme-1", "1acme", "_acme"}) {
       assertThatThrownBy(() -> TenantContext.runIn(invalid, () -> {}))
           .as("'%s' must be rejected", invalid)
           .isInstanceOf(IllegalArgumentException.class);
@@ -98,7 +101,7 @@ class TenantContextTest {
 
   @Test
   void aWellFormedTenantIdIsAccepted() {
-    for (String valid : new String[] {"t_acme", "t_a", "t_acme_bank_01", "t_0"}) {
+    for (String valid : new String[] {"t_acme", "acme", "hdfc_bank", "t_acme_bank_01", "abc"}) {
       TenantContext.runIn(valid, () -> assertThat(TenantContext.require()).isEqualTo(valid));
     }
   }

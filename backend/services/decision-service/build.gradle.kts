@@ -37,18 +37,19 @@ dependencies {
     testImplementation(libs.assertj)
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 
-    // NO database integration test in this build, deliberately. Verifying the compact-mode writer
-    // needs a real PostgreSQL — the schema uses declarative partitioning, text[] and jsonb, none
-    // of which an in-memory stand-in models faithfully enough to trust — and this host has no
-    // Docker, so the only route is io.zonky.test:embedded-postgres, which downloads real postgres
-    // binaries on first use (verified working here: ~4 minutes, one time).
+    // Runs a REAL PostgreSQL for the bre_dec migrations and the compact-mode writer. The schema
+    // uses declarative partitioning, text[] and jsonb, none of which an in-memory stand-in models
+    // faithfully enough to trust, and this host has no Docker — so embedded-postgres downloads
+    // real postgres binaries on first use (about four minutes, once; cached after).
     //
-    // To add it back:
-    //   testImplementation(platform(libs.embedded.postgres.binaries.bom))
-    //   testImplementation(libs.embedded.postgres)
-    //   testImplementation(libs.postgresql)
-    //   testImplementation(libs.flyway.postgresql)
-    // then point a test at EmbeddedPostgres.start() and run the Flyway migrations against it.
+    // This was deliberately absent while the instruction was to avoid anything needing an
+    // external connection. It is back because M2-02 cannot be finished without it: the decision
+    // log's DDL had never been executed anywhere, and "written and reviewed" is not a schema.
+    // Executing the sibling bre_ctl DDL immediately found a table with no row-level security.
+    testImplementation(platform(libs.embedded.postgres.binaries.bom))
+    testImplementation(libs.embedded.postgres)
+    testImplementation(libs.postgresql)
+    testImplementation(libs.flyway.postgresql)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

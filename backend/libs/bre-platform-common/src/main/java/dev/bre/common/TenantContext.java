@@ -33,6 +33,20 @@ public final class TenantContext {
 
   private static final ScopedValue<String> CURRENT = ScopedValue.newInstance();
 
+  /**
+   * The identifier's shape, from §2.2 {@code $defs/tenantId} and matching §5.2's CHECK constraint
+   * on {@code bre_ctl.tenants} exactly.
+   *
+   * <p>It was previously written as {@code ^t_[a-z0-9_]{1,30}$} here, which demanded a {@code t_}
+   * prefix the specification does not require — so a tenant legitimately called {@code hdfc_bank}
+   * would have been rejected at the application boundary and accepted by the database. Found by
+   * executing the §5.2 DDL and comparing its CHECK with this. The two must stay identical: a value
+   * the application accepts and the database refuses is a runtime failure on a real request, and
+   * the reverse is a row the application can write but never read back under RLS.
+   */
+  private static final java.util.regex.Pattern TENANT_ID =
+      java.util.regex.Pattern.compile("^[a-z][a-z0-9_]{2,31}$");
+
   private TenantContext() {}
 
   /**
@@ -116,14 +130,15 @@ public final class TenantContext {
     if (tenantId == null || tenantId.isBlank()) {
       throw new IllegalArgumentException("a tenant id is required");
     }
-    if (!tenantId.matches("^t_[a-z0-9_]{1,30}$")) {
+    if (!TENANT_ID.matcher(tenantId).matches()) {
       // The value is echoed because a tenant id is not personal data — it names an institution,
       // and a rejected one is almost always a configuration mistake somebody has to find.
       throw new IllegalArgumentException(
           "'"
               + tenantId
-              + "' is not a valid tenant id; expected t_ followed by lower-case"
-              + " alphanumerics or underscores");
+              + "' is not a valid tenant id; expected "
+              + TENANT_ID.pattern()
+              + " (§2.2 $defs/tenantId)");
     }
   }
 }
