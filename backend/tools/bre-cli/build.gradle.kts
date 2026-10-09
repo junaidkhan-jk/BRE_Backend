@@ -1,11 +1,25 @@
-// psf lint | compile | test | bundle | verify — local and offline (M1-15).
-plugins { id("bre.java-library") }
+// The offline command line.
+//
+// `facts validate` and `facts schema` are M6-05's "fact-schema validation CLI for their CI".
+// `psf lint|compile|test|bundle|verify` is M1-15 and waits on the bundle format (M1-13).
+plugins {
+    id("bre.java-library")
+    // Gives `installDist`, which produces a self-contained bin/bre an integrator can put on a
+    // CI image. M6-05's whole point is that their pipeline can run this offline.
+    application
+}
+
+application {
+    mainClass.set("dev.bre.cli.Main")
+    applicationName = "bre"
+}
 
 dependencies {
     implementation(project(":libs:bre-engine-core"))
     implementation(project(":libs:bre-ir-json"))
     implementation(project(":libs:bre-bundle"))
     implementation(project(":libs:bre-fact-model"))
+    implementation(libs.jackson.databind)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
