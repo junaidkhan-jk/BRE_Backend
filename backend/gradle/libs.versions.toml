@@ -15,6 +15,10 @@ snakeyaml-engine = "3.2"
 json-schema-validator = "1.5.6"
 zstd-jni = "1.5.7-22"
 
+# JMH, for the engine latency budgets (M1-16) and to measure whether M1-05's closure lowering
+# actually buys anything. A performance refactor with no benchmark is a guess with a diff.
+jmh = "1.37"
+
 # --- test ---
 # JUnit stays on the 5.x line: jqwik 1.x and archunit-junit5 1.x both target
 # the JUnit Platform 1.x API, which JUnit 6 replaces. Revisit together.
@@ -55,6 +59,8 @@ assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
 archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
 jazzer-junit = { module = "com.code-intelligence:jazzer-junit", version.ref = "jazzer" }
+jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
+jmh-generator = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
 embedded-postgres = { module = "io.zonky.test:embedded-postgres", version.ref = "embedded-postgres" }
 embedded-postgres-binaries-bom = { module = "io.zonky.test.postgres:embedded-postgres-binaries-bom", version.ref = "embedded-postgres-binaries" }
 

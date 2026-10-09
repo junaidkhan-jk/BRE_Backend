@@ -154,7 +154,7 @@ public final class FlowEvaluator {
             .map(
                 expr ->
                     dev.bre.engine.eval.Evaluator.evaluate(
-                        dev.bre.engine.bel.parse.Parser.parseExpression(expr), context));
+                        dev.bre.engine.bel.parse.Compiled.expression(expr), context));
     List<StepResult> steps = new ArrayList<>();
     boolean knockedOut = false;
 

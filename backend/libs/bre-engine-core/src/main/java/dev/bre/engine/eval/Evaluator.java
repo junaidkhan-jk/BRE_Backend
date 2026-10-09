@@ -110,7 +110,7 @@ public final class Evaluator {
                   ref.name(),
                   context,
                   (expression, where) ->
-                      evaluate(dev.bre.engine.bel.parse.Parser.parseExpression(expression), where));
+                      evaluate(dev.bre.engine.bel.parse.Compiled.expression(expression), where));
         }
         // Otherwise a fact root, and an absent one reads as missing rather than failing.
         yield context.facts().field(ref.name());

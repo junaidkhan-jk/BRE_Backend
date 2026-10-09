@@ -1,6 +1,6 @@
 package dev.bre.engine.decide;
 
-import dev.bre.engine.bel.parse.Parser;
+import dev.bre.engine.bel.parse.Compiled;
 import dev.bre.engine.decide.Outcomes.Decision;
 import dev.bre.engine.decide.Outcomes.Status;
 import dev.bre.engine.eval.EvalException;
@@ -118,7 +118,7 @@ public final class PolicyEvaluator {
   }
 
   private static Value evaluate(String expression, EvaluationContext context) {
-    return Evaluator.evaluate(Parser.parseExpression(expression), context);
+    return Evaluator.evaluate(Compiled.expression(expression), context);
   }
 
   /**

@@ -1,9 +1,8 @@
 package dev.bre.engine.decide;
 
 import dev.bre.engine.bel.ast.Expr;
-import dev.bre.engine.bel.parse.Parser;
+import dev.bre.engine.bel.parse.Compiled;
 import dev.bre.engine.bel.parse.UnaryTest;
-import dev.bre.engine.bel.parse.UnaryTestParser;
 import dev.bre.engine.eval.EvalErrorCode;
 import dev.bre.engine.eval.EvalException;
 import dev.bre.engine.eval.EvaluationContext;
@@ -159,7 +158,7 @@ public final class ComponentEvaluator {
       throw new EvalException(EvalErrorCode.EVAL_INTERNAL, "row arity", "DecisionTable");
     }
     for (int column = 0; column < inputs.size(); column++) {
-      UnaryTest test = UnaryTestParser.parse(row.when().get(column));
+      UnaryTest test = Compiled.unaryTest(row.when().get(column));
       if (!UnaryTests.matches(test, inputs.get(column), context)) {
         return false;
       }
@@ -306,7 +305,7 @@ public final class ComponentEvaluator {
 
         Optional<Ir.Bin> hit = Optional.empty();
         for (Ir.Bin bin : characteristic.bins()) {
-          if (UnaryTests.matches(UnaryTestParser.parse(bin.when()), value, context)) {
+          if (UnaryTests.matches(Compiled.unaryTest(bin.when()), value, context)) {
             hit = Optional.of(bin);
             break;
           }
@@ -439,7 +438,7 @@ public final class ComponentEvaluator {
       return null;
     }
     try {
-      String symbol = firstReference(Parser.parseExpression(checkExpr));
+      String symbol = firstReference(Compiled.expression(checkExpr));
       return symbol == null ? null : "DATA_MISSING_" + toSnakeCase(symbol);
     } catch (RuntimeException unparseable) {
       return null;
@@ -530,6 +529,6 @@ public final class ComponentEvaluator {
   }
 
   private static Value evaluate(String expression, EvaluationContext context) {
-    return Evaluator.evaluate(Parser.parseExpression(expression), context);
+    return Evaluator.evaluate(Compiled.expression(expression), context);
   }
 }
