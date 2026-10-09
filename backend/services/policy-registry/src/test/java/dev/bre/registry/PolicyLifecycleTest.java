@@ -262,6 +262,104 @@ class PolicyLifecycleTest {
   }
 
   @Test
+  @Order(5)
+  @DisplayName("5b. the DRAFT can be RUN against facts — no approval, no deployment")
+  void runADraft() throws Exception {
+    // The provision an author actually needs: try the rule on an applicant while it is still a
+    // draft. Nothing is approved, signed, deployed or persisted.
+    HttpResponse<String> ran =
+        post(
+            "/v1/policies/" + POLICY + "/versions/" + draftVersion + "/run",
+            token,
+            """
+            { "asOf": "2026-10-01",
+              "facts": { "parties": [ { "partyRef": "P-0001", "role": "MEMBER",
+                                        "dateOfBirth": "1992-03-04" } ] } }
+            """);
+    assertThat(ran.statusCode()).isEqualTo(200);
+
+    JsonNode result = json(ran);
+    assertThat(result.get("status").asText())
+        .as("run it as a DRAFT: that is the whole point of this endpoint")
+        .isEqualTo("DRAFT");
+    assertThat(result.get("decision").asText()).isEqualTo("APPROVE");
+    assertThat(result.get("asOf").asText()).isEqualTo("2026-10-01");
+    assertThat(result.get("steps")).isNotEmpty();
+    assertThat(result.get("steps").get(0).get("component").asText()).isEqualTo("MIN_AGE");
+    assertThat(result.get("steps").get(0).get("status").asText()).isEqualTo("PASS");
+  }
+
+  @Test
+  @Order(5)
+  @DisplayName("5c. the same facts on a different date give a different decision")
+  void theBusinessDateChangesTheAnswer() throws Exception {
+    // asOf is part of the decision, not metadata: this applicant was 10 years old in 2002. A
+    // simulator that defaulted the date would make that difference invisible.
+    JsonNode asAdult =
+        json(
+            post(
+                "/v1/policies/" + POLICY + "/versions/" + draftVersion + "/run",
+                token,
+                """
+                { "asOf": "2026-10-01",
+                  "facts": { "parties": [ { "partyRef": "P-1", "role": "MEMBER",
+                                            "dateOfBirth": "1992-03-04" } ] } }
+                """));
+    JsonNode asChild =
+        json(
+            post(
+                "/v1/policies/" + POLICY + "/versions/" + draftVersion + "/run",
+                token,
+                """
+                { "asOf": "2002-10-01",
+                  "facts": { "parties": [ { "partyRef": "P-1", "role": "MEMBER",
+                                            "dateOfBirth": "1992-03-04" } ] } }
+                """));
+
+    assertThat(asAdult.get("decision").asText()).isEqualTo("APPROVE");
+    assertThat(asChild.get("decision").asText()).isEqualTo("DECLINE");
+    assertThat(asChild.get("steps").get(0).get("entities").get(0).get("reasonCode").asText())
+        .isEqualTo("KYC_UNDER_MIN_AGE");
+  }
+
+  @Test
+  @Order(5)
+  @DisplayName("5d. a run with no business date is refused rather than defaulted to today")
+  void runRequiresABusinessDate() throws Exception {
+    HttpResponse<String> refused =
+        post(
+            "/v1/policies/" + POLICY + "/versions/" + draftVersion + "/run",
+            token,
+            "{\"facts\":{}}");
+    assertThat(refused.statusCode()).isEqualTo(409);
+    assertThat(refused.body()).contains("asOf is required");
+  }
+
+  @Test
+  @Order(5)
+  @DisplayName("5e. a mistyped fact path is reported, and the run still happens")
+  void mistypedFactPathsAreReported() throws Exception {
+    // A mistyped path reads as a missing fact, which the engine handles correctly and SILENTLY —
+    // so an author would see an unexplained REFER with no hint that `partRef` is a typo. Refusing
+    // the run would be worse: they would have to fix the typo before learning anything.
+    JsonNode result =
+        json(
+            post(
+                "/v1/policies/" + POLICY + "/versions/" + draftVersion + "/run",
+                token,
+                """
+                { "asOf": "2026-10-01",
+                  "facts": { "parties": [ { "partRef": "P-1", "role": "MEMBER",
+                                            "dateOfBirth": "1992-03-04" } ] } }
+                """));
+    assertThat(result.get("decision").asText()).isNotEmpty();
+    assertThat(result.get("factWarnings").toString())
+        .as("the warning names the PATH and never a value (§9.6)")
+        .contains("partRef")
+        .doesNotContain("1992-03-04");
+  }
+
+  @Test
   @Order(6)
   @DisplayName("6. submitting with no test cases is refused")
   void submitNeedsTests() throws Exception {

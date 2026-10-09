@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
  *   POST   /v1/policies/{code}/versions              open a DRAFT
  *   PUT    /v1/policies/{code}/versions/{n}/source   SAVE — compiles and runs tests on every save
  *   PUT    …/versions/{n}/test-cases/{name}          add an expectation
+ *   POST   …/versions/{n}/run                        RUN it against facts — any state, no deploy
  *   POST   …/versions/{n}/submit                     DRAFT → IN_REVIEW, gated on the compile report
  *   POST   …/versions/{n}/reviews                    approve or request changes; approval SIGNS
  *   POST   /v1/deployments                           ship it (DeploymentController)
@@ -51,6 +52,7 @@ public class PolicyController {
 
   private final PolicyVersionService versions;
   private final PolicyVersionRepository repository;
+  private final dev.bre.registry.policy.PolicyRunService runs;
   private final AuditLog audit;
 
   /**
@@ -58,12 +60,17 @@ public class PolicyController {
    *
    * @param versions the lifecycle
    * @param repository the policy tables
+   * @param runs runs a version against supplied facts
    * @param audit the hash-chained audit log
    */
   public PolicyController(
-      PolicyVersionService versions, PolicyVersionRepository repository, AuditLog audit) {
+      PolicyVersionService versions,
+      PolicyVersionRepository repository,
+      dev.bre.registry.policy.PolicyRunService runs,
+      AuditLog audit) {
     this.versions = versions;
     this.repository = repository;
+    this.runs = runs;
     this.audit = audit;
   }
 
@@ -317,6 +324,53 @@ public class PolicyController {
                     versions.save(
                         author.tenantId(), policyCode, version, source, author.subject(), null))
             .orElseGet(() -> versions.read(author.tenantId(), policyCode, version)));
+  }
+
+  /**
+   * A request to run a version against facts.
+   *
+   * @param facts the fact snapshot
+   * @param asOf the business date to evaluate on; required, because the same facts on two dates are
+   *     two different decisions and defaulting to today would silently pick one
+   */
+  public record RunRequest(Map<String, Object> facts, LocalDate asOf) {}
+
+  /**
+   * Runs a version against a fact snapshot.
+   *
+   * <p><b>Any state, including DRAFT — that is the point of it.</b> An author writing a rule needs
+   * to know what it does with a particular applicant before it is finished, let alone approved;
+   * requiring a deployment first is how a half-written rule reaches an environment.
+   *
+   * <p>Nothing is persisted. No decision record, no audit entry, and the facts are gone when the
+   * response returns.
+   *
+   * @param request the request
+   * @param policyCode the policy
+   * @param version the version
+   * @param body the facts and the business date
+   * @return what the policy did, per flow step and per entity
+   */
+  @PostMapping("/{policyCode}/versions/{version}/run")
+  public dev.bre.registry.policy.PolicyRunService.Run run(
+      HttpServletRequest request,
+      @PathVariable String policyCode,
+      @PathVariable int version,
+      @Valid @RequestBody RunRequest body) {
+
+    Principal caller = Authorisation.require(request, Role.Capability.SIMULATE);
+    if (body.asOf() == null) {
+      throw new PolicyVersionService.LifecycleException(
+          "asOf is required. The same facts on two dates are two different decisions — an age, a"
+              + " group's tenure and a delinquency window all move — so the run has to be told"
+              + " which date it is being asked about rather than quietly using today's.");
+    }
+    return runs.run(
+        caller.tenantId(),
+        policyCode,
+        version,
+        body.facts() == null ? Map.of() : body.facts(),
+        body.asOf());
   }
 
   /**
