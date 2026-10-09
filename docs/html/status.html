@@ -95,9 +95,9 @@
   <div class="rule"></div><div class="rule"></div>
 
   <div class="totals">
-    <div class="tot g"><b>19</b><span>done</span></div>
+    <div class="tot g"><b>21</b><span>done</span></div>
     <div class="tot a"><b>5</b><span>partial — usable, not finished</span></div>
-    <div class="tot s"><b>44</b><span>not started</span></div>
+    <div class="tot s"><b>42</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
 
@@ -146,7 +146,7 @@
     <div class="ms__head">
       <div><span class="kicker">M1 — Rule engine</span>
       <p class="ms__blurb">The critical path, and where nearly all the finished work is. All 90 conformance vectors pass.</p></div>
-      <div class="ms__counts"><span class="pill g">11 done</span><span class="pill a">1 partial</span><span class="pill s">4 pending</span></div>
+      <div class="ms__counts"><span class="pill g">12 done</span><span class="pill a">1 partial</span><span class="pill s">3 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M1-01</td><td class="ti">Value model, exact decimal and date semantics</td><td class="st"><span class="pill g">done</span></td></tr>
@@ -170,8 +170,9 @@
         <div class="no">Blocks M2-05, the replay endpoint.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr><td class="id">M1-12</td><td class="ti">IR codec, PSF YAML, BRE-JCS, schema validation
         <div class="no">IR codec, PSF v1 YAML, BRE-JCS canonical JSON and §2.2 schema validation.</div></td><td class="st"><span class="pill g">done</span></td></tr>
-      <tr class="pend"><td class="id">M1-13</td><td class="ti">Bundle format, SHA-256, Ed25519 signing, trust store
-        <div class="no">Without it there is no signed, content-addressed policy — so no registry.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M1-13</td><td class="ti">Bundle format, SHA-256, Ed25519 signing, trust store
+        <div class="no">Bundle format, SHA-256 content addressing, Ed25519 signing, trust store with overlap rotation. The verifier <b>recomputes</b> the hash before checking any signature — two tests stage the attack where the IR is swapped and the original hash and signature are kept.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M1-14</td><td class="ti">Fact model, canonical schema, Aadhaar/PAN detector
         <div class="no">Fact model, canonical lending schema, Verhoeff Aadhaar detector. Pulled in as M1-03's prerequisite.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M1-15</td><td class="ti">bre-cli — psf lint / compile / test / bundle / verify
@@ -186,7 +187,7 @@
     <div class="ms__head">
       <div><span class="kicker">M2 — Walking skeleton</span>
       <p class="ms__blurb">One thin path, end to end. The service runs and answers.</p></div>
-      <div class="ms__counts"><span class="pill g">2 done</span><span class="pill a">1 partial</span><span class="pill s">5 pending</span></div>
+      <div class="ms__counts"><span class="pill g">3 done</span><span class="pill a">1 partial</span><span class="pill s">4 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M2-01</td><td class="ti">bre-platform-common
@@ -195,9 +196,12 @@
       <tr><td class="id">M2-02</td><td class="ti">Flyway migrations for bre_ctl and bre_dec
         <div class="no">Both schemas written and <b>executed against a real PostgreSQL</b>. Found a tenant-owned table with no row-level security (<code>audit_chain_heads</code>) and a wrong tenant-id pattern in TenantContext. See OPEN-QUESTIONS Q7 and Q8.</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
-      <tr class="pend"><td class="id">M2-03</td><td class="ti">policy-registry — compile, sign, deploy, active pointer</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M2-03</td><td class="ti">policy-registry — compile, sign, deploy, active pointer
+        <div class="no">The <b>Active Pointer Manifest is built, signed and verified</b>, and the data plane's half of the contract is done. <b>The registry's own HTTP surface is not</b> — compile, sign, deploy and the §8.2 long-poll.</div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
       <tr><td class="id">M2-04</td><td class="ti">decision-service
-        <div class="no">POST, GET, the durable outbox log and PostgreSQL idempotency are done. <b>No policy resolution, pinning, PointerWatcher or BundleCache</b> — the policy still arrives inline on the request.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no"><b>The inline policy is gone.</b> Policy is resolved through the signed manifest, fetched by content address, verified and cached. Pin, challenger and champion selection; the pin window measured against arrival time, never the caller's <code>asOf</code>.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M2-05</td><td class="ti">Explanation by replay
         <div class="no">Needs M1-11 and stored facts.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M2-06</td><td class="ti">Facts encryption behind KmsPort, masked view
@@ -343,7 +347,7 @@
         encryption that would let facts be stored at all.</li>
   </ul>
 
-  <div class="foot">Generated from the repository · 29 commits · 408 tests passing · 9 October 2026</div>
+  <div class="foot">Generated from the repository · 32 commits · 465 tests passing · 9 October 2026</div>
 </div>
 </body>
 </html>
