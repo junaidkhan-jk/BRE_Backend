@@ -1,23 +1,19 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BRE Rule Studio</title>
-</head>
-<body style="margin:0;height:100vh">
-<div id="root" style="height:100%"></div>
-
-<!--
-  A CLASSIC script tag, not type="module", and that is deliberate.
-
-  Browsers fetch ES modules under CORS, and a file:// URL has no origin — so a module script
-  loaded by double-clicking this file is blocked and the page renders blank. The bundle is built
-  as an IIFE (see ui/studio-web/vite.config.ts) precisely so this copy opens with no server.
-
-  Vite's own dist/index.html still emits type="module"; that copy is for a real web server. This
-  one is the offline review copy.
--->
-<script src="assets/studio.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BRE Rule Studio</title>
+    <script defer src="./assets/studio.js"></script>
+    <!--
+      A CLASSIC script with `defer`, emitted by the build itself (ui/studio-web/vite.config.ts),
+      not hand-edited here. Two things make this page work when it is double-clicked rather than
+      served: the bundle is an IIFE, so nothing is fetched under CORS from an origin-less file://
+      page; and `defer` keeps the tag's position in <head> from executing it before #root exists.
+      Both are asserted by the end-to-end tests.
+    -->
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
 </html>
