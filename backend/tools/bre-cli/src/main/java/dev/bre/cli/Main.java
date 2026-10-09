@@ -62,6 +62,12 @@ public final class Main {
       usage(out);
       return args.length == 0 ? EXIT_USAGE : EXIT_OK;
     }
+    if ("psf".equals(args[0])) {
+      return PsfCommands.run(args, out, err);
+    }
+    if ("keygen".equals(args[0])) {
+      return keygen(args, out, err);
+    }
     if (!"facts".equals(args[0])) {
       err.println("unknown command '" + args[0] + "'");
       usage(err);
@@ -159,6 +165,25 @@ public final class Main {
     return EXIT_OK;
   }
 
+  /** {@code bre keygen <private.pkcs8> <public.x509>} — a local signing key, for development. */
+  private static int keygen(String[] args, PrintStream out, PrintStream err) {
+    if (args.length < 3) {
+      err.println("usage: bre keygen <private.pkcs8> <public.x509>");
+      return EXIT_USAGE;
+    }
+    try {
+      PsfCommands.writeKeyPair(Path.of(args[1]), Path.of(args[2]));
+      out.println("ok  wrote " + args[1] + " and " + args[2]);
+      out.println(
+          "    FOR LOCAL WORK ONLY. A production signing key is generated in, and never leaves,"
+              + " the KMS or HSM (§8.6).");
+      return EXIT_OK;
+    } catch (IOException e) {
+      err.println("could not write the key pair: " + e.getMessage());
+      return EXIT_USAGE;
+    }
+  }
+
   private static boolean isHelp(String arg) {
     return "-h".equals(arg) || "--help".equals(arg) || "help".equals(arg);
   }
@@ -175,8 +200,22 @@ public final class Main {
           bre facts schema                  Print every declared fact path, its BEL type and
                                             its §9.1 tags.
 
-        Not yet implemented: psf lint|compile|test|bundle|verify (M1-15 — needs the bundle
-        format, M1-13).
+          bre psf lint <policy.psf.yaml>    Parse, schema-check and run the §4.13 static
+                                            checks. Exits 1 on any ERROR finding. Always
+                                            reports what it did NOT check.
+
+          bre psf compile <f> [-o <f>]      PSF to IR JSON.
+
+          bre psf bundle <f> --key <k>      Compile, check, and sign a bre-bundle/1. Refuses
+                 --kid <id> [-o <f>]        to sign a policy with a static-check error.
+
+          bre psf verify <bundle> --pub <k> --kid <id>
+                                            Recompute the hash and check the signature.
+
+          bre keygen <private> <public>     An Ed25519 key pair for LOCAL work. A production
+                                            key never leaves the KMS.
+
+        Not yet implemented: psf test (M3-04 — needs the test runner).
         """);
   }
 }

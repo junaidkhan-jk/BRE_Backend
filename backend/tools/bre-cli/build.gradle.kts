@@ -20,6 +20,9 @@ dependencies {
     implementation(project(":libs:bre-bundle"))
     implementation(project(":libs:bre-fact-model"))
     implementation(libs.jackson.databind)
+    // A CLI that prints SLF4J's "no providers were found" banner to stderr on every run looks
+    // broken to the person running it. Binding to no-op says the same thing by saying nothing.
+    runtimeOnly(libs.slf4j.nop)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
