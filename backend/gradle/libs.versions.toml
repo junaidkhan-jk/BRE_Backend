@@ -25,6 +25,11 @@ archunit = "1.5.1"
 # Coverage-guided fuzzing of the BEL lexer and parser (M1-02's exit criterion).
 jazzer = "0.30.0"
 
+# OpenTelemetry API only — never the SDK in a library. A library that configured tracing would
+# decide the exporter for every application embedding it; the API is the no-op interface until an
+# application installs an SDK.
+opentelemetry = "1.66.0"
+
 # --- services (M2 onwards) ---
 spring-boot = "4.1.1"
 postgresql = "42.7.9"
@@ -52,6 +57,9 @@ archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref
 jazzer-junit = { module = "com.code-intelligence:jazzer-junit", version.ref = "jazzer" }
 embedded-postgres = { module = "io.zonky.test:embedded-postgres", version.ref = "embedded-postgres" }
 embedded-postgres-binaries-bom = { module = "io.zonky.test.postgres:embedded-postgres-binaries-bom", version.ref = "embedded-postgres-binaries" }
+
+opentelemetry-bom = { module = "io.opentelemetry:opentelemetry-bom", version.ref = "opentelemetry" }
+opentelemetry-api = { module = "io.opentelemetry:opentelemetry-api" }
 
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }

@@ -13,6 +13,11 @@
 plugins { id("bre.java-library") }
 
 dependencies {
+    // The OpenTelemetry API, never the SDK. The API is a no-op until an application installs an
+    // SDK, so a library can carry it without deciding anyone's exporter or sampler.
+    api(platform(libs.opentelemetry.bom))
+    api(libs.opentelemetry.api)
+
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj)
