@@ -95,9 +95,9 @@
   <div class="rule"></div><div class="rule"></div>
 
   <div class="totals">
-    <div class="tot g"><b>32</b><span>done</span></div>
-    <div class="tot a"><b>8</b><span>partial — usable, not finished</span></div>
-    <div class="tot s"><b>28</b><span>not started</span></div>
+    <div class="tot g"><b>33</b><span>done</span></div>
+    <div class="tot a"><b>10</b><span>partial — usable, not finished</span></div>
+    <div class="tot s"><b>25</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
 
@@ -224,15 +224,19 @@
     <div class="ms__head">
       <div><span class="kicker">M3 — Control plane</span>
       <p class="ms__blurb">Authoring, review, deployment, identity. Needs a real identity provider.</p></div>
-      <div class="ms__counts"><span class="pill a">5 partial</span><span class="pill s">5 pending</span></div>
+      <div class="ms__counts"><span class="pill g">1 done</span><span class="pill a">6 partial</span><span class="pill s">3 pending</span></div>
     </div>
     <table><tbody>
-      <tr class="pend"><td class="id">M3-01</td><td class="ti">Full bre_ctl schema with row-level security and a hash-chained audit log</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M3-01</td><td class="ti">Full bre_ctl schema with row-level security and a hash-chained audit log
+        <div class="no">Twelve migrations, executed against real PostgreSQL <b>as the restricted application role</b>, not as a superuser — which is the only way row-level security is exercised at all, and the reason the next five entries exist. RLS enabled and FORCED on every tenant-owned table, asserted by a test that walks the schema. The audit chain is a database trigger, so it holds for every writer including <code>psql</code>, and a test verifies the chain is gapless with no broken links. <b>Found by running it:</b> table ownership landed on the migrating role, so the SECURITY DEFINER audit trigger could not write; SECURITY DEFINER does not bypass RLS when the definer owns the table and FORCE is on; and §5.2's own RLS list omits <code>audit_chain_heads</code> (Q7).</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M3-02</td><td class="ti">studio-service — version lifecycle, PSF import/export, diff
         <div class="no"><b>The lifecycle is built, in policy-registry rather than a separate service</b> — one control-plane deployable while there is one database and one set of §5.2 tables; splitting it would give two services the same schema and no boundary between them. DRAFT → IN_REVIEW → APPROVED → ARCHIVED with both side transitions, optimistic locking so two authors in one draft is an error rather than a silent lost edit, and the author's PSF source kept verbatim beside the IR (V9) because translation discards every comment — and a credit policy's comments are where the reason for a threshold lives. <b>Diff and import/export are not built.</b></div></td>
         <td class="st"><span class="pill a">partial</span></td></tr>
       <tr class="pend"><td class="id">M3-03</td><td class="ti">Shared assets with maker-checker and effective dating</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M3-04</td><td class="ti">Test cases, coverage, submit gates, simulation API</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M3-04</td><td class="ti">Test cases, coverage, submit gates, simulation API
+        <div class="no">Test cases are stored per version and <b>re-run on every save</b>, against the tenant's resolved parameters — the same ones the bundle will be signed with, because a test run against different thresholds from the deployed ones is not a test of anything. The submit gate refuses a static-check error, a failing case, or <b>no cases at all</b>. <code>POST …/versions/{n}/run</code> evaluates any version — including a DRAFT — against supplied facts, returning per-step and per-entity outcomes with the measure a deviation was judged on. <b>Coverage measurement is not built:</b> nothing reports which rules a version's cases actually exercise.</div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
       <tr><td class="id">M3-05</td><td class="ti">Segregation of duties
         <div class="no">Enforced twice — in the application and by <b>database triggers</b>, which is §5.2's own design and the reason it matters: a trigger holds for every writer, including <code>psql</code>. The reviewer cannot be <b>any</b> editor, not merely the creator, because a draft handed between two people must not become reviewable by either. A deployment approver can be neither author, reviewer nor requester. The <b>administrator override</b> is a tenant column, needs a granted role, and writes SOD_OVERRIDDEN to the hash-chained audit log on every use; V12 states plainly what it costs. <b>Asset reviews and the four-eyes rules on shared assets are not built</b> (M3-03).</div></td>
         <td class="st"><span class="pill a">partial</span></td></tr>
@@ -275,7 +279,7 @@
     <div class="ms__head">
       <div><span class="kicker">M5 — Rule Studio</span>
       <p class="ms__blurb">The front end. Five screens build and run over sample data.</p></div>
-      <div class="ms__counts"><span class="pill g">1 done</span><span class="pill a">1 partial</span><span class="pill s">8 pending</span></div>
+      <div class="ms__counts"><span class="pill g">1 done</span><span class="pill a">2 partial</span><span class="pill s">7 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M5-01</td><td class="ti">App shell — React, TypeScript, Vite, routing, role-aware navigation
@@ -286,7 +290,9 @@
       <tr class="pend"><td class="id">M5-03</td><td class="ti">Decision-table grid, scorecard and flow editors
         <div class="no">The grid needs M1-10 to know where the gaps are.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M5-04</td><td class="ti">PSF diff, version history, clone</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M5-05</td><td class="ti">Test runner with coverage, simulation console</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M5-05</td><td class="ti">Test runner with coverage, simulation console
+        <div class="no">The <b>run screen works</b>: pick a policy and version, paste facts, set the business date, and read which step drove the decision, which entity deviated, on what measure, and what approvals it would need. It replaced a mock that showed a hard-coded outcome mix after a 600&nbsp;ms timer — honest scaffolding with no backend, and the worst thing to leave in place once there is one. <b>Not built:</b> a coverage view, and the portfolio back-test — running a policy over thousands of stored decisions is a job rather than a request, and needs M4's archive to replay against.</div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
       <tr class="pend"><td class="id">M5-06</td><td class="ti">Review inbox, deployment console, rollback</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M5-07</td><td class="ti">Shared-asset screens</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M5-08</td><td class="ti">Decision lookup, explanation viewer, audit trail</td><td class="st"><span class="pill s">pending</span></td></tr>
@@ -398,7 +404,7 @@
         take unilaterally.</li>
   </ul>
 
-  <div class="foot">Generated from the repository · 42 commits · 616 tests passing · 9 October 2026</div>
+  <div class="foot">Generated from the repository · 48 commits · 620 tests passing · 9 October 2026</div>
 </div>
 </body>
 </html>
