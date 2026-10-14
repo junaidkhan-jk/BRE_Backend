@@ -143,13 +143,14 @@ public class DeploymentRepository {
       DeploymentService.Mode mode,
       String reason,
       String requestedBy,
-      boolean expedited) {
+      boolean expedited,
+      java.time.OffsetDateTime effectiveFrom) {
     jdbc.update(
         """
         INSERT INTO bre_ctl.deployments (
             tenant_id, deployment_id, env_code, policy_code, bundle_hash, mode,
             effective_from, status, expedited, reason, requested_by)
-        VALUES (?, ?, ?, ?, ?, ?, now(), 'PENDING_APPROVAL', ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, coalesce(?::timestamptz, now()), 'PENDING_APPROVAL', ?, ?, ?)
         """,
         tenantId,
         deploymentId,
@@ -157,6 +158,7 @@ public class DeploymentRepository {
         policyCode,
         bundleHash,
         mode.name(),
+        effectiveFrom,
         expedited,
         reason,
         requestedBy);
@@ -329,6 +331,96 @@ public class DeploymentRepository {
             tenantId,
             deploymentId);
     return count == null ? 0 : count;
+  }
+
+  /**
+   * Whether a deployment's effective date is still in the future.
+   *
+   * <p>Asked of the <b>database's</b> clock rather than the JVM's. Two registry instances whose
+   * clocks differ by a minute would otherwise disagree about whether a deployment is due, and the
+   * one that is running fast would activate a policy change early.
+   *
+   * @param tenantId the tenant
+   * @param deploymentId the deployment
+   * @return true when it should wait in SCHEDULED
+   */
+  public boolean isFutureDated(String tenantId, UUID deploymentId) {
+    Boolean future =
+        jdbc.queryForObject(
+            """
+            SELECT effective_from > now() FROM bre_ctl.deployments
+             WHERE tenant_id = ? AND deployment_id = ?
+            """,
+            Boolean.class,
+            tenantId,
+            deploymentId);
+    return Boolean.TRUE.equals(future);
+  }
+
+  /**
+   * Marks a fully approved deployment SCHEDULED (00 §3.4).
+   *
+   * @param tenantId the tenant
+   * @param deploymentId the deployment
+   */
+  public void schedule(String tenantId, UUID deploymentId) {
+    jdbc.update(
+        """
+        UPDATE bre_ctl.deployments
+           SET status = 'SCHEDULED', scheduled_at = now(),
+               row_version = row_version + 1, updated_at = now()
+         WHERE tenant_id = ? AND deployment_id = ? AND status = 'PENDING_APPROVAL'
+        """,
+        tenantId,
+        deploymentId);
+  }
+
+  /**
+   * Claims every SCHEDULED deployment whose effective date has arrived.
+   *
+   * <p><b>{@code FOR UPDATE SKIP LOCKED} is the whole point.</b> Two registry instances polling the
+   * same table at the same second is the normal case, not an edge one. Without the claim both would
+   * activate the same deployment: two manifests published, two audit entries, and a superseding
+   * race whose loser is whichever transaction commits second. With it, each row is handed to
+   * exactly one instance and the other simply sees fewer rows.
+   *
+   * @param tenantId the tenant, already bound as the RLS scope
+   * @param claimedBy an identifier for this instance, recorded on the row
+   * @param limit how many to take in one pass
+   * @return the claimed deployment ids
+   */
+  public List<UUID> claimDue(String tenantId, String claimedBy, int limit) {
+    return jdbc.query(
+        """
+        UPDATE bre_ctl.deployments d
+           SET activation_claimed_by = ?, row_version = row_version + 1, updated_at = now()
+         WHERE (d.tenant_id, d.deployment_id) IN (
+                 SELECT c.tenant_id, c.deployment_id FROM bre_ctl.deployments c
+                  WHERE c.tenant_id = ? AND c.status = 'SCHEDULED' AND c.effective_from <= now()
+                  ORDER BY c.effective_from
+                  LIMIT ?
+                  FOR UPDATE SKIP LOCKED)
+        RETURNING d.deployment_id
+        """,
+        (rs, rowNum) -> (UUID) rs.getObject("deployment_id"),
+        claimedBy,
+        tenantId,
+        limit);
+  }
+
+  /**
+   * Which tenants have a deployment whose effective date has arrived.
+   *
+   * <p>Through a SECURITY DEFINER function because the activator is a timer: there is no principal,
+   * so no tenant is in scope, and {@code deployments} is under FORCE row-level security. The
+   * function returns tenant ids and nothing else, so the privileged surface is one column.
+   *
+   * @return the tenant ids
+   */
+  public List<String> tenantsWithDueDeployments() {
+    return jdbc.query(
+        "SELECT tenant_id FROM bre_ctl.tenants_with_due_deployments()",
+        (rs, rowNum) -> rs.getString(1));
   }
 
   /**

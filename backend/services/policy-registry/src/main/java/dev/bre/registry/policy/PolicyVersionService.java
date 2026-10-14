@@ -118,6 +118,11 @@ public class PolicyVersionService {
    * @param compileOk whether the latest compile passed
    * @param findings the latest compile's findings
    * @param tests the latest test-case run
+   * @param coverage what those test cases exercised, absent when nothing has been measured
+   * @param minCoveragePercent the tenant's submit threshold, so the studio can show the bar beside
+   *     the figure rather than leaving an author to discover it by being refused
+   * @param changeNote the submit evidence, once submitted
+   * @param committeeReference the governance record behind the change
    * @param rowVersion for optimistic locking
    */
   public record SavedVersion(
@@ -129,6 +134,10 @@ public class PolicyVersionService {
       boolean compileOk,
       List<String> findings,
       CompileService.TestResults tests,
+      Optional<CoverageView> coverage,
+      java.math.BigDecimal minCoveragePercent,
+      Optional<String> changeNote,
+      Optional<String> committeeReference,
       long rowVersion) {
 
     /** Creates a saved version, copying the list. */
@@ -275,11 +284,20 @@ public class PolicyVersionService {
    * @param policyCode the policy
    * @param version the version
    * @param actor who is submitting
+   * @param changeNote what changed and why, in the author's words (FR-LIFE-002)
+   * @param committeeReference the credit-committee minute or ticket that agreed to the change
    * @return the submitted version
-   * @throws LifecycleException if it is not a DRAFT, does not compile, or any test case fails
+   * @throws LifecycleException if it is not a DRAFT, does not compile, any test case fails,
+   *     coverage is below the tenant's threshold, or the evidence is missing
    */
   @Transactional
-  public SavedVersion submit(String tenantId, String policyCode, int version, String actor) {
+  public SavedVersion submit(
+      String tenantId,
+      String policyCode,
+      int version,
+      String actor,
+      String changeNote,
+      String committeeReference) {
     PolicyVersionRepository.Row row = require(tenantId, policyCode, version);
     if (row.status() != Status.DRAFT) {
       throw new LifecycleException(
@@ -327,14 +345,62 @@ public class PolicyVersionService {
               + " least one before submitting.");
     }
 
-    repository.submit(tenantId, policyCode, version);
+    // FR-TEST-003. Passing tests and adequate tests are different questions: a single happy-path
+    // case passes the gate above for a three-hundred-rule policy. The threshold is the tenant's,
+    // because how much coverage is enough is a credit-risk judgement, not a platform one.
+    java.math.BigDecimal threshold = repository.minCoveragePercent(tenantId);
+    if (report.coveragePercent().compareTo(threshold) < 0) {
+      throw new LifecycleException(
+          "coverage is "
+              + report.coveragePercent()
+              + "%, below this tenant's minimum of "
+              + threshold
+              + "%, so version "
+              + version
+              + " cannot be submitted (FR-TEST-003). "
+              + report.uncovered().size()
+              + " item(s) no test case reaches: "
+              + report.firstUncovered(8)
+              + (report.uncovered().size() > 8 ? ", …" : "")
+              + ". Each is a rule status, a decision-table row or a scorecard bin that will run in"
+              + " production having never run in a test.");
+    }
+
+    // FR-LIFE-002. The change note and the committee reference are the evidence a reviewer reads
+    // to answer "why", and a regulator reads years later. A CHECK constraint enforces them too, so
+    // a direct UPDATE cannot move a version into review without them.
+    String note = changeNote == null ? "" : changeNote.strip();
+    String committee = committeeReference == null ? "" : committeeReference.strip();
+    if (note.length() < 10) {
+      throw new LifecycleException(
+          "a change note of at least 10 characters is required to submit (FR-LIFE-002). A reviewer"
+              + " approving a diff has to know what the author was trying to achieve; the diff"
+              + " itself only says what changed.");
+    }
+    if (committee.isEmpty()) {
+      throw new LifecycleException(
+          "a committee reference is required to submit (FR-LIFE-002) — the credit-committee minute,"
+              + " ticket or approval that agreed to this change. A policy change with no recorded"
+              + " mandate is the finding an audit opens with.");
+    }
+
+    repository.submit(tenantId, policyCode, version, note, committee);
     audit.record(
         tenantId,
         actor,
         "POLICY_VERSION.SUBMITTED",
         "policy_version",
         key(policyCode, version),
-        "{\"submissionRound\":" + (row.submissionRound() + 1) + "}");
+        // The committee reference identifies a governance record and belongs in the audit detail.
+        // The change note does not: it is free text an author typed, it can be long, and it is
+        // already on the version row the entry points at.
+        "{\"submissionRound\":"
+            + (row.submissionRound() + 1)
+            + ",\"coveragePercent\":"
+            + report.coveragePercent()
+            + ",\"committeeReference\":"
+            + writeString(committee)
+            + "}");
     log.info(
         "policy version submitted tenant={} policy={} version={} round={}",
         tenantId,
@@ -528,7 +594,11 @@ public class PolicyVersionService {
                 r ->
                     new CompileService.TestResults(
                         r.testsTotal(), r.testsTotal() - r.testsFailed(), r.testFailures()))
-            .orElse(new CompileService.TestResults(0, 0, List.of())),
+            .orElse(CompileService.TestResults.none()),
+        report.flatMap(PolicyVersionRepository.CompileReport::coverage),
+        repository.minCoveragePercent(tenantId),
+        row.changeNote(),
+        row.committeeReference(),
         row.rowVersion());
   }
 
@@ -539,6 +609,21 @@ public class PolicyVersionService {
             () ->
                 new LifecycleException(
                     "no version " + version + " of " + policyCode + " for this tenant."));
+  }
+
+  /**
+   * Quotes a string for the audit detail's JSON.
+   *
+   * <p>Jackson rather than string concatenation because a committee reference is free text an
+   * author typed: a quote character in it would produce malformed JSON in an append-only,
+   * hash-chained table, which is not a row anybody can go back and fix.
+   */
+  private static String writeString(String value) {
+    try {
+      return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value);
+    } catch (com.fasterxml.jackson.core.JsonProcessingException impossible) {
+      throw new IllegalStateException("a String failed to serialise", impossible);
+    }
   }
 
   private static String key(String policyCode, int version) {

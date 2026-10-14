@@ -35,6 +35,12 @@ import org.springframework.transaction.annotation.Transactional;
  * Three distinct people for a PROD change, which is the point — and the administrator override
  * applies here too, audited the same way.
  *
+ * <p><b>An effective date in the future means SCHEDULED, not ACTIVE.</b> Approving the last
+ * required approval does not put a policy live if the author asked for it to start on Monday: the
+ * deployment waits in SCHEDULED and {@link DeploymentActivator} promotes it when the time comes. A
+ * lender scheduling a rate change for the start of the next business day and getting it mid-day is
+ * not a cosmetic bug — every application decided in between was decided under the wrong policy.
+ *
  * <p><b>Activation publishes a signed Active Pointer Manifest.</b> Until that manifest is written
  * and signed, a deployment row is a statement of intent that no pod can see: pods adopt policy from
  * the manifest and from nothing else (§8.1, §8.5). So the two happen in one transaction, and a
@@ -112,6 +118,9 @@ public class DeploymentService {
    * @param reason why — recorded, and required
    * @param expedited whether this is an emergency change (2 approvers, mandatory
    *     post-implementation review)
+   * @param effectiveFrom when it should take effect, or null for immediately. A future date means
+   *     the deployment waits in SCHEDULED once fully approved, and {@link DeploymentActivator}
+   *     promotes it when the time comes (00 §3.4).
    * @return the deployment
    */
   @Transactional
@@ -122,7 +131,8 @@ public class DeploymentService {
       int version,
       Mode mode,
       String reason,
-      boolean expedited) {
+      boolean expedited,
+      java.time.OffsetDateTime effectiveFrom) {
 
     String tenantId = principal.tenantId();
     DeploymentRepository.ApprovedVersion approved =
@@ -156,7 +166,8 @@ public class DeploymentService {
         mode,
         reason,
         principal.subject(),
-        expedited);
+        expedited,
+        effectiveFrom);
 
     audit.record(
         tenantId,
@@ -176,10 +187,12 @@ public class DeploymentService {
             + required
             + ",\"expedited\":"
             + expedited
-            + "}");
+            + ",\"effectiveFrom\":\""
+            + (effectiveFrom == null ? "immediate" : effectiveFrom)
+            + "\"}");
 
     if (required == 0) {
-      return activate(tenantId, deploymentId, principal, 0, required);
+      return activateOrSchedule(tenantId, deploymentId, principal, 0, required);
     }
     return read(tenantId, deploymentId);
   }
@@ -253,7 +266,7 @@ public class DeploymentService {
         "{\"approvals\":" + approvals + ",\"required\":" + required + "}");
 
     if (approvals >= required) {
-      return activate(tenantId, deploymentId, principal, approvals, required);
+      return activateOrSchedule(tenantId, deploymentId, principal, approvals, required);
     }
     return read(tenantId, deploymentId);
   }
@@ -378,7 +391,42 @@ public class DeploymentService {
 
   // ---------------------------------------------------------------------------------------------
 
-  private Deployment activate(
+  /**
+   * Activates now, or schedules for the effective date — 00 §3.4's SCHEDULED state.
+   *
+   * <p>The comparison is against the database's clock, not the JVM's, so two registry instances
+   * with drifting clocks cannot disagree about whether a deployment is due.
+   */
+  private Deployment activateOrSchedule(
+      String tenantId, UUID deploymentId, Principal principal, int approvals, int required) {
+
+    if (repository.isFutureDated(tenantId, deploymentId)) {
+      repository.schedule(tenantId, deploymentId);
+      audit.record(
+          tenantId,
+          principal.subject(),
+          "DEPLOYMENT.SCHEDULED",
+          "deployment",
+          deploymentId.toString(),
+          "{\"approvals\":" + approvals + ",\"required\":" + required + "}");
+      log.info(
+          "deployment SCHEDULED tenant={} deployment={} — fully approved, waiting for its"
+              + " effective date",
+          tenantId,
+          deploymentId);
+      return read(tenantId, deploymentId);
+    }
+    return activate(tenantId, deploymentId, principal, approvals, required);
+  }
+
+  /**
+   * Activates a deployment: supersede the champion it replaces, publish the manifest, audit it.
+   *
+   * <p>Package-private so {@link DeploymentActivator} can call it for a deployment whose time has
+   * come, rather than reimplementing superseding and manifest publication on the timer path — two
+   * implementations of "what it means to go live" would eventually disagree.
+   */
+  Deployment activate(
       String tenantId, UUID deploymentId, Principal principal, int approvals, int required) {
 
     DeploymentRepository.Row row = require(tenantId, deploymentId);

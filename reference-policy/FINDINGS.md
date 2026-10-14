@@ -129,6 +129,38 @@ one-line change — a gap found only under epoch *n* of a parameter set is a fin
 epoch, not about the policy, so it has to be reported in a way that does not make a parameter edit
 look like a policy defect.
 
+## Finding 11 — the acceptance suite covers 28.6% of the policy, against M6-01's 90%
+
+Measured, in CI, by `ReferencePolicyAcceptanceTest.coverageOfTheAcceptanceSuite` (FR-TEST-003):
+
+| | covered | total |
+|---|---|---|
+| Rule statuses | 15 | 47 |
+| Decision-table rows | 4 | 16 |
+| Scorecard bins | 3 | 14 |
+| **Pooled** | **22** | **77** — **28.6%** |
+
+Three fixtures that each decide one complete application cannot do better, and the shape of what
+is missing matters more than the number:
+
+- **The `DATA_MISSING` branch of every rule is untested.** A complete fixture never omits a fact,
+  so "the bureau did not answer" has never run once — and that is the branch that fires during an
+  outage, on every application at the same time. It is the single most consequential untested path
+  in the policy.
+- **`GRP_SHG_SIZE` and `GRP_MIN_AGE` have never reached PASS.** All three fixtures are JLG, so the
+  SHG group-size path is entirely unexercised in a policy whose product lines claim both.
+- **Two of the three deviation paths are untested** — `POL_NTC_AMOUNT_CAP:DEVIATION` and
+  `POL_AGE_AT_MATURITY:DEVIATION`. Those are the cases an approver is asked to authorise, so they
+  are the ones where a wrong authority band is most expensive.
+
+The assertion carries a floor *and* a ceiling (25–35%). The floor catches a fixture that stops
+exercising a branch; the ceiling catches the happier failure, where somebody adds fixtures and
+nobody updates this table. Either way the figure written here stays true.
+
+Closing it is roughly one fixture per branch and is the remaining half of M6-01. It is recorded
+here rather than fixed because inventing thirty fixtures to raise a number is how a coverage
+target becomes a ritual — each one should be a case somebody can name.
+
 ## What this policy proves, and what it still does not
 
 Lint, compile, bundle and verify pass. The policy **decides**, against documents that conform to

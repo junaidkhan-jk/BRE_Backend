@@ -6,6 +6,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.bre.engine.cover.CoverageProbe;
+import dev.bre.engine.cover.CoverageReport;
 import dev.bre.engine.decide.ComponentResult;
 import dev.bre.engine.decide.FlowEvaluator;
 import dev.bre.engine.eval.Decimals;
@@ -51,6 +53,18 @@ import org.junit.jupiter.api.Test;
 class ReferencePolicyAcceptanceTest {
 
   private static final ObjectMapper JSON = new ObjectMapper();
+
+  /**
+   * The band the acceptance suite's coverage is asserted to sit in.
+   *
+   * <p>A floor AND a ceiling. The floor catches a regression — a fixture that stops exercising a
+   * branch. The ceiling catches the happier failure: somebody adds fixtures, coverage rises, and
+   * nobody updates the finding that says it is low. Either way the number in the repository stays
+   * true, which is the only reason to assert it at all.
+   */
+  private static final double COVERAGE_FLOOR = 25.0;
+
+  private static final double COVERAGE_CEILING = 35.0;
 
   /** The business date every case is decided on; fixed, because the engine reads no clock (D8). */
   private static final LocalDate AS_OF = LocalDate.of(2026, 10, 1);
@@ -157,6 +171,58 @@ class ReferencePolicyAcceptanceTest {
     assertThat(result.requiredApprovals())
         .singleElement()
         .satisfies(item -> assertThat(item.level()).isEqualTo("AREA_MANAGER"));
+  }
+
+  @Test
+  @DisplayName("the fixtures cover only part of the policy, and the gap is named")
+  void coverageOfTheAcceptanceSuite() throws IOException {
+    // Decides every fixture itself rather than relying on the other tests having run. Test order
+    // is not a contract, and a coverage figure that depends on it would quietly halve the first
+    // time somebody ran a single test from an IDE.
+    CoverageProbe probe = new CoverageProbe();
+    try (var fixtures = Files.list(root.resolve("fixtures"))) {
+      for (Path fixture : fixtures.filter(f -> f.toString().endsWith(".json")).sorted().toList()) {
+        Value.RecordV facts = new FactReader(LendingFacts.schema()).toRecord(read(fixture));
+        FlowEvaluator.evaluate(
+            policy, EvaluationContext.of(facts, parameters, lists, AS_OF).measuring(probe));
+      }
+    }
+
+    CoverageReport coverage = CoverageReport.measure(policy, probe);
+
+    // THIS IS A FINDING, not a target being met. Measured: 28.6% — rule statuses 15/47, table
+    // rows 4/16, scorecard bins 3/14. M6-01's exit criterion is >= 90%, so the acceptance suite
+    // is at under a third of it, and asserting the real figure means the gap is visible in CI
+    // rather than discovered when somebody finally measures it.
+    //
+    // What is missing, specifically:
+    //   * the DATA_MISSING branch of EVERY rule. Three complete fixtures never omit a fact, so
+    //     "the bureau did not answer" has not been exercised once — and that is the branch that
+    //     fires during an outage, on every application at the same time.
+    //   * GRP_SHG_SIZE and GRP_MIN_AGE have not reached PASS at all. All three fixtures are JLG,
+    //     so the SHG group-size path is entirely untested in a policy that claims to support both.
+    //   * POL_NTC_AMOUNT_CAP:DEVIATION and POL_AGE_AT_MATURITY:DEVIATION — two of the three
+    //     deviation paths an approver would actually be asked to authorise.
+    //
+    // Closing it means roughly one fixture per branch, which is the remaining half of M6-01.
+    assertThat(coverage.overallPercent().doubleValue())
+        .as(
+            "rule statuses %d/%d, table rows %d/%d, scorecard bins %d/%d. Uncovered: %s",
+            coverage.ruleStatusesCovered(),
+            coverage.ruleStatusesTotal(),
+            coverage.rowsCovered(),
+            coverage.rowsTotal(),
+            coverage.binsCovered(),
+            coverage.binsTotal(),
+            coverage.uncoveredRuleStatuses())
+        .isBetween(COVERAGE_FLOOR, COVERAGE_CEILING);
+
+    // Every component ran at least once, even though most branches did not. That much the three
+    // fixtures do establish, and it is what makes them an acceptance suite rather than a smoke
+    // test of one stage.
+    assertThat(coverage.ruleStatusesCovered()).isGreaterThan(0);
+    assertThat(coverage.rowsCovered()).isGreaterThan(0);
+    assertThat(coverage.binsCovered()).isGreaterThan(0);
   }
 
   @Test

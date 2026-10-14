@@ -25,6 +25,8 @@ import java.util.Objects;
  * @param recorder the explanation recorder (§4.12). {@code TraceRecorder.NONE} on the decision
  *     path: an explanation is regenerated on demand by re-running with one attached, so a decision
  *     never pays for a trace nobody asked for.
+ * @param probe the coverage probe (FR-TEST-003). {@code CoverageProbe.NONE} on the decision path,
+ *     for the same reason as the recorder: which rows a run exercised is a studio question.
  */
 public record EvaluationContext(
     RecordV facts,
@@ -35,7 +37,8 @@ public record EvaluationContext(
     FuelMeter fuel,
     VariableResolver variables,
     ListCap listCap,
-    dev.bre.engine.trace.TraceRecorder recorder) {
+    dev.bre.engine.trace.TraceRecorder recorder,
+    dev.bre.engine.cover.CoverageProbe probe) {
 
   /** Creates a context, copying the maps so the context is genuinely immutable. */
   public EvaluationContext {
@@ -48,6 +51,7 @@ public record EvaluationContext(
     variables = variables == null ? VariableResolver.none() : variables;
     listCap = listCap == null ? ListCap.defaults() : listCap;
     recorder = recorder == null ? dev.bre.engine.trace.TraceRecorder.NONE : recorder;
+    probe = probe == null ? dev.bre.engine.cover.CoverageProbe.NONE : probe;
   }
 
   /**
@@ -89,7 +93,8 @@ public record EvaluationContext(
         fuel,
         VariableResolver.none(),
         ListCap.defaults(),
-        dev.bre.engine.trace.TraceRecorder.NONE);
+        dev.bre.engine.trace.TraceRecorder.NONE,
+        dev.bre.engine.cover.CoverageProbe.NONE);
   }
 
   /**
@@ -100,7 +105,22 @@ public record EvaluationContext(
    */
   public EvaluationContext recording(dev.bre.engine.trace.TraceRecorder newRecorder) {
     return new EvaluationContext(
-        facts, parameters, lists, asOf, it, fuel, variables, listCap, newRecorder);
+        facts, parameters, lists, asOf, it, fuel, variables, listCap, newRecorder, probe);
+  }
+
+  /**
+   * Returns a copy that measures coverage (FR-TEST-003).
+   *
+   * <p>The probe accumulates across every context derived from this one — per entity, per filter
+   * element — because it is the same object, not a copy. That is deliberate: coverage is a property
+   * of the whole test suite, not of one entity's evaluation.
+   *
+   * @param newProbe the probe
+   * @return the context, measuring
+   */
+  public EvaluationContext measuring(dev.bre.engine.cover.CoverageProbe newProbe) {
+    return new EvaluationContext(
+        facts, parameters, lists, asOf, it, fuel, variables, listCap, recorder, newProbe);
   }
 
   /**
@@ -111,7 +131,7 @@ public record EvaluationContext(
    */
   public EvaluationContext withVariables(VariableResolver resolver) {
     return new EvaluationContext(
-        facts, parameters, lists, asOf, it, fuel, resolver, listCap, recorder);
+        facts, parameters, lists, asOf, it, fuel, resolver, listCap, recorder, probe);
   }
 
   /**
@@ -123,7 +143,7 @@ public record EvaluationContext(
    */
   public EvaluationContext withIt(Value element) {
     return new EvaluationContext(
-        facts, parameters, lists, asOf, element, fuel, variables, listCap, recorder);
+        facts, parameters, lists, asOf, element, fuel, variables, listCap, recorder, probe);
   }
 
   /** Returns {@code asOf} as a BEL value. */

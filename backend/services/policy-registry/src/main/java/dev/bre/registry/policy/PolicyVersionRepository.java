@@ -40,6 +40,8 @@ public class PolicyVersionRepository {
       PolicyVersionService.Status status,
       int submissionRound,
       Optional<String> bundleHash,
+      Optional<String> changeNote,
+      Optional<String> committeeReference,
       long rowVersion) {}
 
   /**
@@ -51,6 +53,7 @@ public class PolicyVersionRepository {
    * @param testsTotal how many test cases ran
    * @param testsFailed how many failed
    * @param testFailures one line per failure
+   * @param coverage what the test cases exercised, or empty for a report written before V13
    */
   public record CompileReport(
       boolean ok,
@@ -58,12 +61,41 @@ public class PolicyVersionRepository {
       List<String> findingSummaries,
       int testsTotal,
       int testsFailed,
-      List<String> testFailures) {
+      List<String> testFailures,
+      Optional<CoverageView> coverage) {
 
     /** Creates a report, copying the lists. */
     public CompileReport {
       findingSummaries = List.copyOf(findingSummaries);
       testFailures = List.copyOf(testFailures);
+    }
+
+    /**
+     * The figure the submit gate compares against the threshold.
+     *
+     * <p>Zero when the report predates V13 and carries no coverage object. Refusing the submission
+     * is the right reading: the version has not been measured, and a re-save measures it.
+     */
+    public java.math.BigDecimal coveragePercent() {
+      return coverage.map(CoverageView::overallPercent).orElse(java.math.BigDecimal.ZERO);
+    }
+
+    /** Every item no test case reached, across all three kinds. */
+    public List<String> uncovered() {
+      return coverage
+          .map(
+              c -> {
+                List<String> all = new ArrayList<>(c.uncoveredRuleStatuses());
+                all.addAll(c.uncoveredRows());
+                all.addAll(c.uncoveredBins());
+                return all;
+              })
+          .orElse(List.of());
+    }
+
+    /** The first few uncovered items, for a refusal message. */
+    public String firstUncovered(int limit) {
+      return String.join(", ", uncovered().stream().limit(limit).toList());
     }
 
     /** The first few findings, for a refusal message. */
@@ -159,7 +191,8 @@ public class PolicyVersionRepository {
     return jdbc
         .query(
             """
-            SELECT status, submission_round, bundle_hash, row_version
+            SELECT status, submission_round, bundle_hash, change_note, committee_reference,
+                   row_version
               FROM bre_ctl.policy_versions
              WHERE tenant_id = ? AND policy_code = ? AND version = ?
             """,
@@ -168,6 +201,8 @@ public class PolicyVersionRepository {
                     PolicyVersionService.Status.valueOf(rs.getString("status")),
                     rs.getInt("submission_round"),
                     Optional.ofNullable(rs.getString("bundle_hash")),
+                    Optional.ofNullable(rs.getString("change_note")),
+                    Optional.ofNullable(rs.getString("committee_reference")),
                     rs.getLong("row_version")),
             tenantId,
             policyCode,
@@ -419,11 +454,12 @@ public class PolicyVersionRepository {
     jdbc.update(
         """
         INSERT INTO bre_ctl.compile_reports (
-            tenant_id, policy_code, policy_version, report_no, engine_version, ok, findings, tests)
+            tenant_id, policy_code, policy_version, report_no, engine_version, ok, findings,
+            tests, coverage)
         VALUES (?, ?, ?,
                 (SELECT coalesce(max(report_no), 0) + 1 FROM bre_ctl.compile_reports
                   WHERE tenant_id = ? AND policy_code = ? AND policy_version = ?),
-                ?, ?, ?::jsonb, ?::jsonb)
+                ?, ?, ?::jsonb, ?::jsonb, ?::jsonb)
         """,
         tenantId,
         policyCode,
@@ -434,7 +470,8 @@ public class PolicyVersionRepository {
         "0.1.0-SNAPSHOT",
         result.ok(),
         writeJson(result.findings()),
-        writeJson(result.tests()));
+        writeJson(result.tests()),
+        writeJson(CoverageView.of(result.coverage())));
   }
 
   /**
@@ -450,7 +487,7 @@ public class PolicyVersionRepository {
     return jdbc
         .query(
             """
-            SELECT ok, findings, tests FROM bre_ctl.compile_reports
+            SELECT ok, findings, tests, coverage FROM bre_ctl.compile_reports
              WHERE tenant_id = ? AND policy_code = ? AND policy_version = ?
              ORDER BY report_no DESC LIMIT 1
             """,
@@ -474,13 +511,23 @@ public class PolicyVersionRepository {
               }
               List<String> failures = new ArrayList<>();
               tests.path("failures").forEach(f -> failures.add(f.asText()));
+
+              // A report written before V13 has no coverage object at all, so this is empty
+              // rather than zeroed: "not measured" and "measured at 0%" are different facts, and
+              // only the first one is fixed by saving the draft again.
+              JsonNode coverage = readJson(rs.getString("coverage"));
+              Optional<CoverageView> view =
+                  coverage.hasNonNull("overallPercent")
+                      ? Optional.of(JSON.convertValue(coverage, CoverageView.class))
+                      : Optional.empty();
               return new CompileReport(
                   rs.getBoolean("ok"),
                   errors,
                   summaries,
                   tests.path("total").asInt(),
                   tests.path("total").asInt() - tests.path("passed").asInt(),
-                  failures);
+                  failures,
+                  view);
             },
             tenantId,
             policyCode,
@@ -536,24 +583,54 @@ public class PolicyVersionRepository {
   }
 
   /**
-   * Moves a DRAFT to IN_REVIEW.
+   * Moves a DRAFT to IN_REVIEW, recording the submit evidence (FR-LIFE-002).
    *
    * @param tenantId the tenant
    * @param policyCode the policy
    * @param version the version
+   * @param changeNote what changed and why
+   * @param committeeReference the governance record that agreed to it
    */
-  public void submit(String tenantId, String policyCode, int version) {
+  public void submit(
+      String tenantId,
+      String policyCode,
+      int version,
+      String changeNote,
+      String committeeReference) {
     jdbc.update(
         """
         UPDATE bre_ctl.policy_versions
            SET status = 'IN_REVIEW', submitted_at = now(),
                submission_round = submission_round + 1,
+               change_note = ?, committee_reference = ?,
                row_version = row_version + 1, updated_at = now()
          WHERE tenant_id = ? AND policy_code = ? AND version = ? AND status = 'DRAFT'
         """,
+        changeNote,
+        committeeReference,
         tenantId,
         policyCode,
         version);
+  }
+
+  /**
+   * This tenant's minimum coverage for submit (FR-TEST-003).
+   *
+   * @param tenantId the tenant
+   * @return the threshold as a percentage
+   */
+  public java.math.BigDecimal minCoveragePercent(String tenantId) {
+    return jdbc
+        .query(
+            "SELECT min_coverage_percent FROM bre_ctl.tenants WHERE tenant_id = ?",
+            (rs, rowNum) -> rs.getBigDecimal(1),
+            tenantId)
+        .stream()
+        .findFirst()
+        // A tenant row that cannot be read is not a reason to wave a submission through. The
+        // query runs under RLS as the application role, so an empty result means the caller's
+        // tenant scope does not match — fail closed on the specification's own default.
+        .orElse(new java.math.BigDecimal("80.0"));
   }
 
   /**

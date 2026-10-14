@@ -9,6 +9,10 @@
 #   ./devstack/up.sh            build, seed, start, and prove it decides
 #   ./devstack/up.sh --registry  also start PostgreSQL and the policy registry, with an admin
 #                                account you can sign in to the studio with
+#   ./devstack/up.sh --sandbox   as --registry, plus a `sandbox` tenant with one account per role
+#                                (author, reviewer, approver, viewer, auditor) so maker-checker can
+#                                be walked without creating accounts by hand. Password is printed
+#                                to the registry log. Never enable this in production.
 #   ./devstack/up.sh --stop     stop everything
 #   ./devstack/up.sh --seed     seed only: keys, bundle, manifest. No service.
 #
@@ -100,7 +104,16 @@ JAVA="${JAVA_HOME:+$JAVA_HOME/bin/}java"
 # did not start" — which sent me looking for a startup bug that did not exist. The pid file only
 # knows about the most recent run, so match on the jar as well.
 WITH_REGISTRY=false
-[[ "${1:-}" == "--registry" ]] && WITH_REGISTRY=true
+WITH_SANDBOX=false
+for arg in "$@"; do
+  case "$arg" in
+    --registry) WITH_REGISTRY=true ;;
+    # Seeds the `sandbox` tenant with one account per role, so maker-checker can be walked without
+    # creating accounts by hand. Separate from --registry because it is a different decision: the
+    # registry is infrastructure, five accounts sharing a password is a test fixture.
+    --sandbox)  WITH_REGISTRY=true; WITH_SANDBOX=true ;;
+  esac
+done
 
 if [[ -f "$PID_FILE" ]] || pgrep -f "decision-service.jar" >/dev/null 2>&1 \
    || [[ -f "$REGISTRY_PID_FILE" ]] || pgrep -f "policy-registry.jar" >/dev/null 2>&1; then
@@ -241,6 +254,8 @@ if $WITH_REGISTRY; then
     --bre.registry.bootstrap-tenant-name="Devstack Lender" \
     --bre.registry.bootstrap-admin-email="$ADMIN_EMAIL" \
     --bre.registry.bootstrap-admin-password="$ADMIN_PASSWORD" \
+    --bre.registry.sandbox-enabled="$WITH_SANDBOX" \
+    --bre.registry.sandbox-password=sandbox-password-1 \
     > "$VAR/policy-registry.log" 2>&1 &
   echo $! > "$REGISTRY_PID_FILE"
 

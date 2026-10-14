@@ -3,6 +3,7 @@ package dev.bre.registry.api;
 import dev.bre.registry.audit.AuditLog;
 import dev.bre.registry.auth.Principal;
 import dev.bre.registry.auth.Role;
+import dev.bre.registry.policy.PolicyDiff;
 import dev.bre.registry.policy.PolicyVersionRepository;
 import dev.bre.registry.policy.PolicyVersionService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -202,6 +203,56 @@ public class PolicyController {
   }
 
   /**
+   * Compares two versions of a policy (M3-02).
+   *
+   * <p>Available on any pair, in either direction, including a DRAFT — reviewing a change means
+   * reading what it does to the version it replaces, and that comparison has to be possible before
+   * the change is submitted, not only after.
+   *
+   * @param request the request
+   * @param policyCode the policy
+   * @param from the earlier version
+   * @param to the later version
+   * @return the semantic and text diffs
+   */
+  @GetMapping("/{policyCode}/versions/{from}/diff/{to}")
+  public PolicyDiff.Diff diff(
+      HttpServletRequest request,
+      @PathVariable String policyCode,
+      @PathVariable int from,
+      @PathVariable int to) {
+    Principal caller = Authorisation.require(request, Role.Capability.POLICY_READ);
+    com.fasterxml.jackson.databind.node.ObjectNode fromIr =
+        requireIr(caller.tenantId(), policyCode, from);
+    com.fasterxml.jackson.databind.node.ObjectNode toIr =
+        requireIr(caller.tenantId(), policyCode, to);
+    return PolicyDiff.compare(
+        policyCode,
+        from,
+        to,
+        fromIr,
+        toIr,
+        repository.sourceOf(caller.tenantId(), policyCode, from).orElse(null),
+        repository.sourceOf(caller.tenantId(), policyCode, to).orElse(null));
+  }
+
+  private com.fasterxml.jackson.databind.node.ObjectNode requireIr(
+      String tenantId, String policyCode, int version) {
+    com.fasterxml.jackson.databind.node.ObjectNode ir =
+        repository.irOf(tenantId, policyCode, version);
+    if (ir == null || ir.isEmpty()) {
+      throw new PolicyVersionService.LifecycleException(
+          "version "
+              + version
+              + " of "
+              + policyCode
+              + " has never been saved, so there is nothing to compare. An empty draft and a"
+              + " missing version look the same from here.");
+    }
+    return ir;
+  }
+
+  /**
    * Saves PSF source into a DRAFT, compiling and running its test cases.
    *
    * @param request the request
@@ -374,18 +425,36 @@ public class PolicyController {
   }
 
   /**
+   * The evidence FR-LIFE-002 requires at submit.
+   *
+   * @param changeNote what changed and why, at least ten characters
+   * @param committeeReference the credit-committee minute, ticket or approval behind the change
+   */
+  public record SubmitRequest(String changeNote, String committeeReference) {}
+
+  /**
    * Submits a DRAFT for review.
    *
    * @param request the request
    * @param policyCode the policy
    * @param version the version
+   * @param body the change note and committee reference
    * @return the submitted version
    */
   @PostMapping("/{policyCode}/versions/{version}/submit")
   public PolicyVersionService.SavedVersion submit(
-      HttpServletRequest request, @PathVariable String policyCode, @PathVariable int version) {
+      HttpServletRequest request,
+      @PathVariable String policyCode,
+      @PathVariable int version,
+      @RequestBody(required = false) SubmitRequest body) {
     Principal author = Authorisation.require(request, Role.Capability.POLICY_SUBMIT);
-    return versions.submit(author.tenantId(), policyCode, version, author.subject());
+    return versions.submit(
+        author.tenantId(),
+        policyCode,
+        version,
+        author.subject(),
+        body == null ? null : body.changeNote(),
+        body == null ? null : body.committeeReference());
   }
 
   /**

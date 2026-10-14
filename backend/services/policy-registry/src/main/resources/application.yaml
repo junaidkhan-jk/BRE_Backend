@@ -51,6 +51,18 @@ server:
 bre:
   engine-version: 0.1.0-SNAPSHOT
 
+  # Identifies this instance on a deployment it has claimed for activation. In a
+  # cluster set it to the pod name; two instances sharing an id still activate
+  # correctly — the claim is a database row lock, not this string — but the audit
+  # entry then cannot say which one did it.
+  instance-id: local
+
+  deployment:
+    # How often to look for a SCHEDULED deployment whose effective date has
+    # arrived (00 §3.4). A lender schedules changes to the start of a business
+    # day, so thirty seconds is already far finer than the requirement.
+    activation-poll-ms: 30000
+
   registry:
     # The cell this registry publishes manifests for (§8.1). A manifest is per
     # cell and monotonically versioned, so two registries writing to one cell
@@ -80,6 +92,20 @@ bre:
     bundle-signing-kid: "reg-local-2026-01"
     manifest-signing-key: ""                          # base64 PKCS#8 Ed25519 — LOCAL ONLY
     manifest-signing-kid: "manifest-cell1-2026-01"
+
+    # ---------------------------------------------------------------------------
+    # SANDBOX TENANT — LOCAL AND INTEGRATION ENVIRONMENTS ONLY (M6-05).
+    # ---------------------------------------------------------------------------
+    # Seeds a tenant called `sandbox` with five accounts, each holding exactly
+    # one role, all sharing one password, so an integrator can walk the whole
+    # maker-checker flow without creating accounts by hand. Segregation of
+    # duties is NOT overridable in that tenant, so the sandbox behaves the way
+    # production does.
+    #
+    # Leave this false in production. Five accounts with a published password is
+    # the finding an audit opens with.
+    sandbox-enabled: false
+    sandbox-password: ""                              # blank generates one and logs it once
 
 logging:
   level:

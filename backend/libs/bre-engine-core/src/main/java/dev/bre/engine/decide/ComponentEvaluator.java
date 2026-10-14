@@ -51,6 +51,10 @@ public final class ComponentEvaluator {
    * @return the result
    */
   public static ComponentResult evaluateRule(RuleDef rule, EvaluationContext context) {
+    return observed(context, ruleResult(rule, context));
+  }
+
+  private static ComponentResult ruleResult(RuleDef rule, EvaluationContext context) {
     try {
       Optional<ComponentResult> guard =
           applyGuard(rule.code(), rule.when(), rule.onMissing(), context);
@@ -90,6 +94,10 @@ public final class ComponentEvaluator {
    * @return the result
    */
   public static ComponentResult evaluateTable(DecisionTableDef table, EvaluationContext context) {
+    return observed(context, tableResult(table, context));
+  }
+
+  private static ComponentResult tableResult(DecisionTableDef table, EvaluationContext context) {
     try {
       Optional<ComponentResult> guard =
           applyGuard(table.code(), table.when(), table.onMissing(), context);
@@ -107,7 +115,7 @@ public final class ComponentEvaluator {
         inputs.add(value);
       }
 
-      List<TableRow> matched = matchingRows(table, inputs, context);
+      List<Integer> matched = matchingRows(table, inputs, context);
 
       if (matched.isEmpty()) {
         // S5-01 and S5-04. A gap with all inputs present is a policy defect CHK-002 should have
@@ -140,12 +148,12 @@ public final class ComponentEvaluator {
     }
   }
 
-  private static List<TableRow> matchingRows(
+  private static List<Integer> matchingRows(
       DecisionTableDef table, List<Value> inputs, EvaluationContext context) {
-    List<TableRow> matched = new ArrayList<>();
-    for (TableRow row : table.rows()) {
-      if (rowMatches(row, inputs, context)) {
-        matched.add(row);
+    List<Integer> matched = new ArrayList<>();
+    for (int index = 0; index < table.rows().size(); index++) {
+      if (rowMatches(table.rows().get(index), inputs, context)) {
+        matched.add(index);
       }
     }
     return matched;
@@ -167,7 +175,7 @@ public final class ComponentEvaluator {
   }
 
   private static ComponentResult resolveHitPolicy(
-      DecisionTableDef table, List<TableRow> matched, EvaluationContext context) {
+      DecisionTableDef table, List<Integer> matched, EvaluationContext context) {
     return switch (table.hitPolicy().kind()) {
       case FIRST -> fromRow(table, matched.get(0), context);
 
@@ -183,9 +191,9 @@ public final class ComponentEvaluator {
 
       case PRIORITY -> {
         // T-02: the most severe matching row wins.
-        TableRow worst =
+        int worst =
             matched.stream()
-                .max(Comparator.comparingInt(row -> severity(rowStatus(row))))
+                .max(Comparator.comparingInt(index -> severity(rowStatus(table.rows().get(index)))))
                 .orElseThrow();
         yield fromRow(table, worst, context);
       }
@@ -196,13 +204,16 @@ public final class ComponentEvaluator {
 
   /** T-03: every matching row contributes to one aggregated output. */
   private static ComponentResult collect(
-      DecisionTableDef table, List<TableRow> matched, EvaluationContext context) {
+      DecisionTableDef table, List<Integer> matched, EvaluationContext context) {
     String outputName = table.hitPolicy().collectOutput().orElseThrow();
     List<Value> contributions = new ArrayList<>();
-    for (TableRow row : matched) {
-      String expr = row.then().outputs().get(outputName);
+    for (int index : matched) {
+      String expr = table.rows().get(index).then().outputs().get(outputName);
       if (expr != null) {
         contributions.add(evaluate(expr, context));
+        // Under COLLECT every matching row contributes to the aggregate, so every one of them
+        // has genuinely been exercised — unlike a FIRST row that matched and lost.
+        context.probe().tableRow(table.code(), index);
       }
     }
 
@@ -254,7 +265,9 @@ public final class ComponentEvaluator {
   }
 
   private static ComponentResult fromRow(
-      DecisionTableDef table, TableRow row, EvaluationContext context) {
+      DecisionTableDef table, int rowIndex, EvaluationContext context) {
+    TableRow row = table.rows().get(rowIndex);
+    context.probe().tableRow(table.code(), rowIndex);
     Ir.RowResult then = row.then();
     Map<String, Value> outputs = evaluateOutputs(then.outputs(), context);
 
@@ -293,6 +306,11 @@ public final class ComponentEvaluator {
    */
   public static ComponentResult evaluateScorecard(
       ScorecardDef scorecard, EvaluationContext context) {
+    return observed(context, scorecardResult(scorecard, context));
+  }
+
+  private static ComponentResult scorecardResult(
+      ScorecardDef scorecard, EvaluationContext context) {
     try {
       long raw = scorecard.baseScore();
       List<Shortfall> shortfalls = new ArrayList<>();
@@ -304,9 +322,11 @@ public final class ComponentEvaluator {
         }
 
         Optional<Ir.Bin> hit = Optional.empty();
-        for (Ir.Bin bin : characteristic.bins()) {
+        for (int index = 0; index < characteristic.bins().size(); index++) {
+          Ir.Bin bin = characteristic.bins().get(index);
           if (UnaryTests.matches(Compiled.unaryTest(bin.when()), value, context)) {
             hit = Optional.of(bin);
+            context.probe().scorecardBin(scorecard.code(), characteristic.name(), index);
             break;
           }
         }
@@ -366,6 +386,19 @@ public final class ComponentEvaluator {
   }
 
   private record Shortfall(String reasonCode, int amount) {}
+
+  /**
+   * Records the status a component reached, and returns it unchanged.
+   *
+   * <p>Wrapped around the three evaluators rather than written at each of their return points — and
+   * there are nine of those between the guard, the onMissing paths, the hit policies and the error
+   * handler — because a coverage figure that silently omitted the DATA_MISSING path would tell an
+   * author their tests cover a rule when the only status they have ever produced is PASS.
+   */
+  private static ComponentResult observed(EvaluationContext context, ComponentResult result) {
+    context.probe().component(result.code(), result.status());
+    return result;
+  }
 
   private static Value scale(long raw, Ir.Scaling scaling) {
     Value scaled =

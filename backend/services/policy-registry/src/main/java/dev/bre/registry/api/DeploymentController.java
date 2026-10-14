@@ -56,7 +56,12 @@ public class DeploymentController {
       int version,
       DeploymentService.Mode mode,
       @NotBlank String reason,
-      Boolean expedited) {}
+      Boolean expedited,
+      // When it should take effect. Absent means now; a future instant means the deployment waits
+      // in SCHEDULED until then, even once fully approved (00 §3.4). A lender scheduling a rate
+      // change for the start of the next business day needs this to be a request field rather
+      // than something an operator stays up to press a button for.
+      java.time.OffsetDateTime effectiveFrom) {}
 
   /**
    * Requests a deployment, activating immediately when the environment needs no approvals.
@@ -77,7 +82,8 @@ public class DeploymentController {
             body.version(),
             body.mode() == null ? DeploymentService.Mode.CHAMPION : body.mode(),
             body.reason(),
-            Boolean.TRUE.equals(body.expedited()));
+            Boolean.TRUE.equals(body.expedited()),
+            body.effectiveFrom());
     return ResponseEntity.status(HttpStatus.CREATED).body(deployment);
   }
 

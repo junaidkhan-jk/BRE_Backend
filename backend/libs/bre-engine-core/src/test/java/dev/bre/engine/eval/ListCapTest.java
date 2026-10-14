@@ -28,7 +28,8 @@ class ListCapTest {
         FuelMeter.unlimited(),
         VariableResolver.none(),
         new ListCap(cap),
-        dev.bre.engine.trace.TraceRecorder.NONE);
+        dev.bre.engine.trace.TraceRecorder.NONE,
+        dev.bre.engine.cover.CoverageProbe.NONE);
   }
 
   private static ListV tradelines(int count, long balance) {

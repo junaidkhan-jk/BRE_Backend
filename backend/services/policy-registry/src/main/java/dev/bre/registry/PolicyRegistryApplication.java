@@ -24,6 +24,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * </ul>
  */
 @SpringBootApplication
+// The one timer in this service: DeploymentActivator promotes a SCHEDULED deployment when its
+// effective date arrives (00 §3.4). Without this annotation the @Scheduled method is a method
+// nobody calls, and a scheduled policy change waits forever — a failure whose only symptom is
+// that nothing happens.
+@org.springframework.scheduling.annotation.EnableScheduling
 public class PolicyRegistryApplication {
 
   /**

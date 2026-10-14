@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.bre.engine.check.CheckFinding;
 import dev.bre.engine.check.StaticChecks;
+import dev.bre.engine.cover.CoverageProbe;
+import dev.bre.engine.cover.CoverageReport;
 import dev.bre.engine.decide.FlowEvaluator;
 import dev.bre.engine.eval.EvaluationContext;
 import dev.bre.engine.eval.Value;
@@ -31,7 +33,9 @@ import org.springframework.stereotype.Service;
  *   <li><b>IR schema.</b> A document that translates but is not a legal PolicyVersion (§2.2).
  *   <li><b>Static checks.</b> Decision-table gaps, overlaps, unreachable rows, and the rest of
  *       §4.13's catalogue. These are the findings a reviewer should never have to find by reading.
- *   <li><b>Test cases.</b> The author's own assertions, run against the real engine.
+ *   <li><b>Test cases.</b> The author's own assertions, run against the real engine — with a
+ *       coverage probe attached, so the same run that answers "do they pass" also answers "do they
+ *       touch anything" (FR-TEST-003).
  * </ol>
  *
  * <p><b>Every stage's failure is a finding, not an exception.</b> An author mid-edit must be able
@@ -74,6 +78,11 @@ public class CompileService {
    */
   public record TestResults(int total, int passed, List<String> failures) {
 
+    /** Results for a policy whose source did not translate, so nothing could run. */
+    public static TestResults none() {
+      return new TestResults(0, 0, List.of());
+    }
+
     /** Creates results, copying the list. */
     public TestResults {
       failures = List.copyOf(failures);
@@ -86,6 +95,7 @@ public class CompileService {
    * @param ir the translated IR, absent when the source did not translate
    * @param findings every static-check finding, plus translation and schema errors as findings
    * @param tests the test-case results
+   * @param coverage what those test cases exercised
    * @param factSchemaCode the fact schema the policy declares
    * @param factSchemaVersion its version
    */
@@ -93,6 +103,7 @@ public class CompileService {
       Optional<ObjectNode> ir,
       List<Finding> findings,
       TestResults tests,
+      CoverageReport coverage,
       String factSchemaCode,
       String factSchemaVersion) {
 
@@ -143,7 +154,8 @@ public class CompileService {
       ir = PsfCodec.toIrJson(psfYaml, tenantId);
     } catch (PsfException e) {
       findings.add(new Finding(e.code().wire(), "ERROR", e.path(), e.getMessage()));
-      return new Result(Optional.empty(), findings, new TestResults(0, 0, List.of()), "", "");
+      return new Result(
+          Optional.empty(), findings, TestResults.none(), CoverageReport.empty(), "", "");
     } catch (RuntimeException e) {
       // Any other translation failure. Reported rather than propagated: a 500 from an editor's
       // save button loses the author's work.
@@ -153,7 +165,8 @@ public class CompileService {
               "ERROR",
               "",
               "the policy source could not be translated: " + e.getMessage()));
-      return new Result(Optional.empty(), findings, new TestResults(0, 0, List.of()), "", "");
+      return new Result(
+          Optional.empty(), findings, TestResults.none(), CoverageReport.empty(), "", "");
     }
 
     List<String> schemaViolations = IrSchemaValidator.violations(ir);
@@ -164,7 +177,8 @@ public class CompileService {
       return new Result(
           Optional.of(ir),
           findings,
-          new TestResults(0, 0, List.of()),
+          TestResults.none(),
+          CoverageReport.empty(),
           schemaCode(ir),
           schemaVersion(ir));
     }
@@ -205,16 +219,28 @@ public class CompileService {
         .authorityMatrix()
         .ifPresent(matrix -> ((ObjectNode) ir.get("assets")).set("authorityMatrix", matrix));
 
+    // One probe for the whole suite, not one per case: coverage is a property of the suite. The
+    // same object threads through every derived context — per entity, per filter element — because
+    // `measuring` passes the reference rather than a copy.
+    CoverageProbe probe = new CoverageProbe();
+    Ir.PolicyIr compiled = IrCodec.readPolicy(ir);
     TestResults tests =
-        runTests(IrCodec.readPolicy(ir), testCases, resolved.parameters(), resolved.lists());
-    return new Result(Optional.of(ir), findings, tests, schemaCode(ir), schemaVersion(ir));
+        runTests(compiled, testCases, resolved.parameters(), resolved.lists(), probe);
+    return new Result(
+        Optional.of(ir),
+        findings,
+        tests,
+        CoverageReport.measure(compiled, probe),
+        schemaCode(ir),
+        schemaVersion(ir));
   }
 
   private static TestResults runTests(
       Ir.PolicyIr policy,
       List<TestCase> testCases,
       Map<String, Value> parameters,
-      Map<String, Value> lists) {
+      Map<String, Value> lists,
+      CoverageProbe probe) {
     List<String> failures = new ArrayList<>();
     int passed = 0;
     for (TestCase test : testCases) {
@@ -226,7 +252,7 @@ public class CompileService {
                 // The tenant's resolved parameters and lists — the same ones the bundle will be
                 // signed with. A test run against different thresholds from the deployed ones is
                 // not a test of anything.
-                EvaluationContext.of(facts, parameters, lists, test.asOf()));
+                EvaluationContext.of(facts, parameters, lists, test.asOf()).measuring(probe));
 
         String expectedDecision = test.expect().path("decision").asText("");
         if (!expectedDecision.isEmpty() && !expectedDecision.equals(result.decision().name())) {

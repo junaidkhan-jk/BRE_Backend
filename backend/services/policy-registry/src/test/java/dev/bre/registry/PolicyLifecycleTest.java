@@ -51,6 +51,22 @@ class PolicyLifecycleTest {
   private static final String ADMIN_PASSWORD = "bootstrap-password-1";
   private static final String POLICY = "SIMPLE_UW";
 
+  /**
+   * The timer, injected so the scheduled-activation tests can drive it rather than wait for it.
+   *
+   * <p>Calling the method directly is the point: a test that slept for the poll interval would be
+   * slow and would still be asserting the clock rather than the claim logic.
+   */
+  @org.springframework.beans.factory.annotation.Autowired
+  private dev.bre.registry.deploy.DeploymentActivator activator;
+
+  /** The submit evidence FR-LIFE-002 requires. */
+  private static final String CHANGE_NOTE =
+      """
+      { "changeNote": "Raised the minimum age check to match the revised KYC circular.",
+        "committeeReference": "CRMC-2026-41" }
+      """;
+
   /** A policy small enough to read in one screen, and complete enough to decide. */
   private static final String PSF =
       """
@@ -432,12 +448,100 @@ class PolicyLifecycleTest {
   }
 
   @Test
+  @Order(8)
+  @DisplayName("8b. passing tests are not enough: a happy-path-only suite fails the coverage gate")
+  void coverageGateRefusesAHappyPathOnlySuite() throws Exception {
+    // One rule, one passing test case. Every test passes, so the gate above is satisfied — and
+    // the rule's FAIL and DATA_MISSING branches have never once run. Those are the branches that
+    // decline a borrower and the branch that fires when the bureau is down.
+    HttpResponse<String> refused =
+        post(
+            "/v1/policies/" + POLICY + "/versions/" + draftVersion + "/submit", token, CHANGE_NOTE);
+    assertThat(refused.statusCode()).isEqualTo(409);
+    assertThat(refused.body())
+        .contains("coverage is", "below this tenant's minimum of 80.0%")
+        .as("AC-TEST-003: the uncovered items are named, not merely counted")
+        .contains("MIN_AGE:FAIL", "MIN_AGE:DATA_MISSING");
+
+    // The figure is on the version too, so the studio can show it before somebody tries.
+    JsonNode version = json(get("/v1/policies/" + POLICY + "/versions/" + draftVersion, token));
+    assertThat(version.get("coverage").get("overallPercent").asDouble()).isEqualTo(33.3);
+    assertThat(version.get("coverage").get("ruleStatusesTotal").asInt()).isEqualTo(3);
+    assertThat(version.get("coverage").get("ruleStatusesCovered").asInt()).isEqualTo(1);
+    assertThat(version.get("minCoveragePercent").asDouble()).isEqualTo(80.0);
+  }
+
+  @Test
+  @Order(8)
+  @DisplayName("8c. covering the decline and missing-data paths takes coverage to 100%")
+  void coveringEveryBranch() throws Exception {
+    put(
+        "/v1/policies/" + POLICY + "/versions/" + draftVersion + "/test-cases/minor-declined",
+        token,
+        """
+        { "asOf": "2026-10-01",
+          "facts": { "parties": [ { "partyRef": "P-3", "role": "MEMBER",
+                                    "dateOfBirth": "2015-01-01" } ] },
+          "expect": { "decision": "DECLINE", "steps": { "MIN_AGE": "FAIL" } } }
+        """);
+
+    // No dateOfBirth at all: onMissing REFER, which §4.6 maps to DATA_MISSING. This is the case
+    // authors skip and the one a bureau outage produces.
+    HttpResponse<String> saved =
+        put(
+            "/v1/policies/"
+                + POLICY
+                + "/versions/"
+                + draftVersion
+                + "/test-cases/no-date-of-birth-refers",
+            token,
+            """
+            { "asOf": "2026-10-01",
+              "facts": { "parties": [ { "partyRef": "P-4", "role": "MEMBER" } ] },
+              "expect": { "decision": "REFER", "steps": { "MIN_AGE": "DATA_MISSING" } } }
+            """);
+    assertThat(saved.statusCode()).isEqualTo(200);
+
+    JsonNode version = json(saved);
+    assertThat(version.get("tests").get("total").asInt()).isEqualTo(3);
+    assertThat(version.get("tests").get("passed").asInt())
+        .as("failures: %s", version.get("tests").get("failures"))
+        .isEqualTo(3);
+    assertThat(version.get("coverage").get("overallPercent").asDouble()).isEqualTo(100.0);
+    assertThat(version.get("coverage").get("uncoveredRuleStatuses")).isEmpty();
+    rowVersion = version.get("rowVersion").asLong();
+  }
+
+  @Test
+  @Order(8)
+  @DisplayName("8d. submitting with no change note is refused, covered or not")
+  void submitNeedsTheEvidence() throws Exception {
+    HttpResponse<String> noBody =
+        post("/v1/policies/" + POLICY + "/versions/" + draftVersion + "/submit", token, "");
+    assertThat(noBody.statusCode()).isEqualTo(409);
+    assertThat(noBody.body()).contains("change note of at least 10 characters");
+
+    HttpResponse<String> noCommittee =
+        post(
+            "/v1/policies/" + POLICY + "/versions/" + draftVersion + "/submit",
+            token,
+            "{\"changeNote\":\"Raised the minimum age to match the revised KYC circular.\"}");
+    assertThat(noCommittee.statusCode()).isEqualTo(409);
+    assertThat(noCommittee.body())
+        .as("a policy change with no recorded mandate is the finding an audit opens with")
+        .contains("committee reference is required");
+  }
+
+  @Test
   @Order(9)
   @DisplayName("9. the version is submitted, and then cannot be edited")
   void submitFreezesTheVersion() throws Exception {
     HttpResponse<String> submitted =
-        post("/v1/policies/" + POLICY + "/versions/" + draftVersion + "/submit", token, "");
+        post(
+            "/v1/policies/" + POLICY + "/versions/" + draftVersion + "/submit", token, CHANGE_NOTE);
     assertThat(submitted.statusCode()).isEqualTo(200);
+    assertThat(json(submitted).get("changeNote").asText()).contains("revised KYC circular");
+    assertThat(json(submitted).get("committeeReference").asText()).isEqualTo("CRMC-2026-41");
     assertThat(json(submitted).get("status").asText()).isEqualTo("IN_REVIEW");
     assertThat(json(submitted).get("submissionRound").asInt()).isEqualTo(1);
 
@@ -700,8 +804,217 @@ class PolicyLifecycleTest {
   }
 
   @Test
-  @Order(20)
-  @DisplayName("20. logging out stops the token working")
+  @Order(19)
+  @DisplayName("19b. the audit API reads the chain back and verifies it, without a write path")
+  void auditApiReadsAndVerifies() throws Exception {
+    JsonNode verification = json(get("/v1/audit/verify", token));
+    assertThat(verification.get("intact").asBoolean())
+        .as("recomputed with the trigger's own expression, not read from a stored flag")
+        .isTrue();
+    assertThat(verification.get("entries").asLong()).isGreaterThan(10);
+    assertThat(verification.get("headHash").asText()).hasSize(64);
+
+    // Filtered by action prefix: everything the version lifecycle did, and nothing else.
+    JsonNode lifecycle = json(get("/v1/audit?action=POLICY_VERSION&limit=100", token));
+    assertThat(lifecycle).isNotEmpty();
+    for (JsonNode entry : lifecycle) {
+      assertThat(entry.get("action").asText()).startsWith("POLICY_VERSION.");
+    }
+    assertThat(actionsOf(lifecycle))
+        .contains("POLICY_VERSION.SUBMITTED", "POLICY_VERSION.APPROVED");
+
+    // The submit evidence is in the entry, so "what mandate did this change have" is answerable
+    // from the audit trail alone.
+    JsonNode submitted =
+        java.util.stream.StreamSupport.stream(lifecycle.spliterator(), false)
+            .filter(e -> "POLICY_VERSION.SUBMITTED".equals(e.get("action").asText()))
+            .findFirst()
+            .orElseThrow();
+    assertThat(submitted.get("detail").get("committeeReference").asText())
+        .isEqualTo("CRMC-2026-41");
+    assertThat(submitted.get("detail").get("coveragePercent").asDouble()).isEqualTo(100.0);
+
+    // There is no POST. An audit log with a write endpoint is a log a caller can author.
+    assertThat(post("/v1/audit", token, "{}").statusCode()).isIn(404, 405);
+  }
+
+  @Test
+  @Order(19)
+  @DisplayName("19c. a reviewer cannot read the audit trail: AUDIT_READ is its own grant")
+  void auditNeedsItsOwnCapability() throws Exception {
+    String reviewer =
+        json(post("/v1/auth/login", null, body("reviewer@lender.test", "reviewer-password-1")))
+            .get("token")
+            .asText();
+    HttpResponse<String> refused = get("/v1/audit", reviewer);
+    assertThat(refused.statusCode()).isEqualTo(403);
+    assertThat(refused.body()).contains("AUDIT_READ");
+  }
+
+  @Test
+  @Order(21)
+  @DisplayName("21. a future-dated deployment waits in SCHEDULED instead of going live")
+  void futureDatedDeploymentIsScheduled() throws Exception {
+    HttpResponse<String> requested =
+        post(
+            "/v1/deployments",
+            token,
+            """
+            { "envCode": "DEV", "policyCode": "%s", "version": %d, "mode": "CHAMPION",
+              "reason": "scheduled for the start of the next business day",
+              "effectiveFrom": "%s" }
+            """
+                .formatted(
+                    POLICY,
+                    draftVersion,
+                    java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).plusDays(1).toString()));
+    assertThat(requested.statusCode()).isEqualTo(201);
+    assertThat(json(requested).get("status").asText())
+        .as(
+            "DEV needs no approvals, so this would have gone ACTIVE at once before 00 §3.4's"
+                + " SCHEDULED state was honoured")
+        .isEqualTo("SCHEDULED");
+
+    String deploymentId = json(requested).get("deploymentId").asText();
+    assertThat(actionsOf(json(get("/v1/audit?subjectKey=" + deploymentId, token))))
+        .contains("DEPLOYMENT.SCHEDULED")
+        .doesNotContain("DEPLOYMENT.ACTIVATED");
+
+    // The activator leaves it alone: its effective date has not arrived.
+    activator.activateDueDeployments();
+    assertThat(json(get("/v1/deployments/" + deploymentId, token)).get("status").asText())
+        .isEqualTo("SCHEDULED");
+  }
+
+  @Test
+  @Order(22)
+  @DisplayName("22. once the effective date has passed, the activator takes it live")
+  void theActivatorTakesADueDeploymentLive() throws Exception {
+    HttpResponse<String> requested =
+        post(
+            "/v1/deployments",
+            token,
+            """
+            { "envCode": "DEV", "policyCode": "%s", "version": %d, "mode": "CHAMPION",
+              "reason": "due already",
+              "effectiveFrom": "%s" }
+            """
+                .formatted(
+                    POLICY,
+                    draftVersion,
+                    java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC)
+                        .plusSeconds(2)
+                        .toString()));
+    assertThat(requested.statusCode()).isEqualTo(201);
+    String deploymentId = json(requested).get("deploymentId").asText();
+    assertThat(json(requested).get("status").asText()).isEqualTo("SCHEDULED");
+
+    // Polls until the DATABASE's clock passes effective_from — that is the clock the claim query
+    // compares against, and this JVM's may differ. A fixed sleep would either be flaky or slow.
+    String status = "SCHEDULED";
+    for (int attempt = 0; attempt < 40 && !"ACTIVE".equals(status); attempt++) {
+      Thread.sleep(500);
+      activator.activateDueDeployments();
+      status = json(get("/v1/deployments/" + deploymentId, token)).get("status").asText();
+    }
+    assertThat(status).isEqualTo("ACTIVE");
+
+    JsonNode entries = json(get("/v1/audit?subjectKey=" + deploymentId, token));
+    assertThat(actionsOf(entries))
+        .as("a timed activation is distinguishable from a human one in the audit trail")
+        .contains("DEPLOYMENT.ACTIVATED_ON_SCHEDULE", "DEPLOYMENT.ACTIVATED");
+
+    // A second pass must not activate it again: the claim is what prevents two manifests.
+    long before = json(get("/v1/audit?subjectKey=" + deploymentId, token)).size();
+    activator.activateDueDeployments();
+    assertThat(json(get("/v1/audit?subjectKey=" + deploymentId, token)).size()).isEqualTo(before);
+  }
+
+  @Test
+  @Order(23)
+  @DisplayName("23. the semantic diff reports what changed, and ignores a pure reformat")
+  void semanticDiff() throws Exception {
+    // A second version, differing by one threshold and a reordered rule list.
+    HttpResponse<String> created = post("/v1/policies/" + POLICY + "/versions", token, "");
+    assertThat(created.statusCode()).isEqualTo(201);
+    int second = json(created).get("version").asInt();
+
+    putText(
+        "/v1/policies/" + POLICY + "/versions/" + second + "/source",
+        token,
+        PSF.replace(">= 18", ">= 21"),
+        null);
+
+    JsonNode diff =
+        json(
+            get("/v1/policies/" + POLICY + "/versions/" + draftVersion + "/diff/" + second, token));
+    assertThat(diff.get("semantic")).hasSize(1);
+    assertThat(diff.get("semantic").get(0).get("subject").asText()).isEqualTo("RULE MIN_AGE");
+    assertThat(diff.get("semantic").get(0).get("detail").asText())
+        .contains("check:")
+        .contains(">= 18")
+        .contains(">= 21");
+    assertThat(diff.get("unified").toString()).contains("- ", "+ ");
+
+    // A third version with the SAME rules, reformatted: blank lines and a comment. The text diff
+    // reports it; the semantic diff reports nothing, which is the whole reason both exist.
+    HttpResponse<String> third = post("/v1/policies/" + POLICY + "/versions", token, "");
+    int reformatted = json(third).get("version").asInt();
+    putText(
+        "/v1/policies/" + POLICY + "/versions/" + reformatted + "/source",
+        token,
+        PSF.replace("rules:", "# the applicant must be an adult\n\nrules:"),
+        null);
+
+    JsonNode noChange =
+        json(
+            get(
+                "/v1/policies/" + POLICY + "/versions/" + draftVersion + "/diff/" + reformatted,
+                token));
+    assertThat(noChange.get("semantic"))
+        .as("a reviewer asked to approve a diff that changes nothing stops reading diffs")
+        .isEmpty();
+    assertThat(noChange.get("unified")).isNotEmpty();
+  }
+
+  @Test
+  @Order(24)
+  @DisplayName("24. the coverage threshold is a tenant setting, and changing it is audited")
+  void coverageThresholdIsATenantSetting() throws Exception {
+    JsonNode settings = json(get("/v1/tenant/settings", token));
+    assertThat(settings.get("minCoveragePercent").asDouble()).isEqualTo(80.0);
+    assertThat(settings.get("allowAdminSodOverride").asBoolean()).isTrue();
+
+    JsonNode changed = json(patch("/v1/tenant/settings", token, "{\"minCoveragePercent\": 95.0}"));
+    assertThat(changed.get("minCoveragePercent").asDouble()).isEqualTo(95.0);
+
+    JsonNode entries = json(get("/v1/audit?action=TENANT.SETTINGS_CHANGED", token));
+    assertThat(entries).isNotEmpty();
+    assertThat(entries.get(0).get("detail").get("before").get("minCoveragePercent").asDouble())
+        .as("before and after, so 'who lowered the bar' is answerable")
+        .isEqualTo(80.0);
+    assertThat(entries.get(0).get("detail").get("after").get("minCoveragePercent").asDouble())
+        .isEqualTo(95.0);
+
+    // Out of range is refused, and so is re-enabling the segregation-of-duties override.
+    assertThat(patch("/v1/tenant/settings", token, "{\"minCoveragePercent\": 101}").statusCode())
+        .isEqualTo(409);
+    HttpResponse<String> reEnable =
+        patch("/v1/tenant/settings", token, "{\"allowAdminSodOverride\": true}");
+    assertThat(reEnable.statusCode()).isEqualTo(409);
+    assertThat(reEnable.body())
+        .as(
+            "an administrator blocked by maker-checker must not be able to remove it for"
+                + " themselves")
+        .contains("cannot be re-enabled");
+
+    // Put it back, so a later test in this narrative is not measured against 95%.
+    patch("/v1/tenant/settings", token, "{\"minCoveragePercent\": 80.0}");
+  }
+
+  @Test
+  @Order(25)
+  @DisplayName("25. logging out stops the token working")
   void logout() throws Exception {
     String sessionToken =
         json(post("/v1/auth/login", null, body(ADMIN_EMAIL, ADMIN_PASSWORD))).get("token").asText();
@@ -714,6 +1027,20 @@ class PolicyLifecycleTest {
   }
 
   // --- plumbing ----------------------------------------------------------------------------
+
+  /** Every action in a list of audit entries, so an assertion can name one without an index. */
+  private static java.util.List<String> actionsOf(JsonNode entries) {
+    return java.util.stream.StreamSupport.stream(entries.spliterator(), false)
+        .map(entry -> entry.get("action").asText())
+        .toList();
+  }
+
+  private HttpResponse<String> patch(String path, String bearer, String body) throws Exception {
+    return send(
+        authorise(HttpRequest.newBuilder(uri(path)), bearer)
+            .header("Content-Type", "application/json")
+            .method("PATCH", HttpRequest.BodyPublishers.ofString(body)));
+  }
 
   private static String body(String email, String password) {
     return "{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}";
