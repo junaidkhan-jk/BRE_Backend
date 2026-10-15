@@ -94,6 +94,20 @@ bre:
     manifest-signing-kid: "manifest-cell1-2026-01"
 
     # ---------------------------------------------------------------------------
+    # TRUSTED EXPORTERS — whose approvals this installation accepts (§8.6).
+    # ---------------------------------------------------------------------------
+    # Importing a signed bundle means accepting that ANOTHER installation's
+    # review is binding here: the version arrives APPROVED and nobody in this
+    # installation has read its contents. So the default is empty, and an
+    # installation that has named nobody imports from nobody.
+    #
+    # kid -> base64 X.509 Ed25519 PUBLIC key. Public keys only; there is never a
+    # reason for a private key to appear here.
+    #
+    #   trusted-exporters: "{'reg-uat-2026-01': 'MCowBQYDK2Vw...'}"
+    trusted-exporters: "{:}"
+
+    # ---------------------------------------------------------------------------
     # SANDBOX TENANT — LOCAL AND INTEGRATION ENVIRONMENTS ONLY (M6-05).
     # ---------------------------------------------------------------------------
     # Seeds a tenant called `sandbox` with five accounts, each holding exactly

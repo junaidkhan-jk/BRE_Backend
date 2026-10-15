@@ -1140,7 +1140,83 @@ class PolicyLifecycleTest {
 
   @Test
   @Order(28)
-  @DisplayName("28. logging out stops the token working")
+  @DisplayName("28. a signed bundle exports exactly as it was signed")
+  void bundleExports() throws Exception {
+    JsonNode version = json(get("/v1/policies/" + POLICY + "/versions/" + draftVersion, token));
+    String bundleHash = version.get("bundleHash").asText();
+
+    HttpResponse<String> exported = get("/v1/bundles/" + bundleHash, token);
+    assertThat(exported.statusCode()).as("%s", exported.body()).isEqualTo(200);
+    assertThat(exported.headers().firstValue("content-type").orElse(""))
+        .contains("application/vnd.bre.bundle+json");
+
+    JsonNode bundle = JSON.readTree(exported.body());
+    assertThat(bundle.get("bundleHash").asText())
+        .as("re-serialising would change the bytes and therefore the hash")
+        .isEqualTo(bundleHash);
+    assertThat(bundle.get("signatures").get(0).get("role").asText()).isEqualTo("ORIGIN");
+
+    // A hash this installation does not hold is a 404, checked against the DATABASE under row
+    // level security rather than against the directory — which is shared by every tenant on the
+    // node, and a path built from a caller's parameter is how one lender reads another's policy.
+    assertThat(get("/v1/bundles/sha256:" + "0".repeat(64), token).statusCode()).isEqualTo(404);
+  }
+
+  @Test
+  @Order(28)
+  @DisplayName("28b. an installation that trusts no exporter imports nothing")
+  void importNeedsATrustedExporter() throws Exception {
+    JsonNode version = json(get("/v1/policies/" + POLICY + "/versions/" + draftVersion, token));
+    String document = get("/v1/bundles/" + version.get("bundleHash").asText(), token).body();
+
+    HttpResponse<String> refused = post("/v1/bundles/import", token, document);
+
+    // This test configures no trusted exporters, which is the default — and the default is right:
+    // importing means accepting another installation's approval as binding here, so an
+    // installation that has named nobody must import from nobody. Re-importing our OWN bundle is
+    // refused for exactly that reason, which is the honest behaviour: our own ORIGIN key is a
+    // signing key, not a list of parties whose reviews we accept.
+    assertThat(refused.statusCode()).isEqualTo(409);
+    assertThat(refused.body()).contains("trusts no exporters");
+  }
+
+  @Test
+  @Order(28)
+  @DisplayName("28c. importing is an approver's act, not an author's")
+  void importNeedsAnApprover() throws Exception {
+    String reviewer =
+        json(post("/v1/auth/login", null, body("reviewer@lender.test", "reviewer-password-1")))
+            .get("token")
+            .asText();
+    // The reviewer holds POLICY_REVIEWER and DEPLOYMENT_APPROVER, so this one succeeds past
+    // authorisation and is refused on the trusted-exporter rule — which is the right order.
+    assertThat(post("/v1/bundles/import", reviewer, "{}").statusCode()).isIn(409, 400);
+
+    // An author does not hold DEPLOY_APPROVE at all: 403 before any bundle is parsed.
+    HttpResponse<String> created =
+        post(
+            "/v1/users",
+            token,
+            """
+            {"email":"plain-author@lender.test","fullName":"Plain Author",
+             "roles":["POLICY_AUTHOR"],"password":"author-password-1"}
+            """);
+    assertThat(created.statusCode()).isIn(201, 409);
+    String author =
+        json(post("/v1/auth/login", null, body("plain-author@lender.test", "author-password-1")))
+            .get("token")
+            .asText();
+
+    HttpResponse<String> forbidden = post("/v1/bundles/import", author, "{}");
+    assertThat(forbidden.statusCode()).isEqualTo(403);
+    assertThat(forbidden.body())
+        .as("accepting another installation's review is an approval, so it needs an approver")
+        .contains("DEPLOY_APPROVE");
+  }
+
+  @Test
+  @Order(29)
+  @DisplayName("29. logging out stops the token working")
   void logout() throws Exception {
     String sessionToken =
         json(post("/v1/auth/login", null, body(ADMIN_EMAIL, ADMIN_PASSWORD))).get("token").asText();

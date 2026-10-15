@@ -246,9 +246,9 @@ public class PolicyController {
    * flow's stages and their knockout markers. A grid drawn from the source would be a second
    * parser, and the two would disagree first about the edge case nobody tested.
    *
-   * <p>A {@code Map}, not a Jackson 2 node — Spring Boot 4 serialises HTTP with Jackson 3, to
-   * which a Jackson 2 node is an unrecognised POJO that comes out as every bean accessor and none
-   * of the data.
+   * <p>A {@code Map}, not a Jackson 2 node — Spring Boot 4 serialises HTTP with Jackson 3, to which
+   * a Jackson 2 node is an unrecognised POJO that comes out as every bean accessor and none of the
+   * data.
    *
    * @param request the request
    * @param policyCode the policy

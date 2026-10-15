@@ -95,9 +95,9 @@
   <div class="rule"></div><div class="rule"></div>
 
   <div class="totals">
-    <div class="tot g"><b>39</b><span>done</span></div>
-    <div class="tot a"><b>10</b><span>partial — usable, not finished</span></div>
-    <div class="tot s"><b>19</b><span>not started</span></div>
+    <div class="tot g"><b>40</b><span>done</span></div>
+    <div class="tot a"><b>11</b><span>partial — usable, not finished</span></div>
+    <div class="tot s"><b>17</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
 
@@ -224,7 +224,7 @@
     <div class="ms__head">
       <div><span class="kicker">M3 — Control plane</span>
       <p class="ms__blurb">Authoring, review, deployment, identity. Needs a real identity provider.</p></div>
-      <div class="ms__counts"><span class="pill g">6 done</span><span class="pill a">2 partial</span><span class="pill s">2 pending</span></div>
+      <div class="ms__counts"><span class="pill g">7 done</span><span class="pill a">2 partial</span><span class="pill s">1 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M3-01</td><td class="ti">Full bre_ctl schema with row-level security and a hash-chained audit log
@@ -254,7 +254,11 @@
         <p><b>Scheduling is built, and 00 §3.4's SCHEDULED state is now reachable.</b> It was in the status CHECK and nothing ever set it: approving the last required approval activated immediately and ignored <code>effective_from</code> — which could not even be <em>requested</em>, because the field was hardcoded to <code>now()</code>. A lender scheduling a rate change for the start of the next business day got it live during the current one, and every application decided in between was decided under the wrong policy. A future-dated deployment now waits in SCHEDULED and a timer promotes it, claiming each row with <code>FOR UPDATE SKIP LOCKED</code> — two registry instances polling the same table is the normal case, and without the claim both would publish a manifest and audit an activation. The comparison is against the <b>database's</b> clock, so two pods with drifting clocks cannot disagree about whether a change is due, and a timed activation is a distinct audit action from a human one.</p>
         <p>Found by writing the test: a <code>@Transactional</code> method called from another method of the same bean is not proxied, so the tenant scope died with its own statement and row-level security filtered every due deployment while the database plainly held one. And <code>BYPASSRLS</code> is not a table privilege — the lookup role could see past every policy and still not read <code>deployments</code>.</p></div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
-      <tr class="pend"><td class="id">M3-07</td><td class="ti">Bundle export and import between installations</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M3-07</td><td class="ti">Bundle export and import between installations
+        <div class="no"><b>Not the same thing as importing source, and the difference is the whole design.</b> Importing PSF (M3-02) brings somebody else's <em>policy</em>, which this installation compiles against its own parameter sets and puts through its own review — the thresholds are ours and the approval is ours. Importing a bundle brings the <em>artefact</em>, byte for byte, with the exporting installation's thresholds baked in and its approval already given. One is a policy you adopt; the other is a decision you inherit. So export is POLICY_READ and import is <b>DEPLOY_APPROVE</b>: accepting that another installation's review is binding here is an approval in its own right, and the imported version arrives APPROVED with nobody here having read its contents.
+        <p>Three checks, none optional: the hash is <b>recomputed</b>, because an address is a fact about content and not a claim about it; the ORIGIN signature must verify against a key this installation has <b>named</b> as a trusted exporter, which defaults to nobody, because an installation that has named nobody must import from nobody; and it is countersigned IMPORT with our own key so a pod accepts it under its own trust store — the countersigner recomputes the hash <em>again</em> first, so this registry can never sign content it did not itself hash. An IMPORT countersignature is <b>refused</b> as a basis for import: it speaks for whoever imported the bundle, not for whoever approved the policy, so accepting one would mean trusting a party you never named through one you did.</p>
+        <p>Export returns the bytes exactly as signed — re-serialising changes them and therefore the hash — and the 404 for an unknown hash is decided from the <em>database</em> under row-level security rather than from the directory, which is shared by every tenant on the node.</p></div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M3-08</td><td class="ti">tenant-admin-service</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr><td class="id">M3-09</td><td class="ti">OIDC and OAuth2 client credentials
         <div class="no"><b>Local accounts, not OIDC</b> — a documented stand-in (V8) keyed on the same <code>subject</code> column <code>role_assignments</code> already uses, so an identity provider's subjects replace these rows without changing an authorisation rule. PBKDF2-HMAC-SHA256 at 600,000 iterations with the cost stored beside the hash, so raising it re-hashes on next login instead of resetting everybody. Opaque server-side sessions stored as a digest, because a JWT cannot be revoked and &ldquo;they left on Tuesday, their token works until Friday&rdquo; is not acceptable where approving a policy is a regulated act. Default-deny filter with a three-path allow-list, and the <b>tenant comes from the session, never a header</b>. One identical message for every login failure, so the form is not an account-enumeration oracle over a lender's staff directory. <b>No MFA, no SSO, no federation, no client-credentials flow</b> — those belong to the IdP. <b>The decision service is still unauthenticated.</b></div></td>
@@ -335,7 +339,7 @@
     <div class="ms__head">
       <div><span class="kicker">M6 — Reference policy and pilot</span>
       <p class="ms__blurb">Acceptance. Needs a penetration test and a pilot lender.</p></div>
-      <div class="ms__counts"><span class="pill g">1 done</span><span class="pill a">1 partial</span><span class="pill s">5 pending</span></div>
+      <div class="ms__counts"><span class="pill g">1 done</span><span class="pill a">2 partial</span><span class="pill s">4 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M6-01</td><td class="ti">The complete MFI JLG/SHG reference policy in PSF
@@ -343,7 +347,11 @@
         <td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M6-02</td><td class="ti">Threat model, external penetration test, 24 h Jazzer campaign</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M6-03</td><td class="ti">Disaster-recovery drill — region failover and backup restore</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M6-04</td><td class="ti">Runbooks and the on-call rota</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M6-04</td><td class="ti">Runbooks and the on-call rota
+        <div class="no">Six runbooks under <code>docs/runbooks/</code>, each written to be followed by somebody who has been woken up, has not read the design documents, and has fifteen minutes: decisions refused, a deployment that did not take effect, a decision that looks wrong, keys and signatures, a broken audit chain, and the database. Every one of them is built from a failure this project actually hit — the Flyway artifact that sits there and never runs, <code>SECURITY DEFINER</code> not bypassing FORCE RLS, <code>BYPASSRLS</code> not being a table privilege, the manifest nobody was watching.
+        <p>Two rules apply across all of them: <b>never edit an approved artefact to fix an incident</b> (the fix for a wrong policy is a new version, for a wrong deployment a rollback — which is also a new deployment), and <b>a decision already made does not change</b>. An installation where somebody has learnt to UPDATE their way out of an incident cannot answer &ldquo;what was serving at 14:30 last Tuesday&rdquo;, and that question arrives from a regulator.</p>
+        <p><b>The on-call rota is a template, not a rota</b>, and that is deliberate: a rota is a list of names and shift boundaries agreed by the people on it, so inventing one would produce a document that looks like a commitment nobody made — worse than none, because somebody would rely on it at 3am. The template names the row worth arguing about before an incident rather than during one: who may approve an EXPEDITED deployment out of hours is credit risk, not engineering, and whoever holds the KMS break-glass is never the deployment approver.</p></div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
       <tr><td class="id">M6-05</td><td class="ti">Integration guide and sandbox tenant
         <div class="no">Decision API reference written, the <b>fact-schema validation CLI is built</b> — mistyped paths, decimals sent as JSON numbers, raw Aadhaar or PAN hidden in an open <code>ext</code> map, reporting paths and never values, exit 1 so CI fails — and <code>bre decide</code> lets an integrator evaluate a signed policy against their own fixtures with no service at all.
         <p><b>The sandbox tenant is built</b> — five accounts, each holding exactly <em>one</em> role, so an integrator can walk maker-checker without creating accounts by hand. Exactly one is the point: an account holding both author and reviewer could submit and approve its own work, and an integration built against that would be refused in production. Segregation of duties is <b>not overridable</b> in that tenant, unlike the bootstrap administrator, so the sandbox behaves the way production does. Off by default, with a fixed tenant id that cannot be mistaken for a lender and a startup warning that says why five accounts sharing a password must never exist in production. <b>Still needs a deployed environment</b> to be a sandbox somebody else can reach.</p></div></td>
@@ -433,7 +441,7 @@
         take unilaterally.</li>
   </ul>
 
-  <div class="foot">Generated from the repository · 55 commits · 667 tests passing · 9 October 2026</div>
+  <div class="foot">Generated from the repository · 56 commits · 667 tests passing · 9 October 2026</div>
 </div>
 </body>
 </html>
