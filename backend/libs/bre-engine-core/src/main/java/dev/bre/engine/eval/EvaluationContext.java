@@ -15,7 +15,8 @@ import java.util.Objects;
  * value is not in this context, an expression cannot reach it. That is what makes replay exact.
  *
  * @param facts the fact snapshot, as a record whose top-level fields are the fact roots
- * @param parameters policy parameters, bound under the {@code param.} namespace
+ * @param parameters policy parameters, bound under the {@code param.} namespace, each with its
+ *     effective-dated values — a parameter is a table, not a value (§8.4)
  * @param lists named lists, bound under the {@code list.} namespace
  * @param asOf the evaluation date — the engine's only notion of "today" (§3.7)
  * @param it the current element inside a filter, or {@link Missing} outside one
@@ -30,7 +31,7 @@ import java.util.Objects;
  */
 public record EvaluationContext(
     RecordV facts,
-    Map<String, Value> parameters,
+    ParameterTable parameters,
     Map<String, Value> lists,
     LocalDate asOf,
     Value it,
@@ -45,7 +46,7 @@ public record EvaluationContext(
     Objects.requireNonNull(facts, "facts");
     Objects.requireNonNull(asOf, "asOf");
     Objects.requireNonNull(it, "it");
-    parameters = Map.copyOf(parameters);
+    parameters = parameters == null ? ParameterTable.EMPTY : parameters;
     lists = Map.copyOf(lists);
     fuel = fuel == null ? FuelMeter.unlimited() : fuel;
     variables = variables == null ? VariableResolver.none() : variables;
@@ -65,6 +66,24 @@ public record EvaluationContext(
    */
   public static EvaluationContext of(
       RecordV facts, Map<String, Value> parameters, Map<String, Value> lists, LocalDate asOf) {
+    return of(facts, ParameterTable.undated(parameters), lists, asOf, FuelMeter.unlimited());
+  }
+
+  /**
+   * Creates a context with effective-dated parameters.
+   *
+   * <p>The overload above exists for every caller whose parameters are undated — a test fixture, a
+   * conformance vector, a policy that declares none. This is the one the bundle path uses, because
+   * a bundle carries the whole table (§8.4).
+   *
+   * @param facts the fact snapshot
+   * @param parameters the {@code param.} namespace, with effective windows
+   * @param lists the {@code list.} namespace
+   * @param asOf the evaluation date, which is also what selects each parameter's value
+   * @return the context
+   */
+  public static EvaluationContext of(
+      RecordV facts, ParameterTable parameters, Map<String, Value> lists, LocalDate asOf) {
     return of(facts, parameters, lists, asOf, FuelMeter.unlimited());
   }
 
@@ -81,6 +100,25 @@ public record EvaluationContext(
   public static EvaluationContext of(
       RecordV facts,
       Map<String, Value> parameters,
+      Map<String, Value> lists,
+      LocalDate asOf,
+      FuelMeter fuel) {
+    return of(facts, ParameterTable.undated(parameters), lists, asOf, fuel);
+  }
+
+  /**
+   * Creates a context with effective-dated parameters and an explicit fuel budget.
+   *
+   * @param facts the fact snapshot
+   * @param parameters the {@code param.} namespace, with effective windows
+   * @param lists the {@code list.} namespace
+   * @param asOf the evaluation date
+   * @param fuel the decision's fuel budget
+   * @return the context
+   */
+  public static EvaluationContext of(
+      RecordV facts,
+      ParameterTable parameters,
       Map<String, Value> lists,
       LocalDate asOf,
       FuelMeter fuel) {
@@ -152,13 +190,20 @@ public record EvaluationContext(
   }
 
   /**
-   * Looks up a parameter.
+   * Looks up a parameter's value on this decision's business date.
+   *
+   * <p>Resolved against {@code asOf}, not against today and not against whichever value happened to
+   * be current when the bundle was built. A replay of a decision from March must use March's
+   * threshold even if the figure changed in April, and that is the whole reason a parameter is a
+   * table here.
    *
    * @param name the parameter name
-   * @return its value, or {@link Missing} when it is not bound
+   * @return its value on {@code asOf}, or {@link Missing} when the parameter is not bound at all
+   * @throws EvalException {@code EVAL_PARAM_NOT_EFFECTIVE} when it is bound but no value is
+   *     effective on that date
    */
   public Value parameter(String name) {
-    return parameters.getOrDefault(name, Missing.INSTANCE);
+    return parameters.valueAt(name, asOf);
   }
 
   /**

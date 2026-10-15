@@ -238,7 +238,7 @@ public class CompileService {
   private static TestResults runTests(
       Ir.PolicyIr policy,
       List<TestCase> testCases,
-      Map<String, Value> parameters,
+      dev.bre.engine.eval.ParameterTable parameters,
       Map<String, Value> lists,
       CoverageProbe probe) {
     List<String> failures = new ArrayList<>();

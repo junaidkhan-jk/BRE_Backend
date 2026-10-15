@@ -1,7 +1,9 @@
 package dev.bre.registry.policy;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.bre.irjson.PsfCodec;
+import dev.bre.registry.asset.AssetRepository;
 import dev.bre.registry.audit.AuditLog;
 import dev.bre.registry.auth.Principal;
 import dev.bre.registry.sign.BundleBuilder;
@@ -72,6 +74,7 @@ public class PolicyVersionService {
   private final PolicyVersionRepository repository;
   private final CompileService compiler;
   private final BundleBuilder bundleBuilder;
+  private final AssetRepository assets;
   private final AuditLog audit;
 
   /**
@@ -80,16 +83,19 @@ public class PolicyVersionService {
    * @param repository the {@code bre_ctl} policy tables
    * @param compiler translates and checks a saved draft
    * @param bundleBuilder builds and signs the bundle on approval
+   * @param assets the shared-asset tables, for the version pins FR-MODEL-003 requires
    * @param audit the hash-chained audit log
    */
   public PolicyVersionService(
       PolicyVersionRepository repository,
       CompileService compiler,
       BundleBuilder bundleBuilder,
+      AssetRepository assets,
       AuditLog audit) {
     this.repository = repository;
     this.compiler = compiler;
     this.bundleBuilder = bundleBuilder;
+    this.assets = assets;
     this.audit = audit;
   }
 
@@ -669,6 +675,13 @@ public class PolicyVersionService {
 
     repository.insertBundle(tenantId, policyCode, version, built);
     repository.approve(tenantId, policyCode, version, built.bundleHash());
+
+    // FR-MODEL-003: record WHICH asset versions this bundle was signed against. The resolved
+    // content is already inside the signed bundle, so a decision is unaffected by a later asset
+    // change either way — but without these rows "which parameter set was this policy approved
+    // with" is only answerable by opening the bundle, and that is the question a reviewer asks
+    // when a threshold turns out to have been wrong.
+    pinResolvedAssets(tenantId, policyCode, version, ir);
     // Earlier approved versions of the same policy are archived. Nothing is edited in place and
     // nothing is deleted; a superseded version stays readable, because a decision taken against it
     // last year still has to be explainable.
@@ -771,6 +784,68 @@ public class PolicyVersionService {
             () ->
                 new LifecycleException(
                     "no version " + version + " of " + policyCode + " for this tenant."));
+  }
+
+  /**
+   * Pins the asset versions a policy version's IR names (FR-MODEL-003).
+   *
+   * <p>Read from the IR rather than from whatever the asset tables hold now: the IR is what was
+   * reviewed, and it names {@code MFI_PARAMS@7} explicitly. Pinning today's latest instead would
+   * record a version nobody approved this policy against.
+   */
+  private void pinResolvedAssets(String tenantId, String policyCode, int version, ObjectNode ir) {
+    JsonNode irAssets = ir == null ? null : ir.get("assets");
+    if (irAssets == null || !irAssets.isObject()) {
+      return;
+    }
+    pinOne(
+        tenantId,
+        policyCode,
+        version,
+        AssetRepository.Kind.PARAMETER_SET,
+        irAssets.get("parameterSet"));
+    pinOne(
+        tenantId,
+        policyCode,
+        version,
+        AssetRepository.Kind.REASON_CODE_CATALOGUE,
+        irAssets.get("reasonCodes"));
+    pinOne(
+        tenantId,
+        policyCode,
+        version,
+        AssetRepository.Kind.AUTHORITY_MATRIX,
+        irAssets.get("authorityMatrix"));
+    for (JsonNode list : irAssets.path("referenceLists")) {
+      pinOne(tenantId, policyCode, version, AssetRepository.Kind.REFERENCE_LIST, list);
+    }
+  }
+
+  private void pinOne(
+      String tenantId, String policyCode, int version, AssetRepository.Kind kind, JsonNode ref) {
+    if (ref == null || !ref.isObject() || !ref.hasNonNull("code")) {
+      return;
+    }
+    String code = ref.get("code").asText();
+    int assetVersion = ref.path("version").asInt();
+    if (assetVersion < 1) {
+      return;
+    }
+    // Only an asset this installation actually holds can be pinned: the foreign key to
+    // asset_versions would refuse the row anyway, and an offline bundle built against a file has
+    // no asset rows to point at. A missing pin is honest — the bundle still carries the content.
+    if (assets.find(tenantId, kind, code, assetVersion).isEmpty()) {
+      log.info(
+          "not pinning {} {}@{} for {} v{}: this installation holds no such asset version, so the"
+              + " thresholds came from an offline asset source",
+          kind,
+          code,
+          assetVersion,
+          policyCode,
+          version);
+      return;
+    }
+    assets.pin(tenantId, policyCode, version, kind, code, assetVersion);
   }
 
   /**

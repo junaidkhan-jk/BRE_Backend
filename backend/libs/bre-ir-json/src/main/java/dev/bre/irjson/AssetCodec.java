@@ -3,6 +3,7 @@ package dev.bre.irjson;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.bre.engine.eval.ParameterTable;
 import dev.bre.engine.eval.Value;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -48,17 +49,95 @@ public final class AssetCodec {
    * @return the parameters, by name; empty when the bundle carries none
    * @throws PsfException if a declared value is not well-formed for its type
    */
-  public static Map<String, Value> parameters(JsonNode assets) {
-    Map<String, Value> out = new LinkedHashMap<>();
+  public static ParameterTable parameters(JsonNode assets) {
     if (assets == null) {
-      return out;
+      return ParameterTable.EMPTY;
     }
+    Map<String, List<ParameterTable.Window>> out = new LinkedHashMap<>();
     JsonNode parameters = assets.path("parameters");
     parameters
         .fieldNames()
         .forEachRemaining(
-            name -> out.put(name, value(parameters.get(name), "assets.parameters." + name)));
-    return out;
+            name -> out.put(name, windows(parameters.get(name), "assets.parameters." + name)));
+    return ParameterTable.dated(out);
+  }
+
+  /**
+   * A parameter's effective windows, from either declared form.
+   *
+   * <p>Two forms are accepted and they mean different things:
+   *
+   * <ul>
+   *   <li>{@code {type, value}} — one value, open-ended. The honest reading of a parameter declared
+   *       without dates: it has always applied and still does.
+   *   <li>{@code {type, values: [{effectiveFrom, effectiveTo, value}]}} — §8.4's form, which is
+   *       what the control plane produces and what a bundle carries. {@code effectiveTo} is
+   *       <b>exclusive</b> and null means open-ended.
+   * </ul>
+   *
+   * <p>Both are validated here rather than at decision time, because a bundle is signed: a
+   * malformed parameter caught at build time is a build failure, and caught later it is a signed
+   * artefact nobody can serve.
+   */
+  private static List<ParameterTable.Window> windows(JsonNode declared, String where) {
+    if (declared == null || !declared.isObject()) {
+      throw new PsfException(
+          PsfException.Code.ASSET_002,
+          where,
+          "must be an object of the form {type, value} or {type, values:[…]}");
+    }
+    String type = text(declared, "type", where);
+    JsonNode values = declared.get("values");
+    if (values == null || values.isNull()) {
+      return List.of(
+          new ParameterTable.Window(
+              LocalDate.MIN, Optional.empty(), scalar(type, declared.path("value"), where)));
+    }
+    if (!values.isArray() || values.isEmpty()) {
+      throw new PsfException(
+          PsfException.Code.ASSET_002,
+          where + ".values",
+          "must be a non-empty array of {effectiveFrom, effectiveTo, value}. A parameter with no"
+              + " effective value anywhere is a hole in the parameter set, not a missing fact.");
+    }
+    List<ParameterTable.Window> out = new ArrayList<>(values.size());
+    for (int i = 0; i < values.size(); i++) {
+      JsonNode window = values.get(i);
+      String at = where + ".values[" + i + "]";
+      out.add(
+          new ParameterTable.Window(
+              date(window, "effectiveFrom", at, LocalDate.MIN),
+              Optional.ofNullable(window.get("effectiveTo"))
+                  .filter(node -> !node.isNull())
+                  .map(node -> date(window, "effectiveTo", at, null)),
+              scalar(type, window.path("value"), at)));
+    }
+    // Sorted so valueAt scans in date order, which makes the first covering window the right one
+    // even if the source listed them out of order.
+    out.sort(java.util.Comparator.comparing(ParameterTable.Window::effectiveFrom));
+    return List.copyOf(out);
+  }
+
+  private static LocalDate date(JsonNode node, String field, String where, LocalDate absent) {
+    JsonNode value = node.get(field);
+    if (value == null || value.isNull()) {
+      if (absent != null) {
+        return absent;
+      }
+      throw new PsfException(PsfException.Code.ASSET_002, where + "." + field, "is required");
+    }
+    if (!value.isTextual()) {
+      throw new PsfException(
+          PsfException.Code.ASSET_002, where + "." + field, "must be an ISO date string");
+    }
+    try {
+      return LocalDate.parse(value.asText());
+    } catch (java.time.format.DateTimeParseException notADate) {
+      throw new PsfException(
+          PsfException.Code.ASSET_002,
+          where + "." + field,
+          "is not an ISO date: " + value.asText());
+    }
   }
 
   /**
@@ -142,8 +221,9 @@ public final class AssetCodec {
                 String where = "parameterSets." + parameterSetRef + "." + name;
                 // Validated on the way in, not only on the way out: a bundle is signed, so a
                 // malformed parameter caught here is a build failure and caught later is a
-                // signed artefact nobody can serve.
-                value(declared, where);
+                // signed artefact nobody can serve. Accepts both the undated and the
+                // effective-dated form (§8.4).
+                windows(declared, where);
                 parameters.set(name, declared.deepCopy());
               });
     }
@@ -259,14 +339,6 @@ public final class AssetCodec {
 
   // ---------------------------------------------------------------------------------------------
 
-  private static Value value(JsonNode declared, String where) {
-    if (declared == null || !declared.isObject()) {
-      throw new PsfException(
-          PsfException.Code.ASSET_002, where, "must be an object of the form {type, value}");
-    }
-    return scalar(text(declared, "type", where), declared.path("value"), where);
-  }
-
   private static Value scalar(String type, JsonNode node, String where) {
     if (node == null || node.isNull()) {
       throw new PsfException(
@@ -277,11 +349,28 @@ public final class AssetCodec {
     }
     return switch (type) {
       case "Integer" -> {
-        if (!node.isIntegralNumber()) {
+        // A quoted integer is accepted as well as a bare one. §8.4 is explicit that a parameter
+        // value in a bundle is ALWAYS a string parsed by its type — which is also how §5.2 stores
+        // it, as text — while the offline asset file and the PSF examples write small integers
+        // bare. Accepting only the bare form made every parameter set read out of the database
+        // fail to resolve with "must be an integer for type Integer", against a value that was a
+        // perfectly good integer in a string.
+        if (node.isIntegralNumber()) {
+          yield new Value.IntV(node.asLong());
+        }
+        if (!node.isTextual()) {
           throw new PsfException(
               PsfException.Code.ASSET_002, where, "must be an integer for type Integer");
         }
-        yield new Value.IntV(node.asLong());
+        try {
+          yield new Value.IntV(Long.parseLong(node.asText().strip()));
+        } catch (NumberFormatException notAnInteger) {
+          throw new PsfException(
+              PsfException.Code.ASSET_002,
+              where,
+              "is not an integer: " + node.asText(),
+              notAnInteger);
+        }
       }
       case "Decimal" -> {
         // Required to be a string. A YAML or JSON number has already been through a double by the
@@ -300,11 +389,20 @@ public final class AssetCodec {
         }
       }
       case "Boolean" -> {
-        if (!node.isBoolean()) {
-          throw new PsfException(
-              PsfException.Code.ASSET_002, where, "must be true or false for type Boolean");
+        if (node.isBoolean()) {
+          yield Value.BoolV.of(node.asBoolean());
         }
-        yield Value.BoolV.of(node.asBoolean());
+        // Same reason as Integer: the stored form is text. Only the two exact words, though —
+        // treating anything else as false is how a switched-off control looks switched on.
+        String text = node.isTextual() ? node.asText().strip() : "";
+        if ("true".equalsIgnoreCase(text)) {
+          yield Value.BoolV.of(true);
+        }
+        if ("false".equalsIgnoreCase(text)) {
+          yield Value.BoolV.of(false);
+        }
+        throw new PsfException(
+            PsfException.Code.ASSET_002, where, "must be true or false for type Boolean");
       }
       case "Text" -> {
         if (!node.isTextual()) {

@@ -71,10 +71,16 @@ TOKEN="$(jq_ "d['token']")"
 ok "signed in as $(jq_ "d['displayName']") with roles $(jq_ "','.join(d['roles'])")"
 
 # ---------------------------------------------------------------- 2. the tenant's assets
-# The bundle builder reads a tenant's parameter sets and reference lists from
-# assets-<tenant>.json beside the bundles. That is the documented M3-03 gap: shared assets under
-# maker-checker are not built, so this file stands in for the asset tables. The reference policy
-# reads nineteen parameters, so without it every test case refers instead of deciding.
+# The registry resolves a tenant's parameter sets and reference lists from §5.2's asset tables,
+# APPROVED versions only — that is M3-03, and it is how AC-MODEL-007 is enforced. The file below
+# is the OFFLINE fallback, used when a tenant has no approved asset of a kind the policy names:
+# `bre psf bundle --assets` works with no registry and no database, which is how an integrator
+# tries a policy against their own thresholds.
+#
+# This walk uses the file, deliberately, because it exercises the offline path end to end in one
+# command. To walk the maker-checker path instead, draft a PARAMETER_SET through
+# /v1/assets/PARAMETER_SET/{code}/versions, have a SECOND person approve it, and delete this
+# file — the registry then prefers the approved asset and logs that the file was ignored.
 step "2. install the tenant's parameter sets and reference lists"
 mkdir -p "$VAR/bundles"
 cp "$ROOT/reference-policy/assets.json" "$VAR/bundles/assets-$TENANT.json"

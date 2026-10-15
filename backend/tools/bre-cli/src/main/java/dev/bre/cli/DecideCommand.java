@@ -89,7 +89,7 @@ final class DecideCommand {
       verifier.verify(bundle);
 
       Ir.PolicyIr policy = IrCodec.readPolicy(bundle.ir());
-      Map<String, Value> parameters = AssetCodec.parameters(bundle.assets());
+      dev.bre.engine.eval.ParameterTable parameters = AssetCodec.parameters(bundle.assets());
       Map<String, Value> lists = AssetCodec.lists(bundle.assets());
       if (parameters.isEmpty() && lists.isEmpty()) {
         out.println(

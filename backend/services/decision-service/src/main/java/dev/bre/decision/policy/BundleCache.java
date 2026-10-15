@@ -40,11 +40,15 @@ public final class BundleCache {
    * to prevent.
    *
    * @param policy the decoded policy
-   * @param parameters the {@code param.} namespace
+   * @param parameters the {@code param.} namespace, with each parameter's effective windows — the
+   *     value a decision sees depends on its {@code asOf}, so the bundle carries the table rather
+   *     than a folded value (§8.4)
    * @param lists the {@code list.} namespace
    */
   public record Compiled(
-      Ir.PolicyIr policy, Map<String, Value> parameters, Map<String, Value> lists) {}
+      Ir.PolicyIr policy,
+      dev.bre.engine.eval.ParameterTable parameters,
+      Map<String, Value> lists) {}
 
   /**
    * Creates a cache.

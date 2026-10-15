@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.bre.engine.eval.ParameterTable;
 import dev.bre.engine.eval.Value;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -16,6 +17,9 @@ import org.junit.jupiter.api.Test;
 
 /** Asset resolution: what the bundle carries, and what it refuses to carry (§8.4). */
 class AssetCodecTest {
+
+  /** Any date at all: a parameter declared without effective windows applies on every date. */
+  private static final java.time.LocalDate ANY_DATE = java.time.LocalDate.parse("2026-10-01");
 
   private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -71,7 +75,10 @@ class AssetCodecTest {
   @DisplayName("every declared type round-trips into the engine's value model")
   void everyTypeRoundTrips() throws IOException {
     ObjectNode resolved = AssetCodec.resolve(source(), "P@1", List.of("OPEN@2"));
-    Map<String, Value> parameters = AssetCodec.parameters(resolved);
+    ParameterTable table = AssetCodec.parameters(resolved);
+    // Any date: these are declared without effective windows, which means open-ended.
+    Map<String, Value> parameters = new java.util.LinkedHashMap<>();
+    table.names().forEach(name -> parameters.put(name, table.valueAt(name, ANY_DATE)));
 
     assertThat(parameters.get("CAP")).isEqualTo(new Value.DecimalV(new BigDecimal("200000.00")));
     assertThat(parameters.get("MAX")).isEqualTo(new Value.IntV(3));
@@ -105,7 +112,7 @@ class AssetCodecTest {
     // Otherwise two bundles with identical behaviour would have different hashes, because the hash
     // would cover parameter sets no decision can reach.
     ObjectNode resolved = AssetCodec.resolve(source(), "P@1", List.of("OPEN@2"));
-    assertThat(AssetCodec.parameters(resolved)).doesNotContainKey("UNUSED");
+    assertThat(AssetCodec.parameters(resolved).names()).doesNotContain("UNUSED");
   }
 
   @Test
@@ -148,7 +155,7 @@ class AssetCodecTest {
   @DisplayName("a policy with no assets resolves to empty rather than failing")
   void noAssetsIsNotAnError() throws IOException {
     ObjectNode resolved = AssetCodec.resolveForPolicy(source(), irAssets(null, null));
-    assertThat(AssetCodec.parameters(resolved)).isEmpty();
+    assertThat(AssetCodec.parameters(resolved).isEmpty()).isTrue();
     assertThat(AssetCodec.lists(resolved)).isEmpty();
     assertThat(AssetCodec.resolveAuthorityMatrix(source(), irAssets(null, null))).isEmpty();
   }

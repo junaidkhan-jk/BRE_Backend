@@ -21,7 +21,7 @@ class ListCapTest {
   private static EvaluationContext contextWithCap(int cap, RecordV facts) {
     return new EvaluationContext(
         facts,
-        Map.of(),
+        ParameterTable.EMPTY,
         Map.of(),
         AS_OF,
         Value.Missing.INSTANCE,

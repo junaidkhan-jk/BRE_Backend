@@ -50,6 +50,24 @@ public class ProblemHandler {
   }
 
   /**
+   * A shared asset's lifecycle or content rule was broken.
+   *
+   * <p><b>409</b>, like a policy's lifecycle refusal and for the same reason: the request was
+   * well-formed and the state refused it, so a caller that changes the state can retry. That covers
+   * an asset edited after approval, a second open draft, a reviewer who is the author, and a
+   * reference list larger than a bundle may carry.
+   *
+   * @param e the exception
+   * @param request the request
+   * @return the problem
+   */
+  @ExceptionHandler(dev.bre.registry.asset.AssetService.AssetException.class)
+  public ProblemDetail asset(
+      dev.bre.registry.asset.AssetService.AssetException e, HttpServletRequest request) {
+    return problem(HttpStatus.CONFLICT, "asset", "Not allowed in this state", e, request);
+  }
+
+  /**
    * Two people edited one draft.
    *
    * <p><b>409</b>, with the instruction to re-read. The alternative — last write wins — loses the

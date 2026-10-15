@@ -67,6 +67,7 @@ not fetched at decision time, precisely so a replay cannot drift. §8.4.
 | 5 | **KMS / HSM** — sign bundles and manifests | KMS API | out | policy-registry | **A locally configured Ed25519 private key**, which logs a warning naming itself as a finding if it appears in a deployed environment |
 | 6 | **KMS / HSM** — wrap data keys (§9.2) | KMS API | out | decision-service | `LocalDevKms` — real AES-256-GCM key wrapping, not a pass-through, so the envelope format is genuinely exercised |
 | 7 | **Identity provider (OIDC)** | OIDC | out | policy-registry | **A local account table** (V8), keyed on the same `subject` column `role_assignments` already uses, so an IdP's subjects replace these rows without changing an authorisation rule |
+| 8 | **A tenant's shared assets** — parameter sets, reference lists, reason codes, authority matrices | JDBC 5432 | out | policy-registry | The same embedded PostgreSQL. **APPROVED versions only**, which is how AC-MODEL-007 is enforced. An `assets-<tenant>.json` file is the offline fallback for `bre psf bundle --assets`, and the registry logs when a threshold came from one |
 
 That is the complete list. Rows 1 and 2 are the only ones that are a network call today; 3–7 are
 all in-process or filesystem substitutes.

@@ -20,7 +20,7 @@ import java.util.Map;
  */
 public record PolicyResolution(
     Ir.PolicyIr policy,
-    Map<String, Value> parameters,
+    dev.bre.engine.eval.ParameterTable parameters,
     Map<String, Value> lists,
     String bundleHash,
     String deploymentId,

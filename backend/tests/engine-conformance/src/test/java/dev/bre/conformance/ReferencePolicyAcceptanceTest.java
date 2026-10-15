@@ -71,7 +71,7 @@ class ReferencePolicyAcceptanceTest {
 
   private static Path root;
   private static Ir.PolicyIr policy;
-  private static Map<String, Value> parameters;
+  private static dev.bre.engine.eval.ParameterTable parameters;
   private static Map<String, Value> lists;
 
   @BeforeAll
