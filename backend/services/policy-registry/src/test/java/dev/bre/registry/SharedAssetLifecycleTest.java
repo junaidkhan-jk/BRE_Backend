@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -102,6 +103,10 @@ class SharedAssetLifecycleTest {
   }
 
   @LocalServerPort private int port;
+
+  // For test 15 only, which has to put a policy version, a bundle and a deployment in front of the
+  // asset before "who uses this" has an answer. Everything else here goes through the API.
+  @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
   private final HttpClient client =
       HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
@@ -481,7 +486,159 @@ class SharedAssetLifecycleTest {
         .contains("already has version 2 open");
   }
 
+  @Test
+  @Order(15)
+  @DisplayName("15. the asset names the policy versions that pin it, and where they are live")
+  void usageNamesTheDependentsAndWhereTheyAreLive() throws Exception {
+    // An approved asset is safe to supersede — FR-MODEL-003 pins exact versions, so an approved
+    // policy cannot change underneath it. What the editor needs to see is the CONSEQUENCE: that
+    // raising this cap reaches nobody until each dependent policy gets a new version of its own.
+    seedPolicyVersionPinning("SIMPLE_UW", 1, "PROD");
+    seedPolicyVersionPinning("GROUP_UW", 3, null);
+
+    HttpResponse<String> usage = get("/v1/assets/PARAMETER_SET/" + PARAMS + "/usage", authorToken);
+    assertThat(usage.statusCode()).as("%s", usage.body()).isEqualTo(200);
+
+    JsonNode rows = json(usage);
+    assertThat(rows).hasSize(2);
+
+    JsonNode live = row(rows, "SIMPLE_UW");
+    assertThat(live.get("policyVersion").asInt()).isEqualTo(1);
+    assertThat(live.get("assetVersion").asInt()).as("the version it actually pinned").isEqualTo(1);
+    assertThat(live.get("policyStatus").asText()).isEqualTo("APPROVED");
+    assertThat(live.get("liveEnvironments").asText())
+        .as("an asset pinned by something serving PROD is the one to be careful with")
+        .isEqualTo("PROD");
+
+    // Approved, pinning the same asset, and deployed nowhere. Empty rather than absent: a policy
+    // that pins this asset still has to be re-approved to pick up a change, whether or not it is
+    // currently serving.
+    JsonNode shelved = row(rows, "GROUP_UW");
+    assertThat(shelved.get("liveEnvironments").asText()).isEmpty();
+  }
+
+  @Test
+  @Order(16)
+  @DisplayName("16. an asset nothing pins reports no dependents, rather than failing")
+  void usageOfAnUnusedAssetIsEmpty() throws Exception {
+    HttpResponse<String> usage =
+        get("/v1/assets/REASON_CODE_CATALOGUE/CORE_REASONS/usage", authorToken);
+    assertThat(usage.statusCode()).isEqualTo(200);
+    assertThat(json(usage)).isEmpty();
+
+    assertThat(get("/v1/assets/PARAMETER_SET/" + PARAMS + "/usage", null).statusCode())
+        .as("dependency structure is tenant data like any other")
+        .isEqualTo(401);
+  }
+
   // --- plumbing ------------------------------------------------------------------------------
+
+  private static JsonNode row(JsonNode rows, String policyCode) {
+    for (JsonNode candidate : rows) {
+      if (policyCode.equals(candidate.path("policyCode").asText())) {
+        return candidate;
+      }
+    }
+    throw new AssertionError("no row for " + policyCode + " in " + rows);
+  }
+
+  /**
+   * Puts an APPROVED policy version in front of the asset, pinned, optionally deployed.
+   *
+   * <p>Written straight to the tables rather than driven through the API because the policy
+   * lifecycle — source, coverage, change note, two approvals — is tested in {@code
+   * PolicyLifecycleTest} and re-driving it here would test that instead of this. What is under test
+   * is the inverse lookup: a three-table join whose {@code LEFT JOIN} on deployments is the part
+   * that can quietly return one row per environment, or none at all.
+   *
+   * @param policyCode the policy
+   * @param version its version
+   * @param environment an environment to make it ACTIVE in, or null to leave it deployed nowhere
+   */
+  private void seedPolicyVersionPinning(String policyCode, int version, String environment) {
+    String hex = Integer.toHexString(policyCode.hashCode());
+    String bundleHash = "sha256:" + hex + "0".repeat(64 - hex.length());
+    dev.bre.common.TenantContext.runIn(
+        TENANT,
+        () -> {
+          jdbc.update(
+              """
+              INSERT INTO bre_ctl.policies (tenant_id, policy_code, name, stage, created_by)
+              VALUES (?, ?, ?, 'CREDIT_UW', ?) ON CONFLICT DO NOTHING
+              """,
+              TENANT, policyCode, policyCode, AUTHOR_EMAIL);
+          jdbc.update(
+              """
+              INSERT INTO bre_ctl.fact_schemas (tenant_id, schema_code, version, json_schema,
+                  author)
+              VALUES (?, 'lending-facts', '1.0.0', '{}'::jsonb, ?) ON CONFLICT DO NOTHING
+              """,
+              TENANT, AUTHOR_EMAIL);
+          // DRAFT first, then the pin, then APPROVED — in that order, because a trigger refuses
+          // to let a child row be added to an approved policy version. Production takes the same
+          // order for the same reason: the pins are written inside the approval transaction while
+          // the version is still IN_REVIEW.
+          jdbc.update(
+              """
+              INSERT INTO bre_ctl.policy_versions (tenant_id, policy_code, version, ir,
+                  fact_schema_code, fact_schema_version, created_by)
+              VALUES (?, ?, ?, '{}'::jsonb, 'lending-facts', '1.0.0', ?) ON CONFLICT DO NOTHING
+              """,
+              TENANT, policyCode, version, AUTHOR_EMAIL);
+          jdbc.update(
+              """
+              INSERT INTO bre_ctl.policy_version_pins (tenant_id, policy_code, policy_version,
+                  asset_kind, asset_code, asset_version)
+              VALUES (?, ?, ?, 'PARAMETER_SET', ?, 1) ON CONFLICT DO NOTHING
+              """,
+              TENANT, policyCode, version, PARAMS);
+          // DRAFT -> IN_REVIEW -> APPROVED, one step at a time: the transition is enforced by a
+          // trigger, so there is no way to seed an approved version that skipped review — which is
+          // the point of the trigger.
+          jdbc.update(
+              """
+              UPDATE bre_ctl.policy_versions
+                 SET status = 'IN_REVIEW', submitted_at = now(),
+                     change_note = 'seeded for the usage test', committee_reference = 'TEST-1'
+               WHERE tenant_id = ? AND policy_code = ? AND version = ?
+              """,
+              TENANT, policyCode, version);
+          jdbc.update(
+              """
+              UPDATE bre_ctl.policy_versions
+                 SET status = 'APPROVED', bundle_hash = ?, approved_at = now(),
+                     submitted_at = now(), change_note = 'seeded for the usage test',
+                     committee_reference = 'TEST-1'
+               WHERE tenant_id = ? AND policy_code = ? AND version = ?
+              """,
+              bundleHash, TENANT, policyCode, version);
+          if (environment != null) {
+            jdbc.update(
+                """
+                INSERT INTO bre_ctl.environments (tenant_id, env_code, is_production,
+                    promotion_order, min_deployment_approvers, dry_run_allowed)
+                VALUES (?, ?, true, 9, 2, false) ON CONFLICT DO NOTHING
+                """,
+                TENANT, environment);
+            jdbc.update(
+                """
+                INSERT INTO bre_ctl.bundles (tenant_id, bundle_hash, policy_code, policy_version,
+                    origin, object_key, size_bytes, ir_version, engine_min_version, signatures)
+                VALUES (?, ?, ?, ?, 'BUILT', ?, 1, 1, '1.0.0', '[]'::jsonb)
+                ON CONFLICT DO NOTHING
+                """,
+                TENANT, bundleHash, policyCode, version, "bundles/" + TENANT + "/" + bundleHash);
+            jdbc.update(
+                """
+                INSERT INTO bre_ctl.deployments (tenant_id, deployment_id, env_code, policy_code,
+                    bundle_hash, mode, effective_from, status, reason, requested_by, activated_at)
+                VALUES (?, gen_random_uuid(), ?, ?, ?, 'CHAMPION', now(), 'ACTIVE', 'test', ?,
+                    now())
+                """,
+                TENANT, environment, policyCode, bundleHash, AUTHOR_EMAIL);
+          }
+        });
+  }
 
   private void draftAParameterSet0() throws Exception {
     HttpResponse<String> restored =

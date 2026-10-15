@@ -798,6 +798,71 @@ public class AssetRepository {
         policyVersion);
   }
 
+  /**
+   * One policy version that pins this asset, and whether it is live.
+   *
+   * @param policyCode the policy
+   * @param policyVersion its version
+   * @param assetVersion the asset version that version pinned
+   * @param policyStatus the policy version's lifecycle status
+   * @param liveEnvironments environments where that policy version is ACTIVE or SCHEDULED, comma
+   *     separated, empty when it is deployed nowhere
+   */
+  public record Usage(
+      String policyCode,
+      int policyVersion,
+      int assetVersion,
+      String policyStatus,
+      String liveEnvironments) {}
+
+  /**
+   * Which policy versions pin this asset — the inverse of {@link #pinsOf}.
+   *
+   * <p><b>Why the inverse is the one that matters.</b> Opening a new DRAFT of a parameter set is
+   * safe by construction: FR-MODEL-003 pins exact asset versions, so an approved policy's
+   * behaviour cannot change underneath it. What the editor cannot see without this query is the
+   * <em>consequence</em> — that the rate table they are about to raise is pinned by six policies,
+   * two of them ACTIVE in PROD, and that every one of those needs a new policy version and its own
+   * two approvals before the change reaches a borrower. A shared-asset screen that shows the asset
+   * and not its dependents invites the assumption that editing the asset edits the decision.
+   *
+   * <p>Joined through {@code bundle_hash} rather than a deployment-to-version foreign key, because
+   * a deployment names the bundle it serves and the bundle is the thing a pod actually loads. A
+   * policy version with no bundle hash has never been approved and so is deployed nowhere, which
+   * falls out of the join rather than needing a case.
+   *
+   * @param tenantId the tenant
+   * @param kind the asset kind
+   * @param code the asset code
+   * @return every pinning policy version, newest first, across all versions of the asset
+   */
+  public List<Usage> usedBy(String tenantId, Kind kind, String code) {
+    return jdbc.query(
+        """
+        SELECT p.policy_code, p.policy_version, p.asset_version, v.status,
+               coalesce(string_agg(DISTINCT d.env_code, ', '), '') AS live
+          FROM bre_ctl.policy_version_pins p
+          JOIN bre_ctl.policy_versions v
+            ON v.tenant_id = p.tenant_id
+           AND v.policy_code = p.policy_code
+           AND v.version = p.policy_version
+          LEFT JOIN bre_ctl.deployments d
+            ON d.tenant_id = v.tenant_id
+           AND d.policy_code = v.policy_code
+           AND d.bundle_hash = v.bundle_hash
+           AND d.status IN ('ACTIVE', 'SCHEDULED')
+         WHERE p.tenant_id = ? AND p.asset_kind = ? AND p.asset_code = ?
+         GROUP BY p.policy_code, p.policy_version, p.asset_version, v.status
+         ORDER BY p.policy_code, p.policy_version DESC
+        """,
+        (rs, rowNum) ->
+            new Usage(
+                rs.getString(1), rs.getInt(2), rs.getInt(3), rs.getString(4), rs.getString(5)),
+        tenantId,
+        kind.name(),
+        code);
+  }
+
   private static String text(JsonNode node, String field) {
     JsonNode value = node.get(field);
     return value == null || value.isNull() ? null : value.asText();

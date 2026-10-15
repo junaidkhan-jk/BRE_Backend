@@ -89,6 +89,26 @@ public class AssetController {
   }
 
   /**
+   * Which policy versions pin this asset, and which of them are live.
+   *
+   * <p>Not version-scoped on purpose — see {@link AssetService#usedBy}. The screen that calls this
+   * is showing an editor what their change will and will not reach.
+   *
+   * @param request the request
+   * @param kind the kind
+   * @param code the asset code
+   * @return every pinning policy version
+   */
+  @GetMapping("/{kind}/{code}/usage")
+  public List<AssetRepository.Usage> usage(
+      HttpServletRequest request,
+      @PathVariable AssetRepository.Kind kind,
+      @PathVariable String code) {
+    Principal caller = Authorisation.require(request, Role.Capability.POLICY_READ);
+    return assets.usedBy(caller.tenantId(), kind, code);
+  }
+
+  /**
    * Opens a DRAFT, cloning the latest approved version by default.
    *
    * @param request the request

@@ -383,6 +383,24 @@ public class AssetService {
   }
 
   /**
+   * Which policy versions pin this asset, and which of them are live.
+   *
+   * <p>Read-only and not version-scoped: the question a maker asks before editing a shared asset is
+   * "who depends on this asset", not "who depends on version 3 of it". Each row carries the version
+   * it pinned, so an older policy still on an earlier version of the asset is visible as exactly
+   * that rather than as an absence.
+   *
+   * @param tenantId the tenant
+   * @param kind the asset kind
+   * @param code the asset code
+   * @return every pinning policy version
+   */
+  public java.util.List<AssetRepository.Usage> usedBy(
+      String tenantId, AssetRepository.Kind kind, String code) {
+    return repository.usedBy(tenantId, kind, code);
+  }
+
+  /**
    * Reads one version with its content.
    *
    * @param tenantId the tenant
