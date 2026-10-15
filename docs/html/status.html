@@ -96,8 +96,8 @@
 
   <div class="totals">
     <div class="tot g"><b>40</b><span>done</span></div>
-    <div class="tot a"><b>11</b><span>partial — usable, not finished</span></div>
-    <div class="tot s"><b>17</b><span>not started</span></div>
+    <div class="tot a"><b>12</b><span>partial — usable, not finished</span></div>
+    <div class="tot s"><b>16</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
 
@@ -295,14 +295,18 @@
     <div class="ms__head">
       <div><span class="kicker">M5 — Rule Studio</span>
       <p class="ms__blurb">The front end. Five screens build and run over sample data.</p></div>
-      <div class="ms__counts"><span class="pill g">2 done</span><span class="pill a">6 partial</span><span class="pill s">2 pending</span></div>
+      <div class="ms__counts"><span class="pill g">2 done</span><span class="pill a">7 partial</span><span class="pill s">1 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M5-01</td><td class="ti">App shell — React, TypeScript, Vite, routing, role-aware navigation
         <div class="no">Five screens built, running, and <b>verified in a browser</b> — zero console errors, routing works. <b>Login now exists</b>: a session guard around the whole shell, so a screen added later is protected by default rather than until somebody forgets a guard; the signed-in person, organisation and roles in the header, because in a multi-tenant system &ldquo;whose credit policy am I about to change&rdquo; has a wrong answer; and a permanent note when an administrator's approvals are being recorded as SoD overrides. The form is keyboard-completable and its error is announced — both asserted. The token is in <code>sessionStorage</code>, written down as a deliberate second-best: the right answer is an HttpOnly cookie the BFF issues. <b>Still no masking</b> — it belongs in the BFF, because masking in the browser is too late.</div></td>
         <td class="st"><span class="pill a">partial</span></td></tr>
-      <tr class="pend"><td class="id">M5-02</td><td class="ti">Monaco BEL language — highlighting, autocomplete, diagnostics
-        <div class="no">Needs the §13.3 language service; Monaco without one is a 2 MB textarea.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M5-02</td><td class="ti">Monaco BEL language — highlighting, autocomplete, diagnostics
+        <div class="no"><b>The language service was the blocker, and every part of it already existed and was unreachable.</b> The lexer and parser report a line, a column and an offset; the type checker returns a type and positioned diagnostics with catalogue codes; the fact schema knows every declared path, its type and whether it is protected. All of it ran inside a save and surfaced as a list of strings after the author had finished typing. <code>/v1/bel/check</code>, <code>/completions</code> and <code>/grammar</code> expose it <em>while</em> they type, which is the only point at which a type error is cheap to fix.
+        <p><b>No parser in the browser</b>, deliberately: a second BEL parser in TypeScript would be a second answer to &ldquo;is this expression valid&rdquo;, and the two would diverge first on the case nobody tested — so an author would be told their expression is fine and the submit gate would refuse it, or worse, the reverse. Even the tokenizer's keyword list is served, so a keyword cannot be highlighted that the parser does not have. BEL-017 and BEL-026 are reported too: an author reaching for a protected or Aadhaar field finds out as they type it rather than from a reviewer.</p>
+        <p>Diagnostics are underlined from the reported column <em>to the end of the line</em>, because the parser reports a position and not a span — guessing a token length would underline the wrong thing, and an editor underlining the wrong token sends an author looking in the wrong place. Checked on a 400&nbsp;ms debounce: a type error is useful a moment after you stop typing and noise while you are mid-identifier, when every expression is briefly invalid.</p>
+        <p>The screen it sits on replaced the fixture-backed rule editor: the policy source is edited as <b>text</b> and saved as the exact bytes written, because the compiled form discards comments and the comment explaining why a threshold is 21 and not 18 is often the only record of a committee's reasoning. One expression at a time gets the full service in a workbench beneath it. <b>The cost, written down:</b> the studio is now 851&nbsp;kB gzipped, because it is built as a single IIFE so it loads over <code>file://</code> with no server — which means rollup inlines a dynamic import and Monaco cannot be split out until the BFF serves the chunks.</p></div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
       <tr><td class="id">M5-03</td><td class="ti">Decision-table grid, scorecard and flow editors
         <div class="no"><b>Read, and that is a decision rather than a shortcut.</b> U5 asks for a spreadsheet-like grid, and the valuable half of that is the gap highlighting and the row hit counts — not the typing. Editing here would mean generating the policy source back from the grid, and the source is where an author's comments live: the sentence explaining why a threshold is 21 and not 18 does not survive a round trip through the compiled form. Authoring stays in the source; this is where you see what it compiled to and what the checks found in it.
         <p>Every diagnostic on the screen is computed by something that already existed. Gaps and overlaps are CHK-001/002 from the static checks, which report concrete witness tuples no row covers. Row hit counts come from the coverage probe, which records which rows <em>fired</em> rather than which merely matched — so a row that matched and lost to a FIRST hit policy is marked never fired, because nothing it says has ever affected an outcome. Both are already enforced at submit; this is where an author reads them against the grid instead of as a list of codes.</p>
@@ -441,7 +445,7 @@
         take unilaterally.</li>
   </ul>
 
-  <div class="foot">Generated from the repository · 56 commits · 667 tests passing · 9 October 2026</div>
+  <div class="foot">Generated from the repository · 57 commits · 667 tests passing · 9 October 2026</div>
 </div>
 </body>
 </html>
