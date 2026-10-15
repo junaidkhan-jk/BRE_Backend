@@ -96,8 +96,8 @@
 
   <div class="totals">
     <div class="tot g"><b>39</b><span>done</span></div>
-    <div class="tot a"><b>7</b><span>partial — usable, not finished</span></div>
-    <div class="tot s"><b>22</b><span>not started</span></div>
+    <div class="tot a"><b>8</b><span>partial — usable, not finished</span></div>
+    <div class="tot s"><b>21</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
 
@@ -291,7 +291,7 @@
     <div class="ms__head">
       <div><span class="kicker">M5 — Rule Studio</span>
       <p class="ms__blurb">The front end. Five screens build and run over sample data.</p></div>
-      <div class="ms__counts"><span class="pill g">2 done</span><span class="pill a">3 partial</span><span class="pill s">5 pending</span></div>
+      <div class="ms__counts"><span class="pill g">2 done</span><span class="pill a">4 partial</span><span class="pill s">4 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M5-01</td><td class="ti">App shell — React, TypeScript, Vite, routing, role-aware navigation
@@ -308,7 +308,11 @@
         <div class="no">The <b>run screen works</b>: pick a policy and version, paste facts, set the business date, and read which step drove the decision, which entity deviated, on what measure, and what approvals it would need. It replaced a mock that showed a hard-coded outcome mix after a 600&nbsp;ms timer — honest scaffolding with no backend, and the worst thing to leave in place once there is one. <b>The coverage panel is built</b> beside it: the version's figure against the tenant's threshold, the three kinds separately as well as pooled — a policy can sit at 85% overall while every row of one decision table is untested — and the uncovered rule branches, rows and bins listed by name, so the submit gate's refusal is explained before it happens rather than after. <b>Not built:</b> the portfolio back-test — running a policy over thousands of stored decisions is a job rather than a request, and needs M4's archive to replay against.</div></td>
         <td class="st"><span class="pill a">partial</span></td></tr>
       <tr class="pend"><td class="id">M5-06</td><td class="ti">Review inbox, deployment console, rollback</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M5-07</td><td class="ti">Shared-asset screens</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M5-07</td><td class="ti">Shared-asset screens
+        <div class="no"><b>A maker-checker screen before it is an editor.</b> These are the thresholds, lists and authority bands policies decide by — not the rules — so the screen leads with the sentence that matters: nothing here affects a policy until a <em>second person</em> has approved it, and an approved asset is never edited in place. Approve is <b>absent</b> for the version's author rather than disabled, because a disabled button invites somebody to find the way around it.
+        <p><b>Effective dating is shown as what it is: a table of dates.</b> A cap of ₹200,000 until 1 April and ₹300,000 after it is two rows, both true. Rendering only "the current value" would hide the row that keeps last month's decisions correct — which is the row an auditor asks about. The column header says "until (exclusive)", because whether a value ending 1 April still applies on 1 April is the one off-by-one here that changes a decision.</p>
+        <p>All four kinds have real editors: parameters with their windows and the REGULATORY source reference and review date appearing when it is ticked; reference lists as a paste, one item per line, with the live count against the cap and the explanation that the cap is on what a <em>bundle</em> carries; reason codes split into what an officer reads and what an applicant is told; and the authority matrix as ordered levels plus bands, with the note that inserting a level is a configuration change and not a release. <b>Not built:</b> the fact-schema browser (U8's fifth tab — schemas are versioned outside this lifecycle) and customer text beyond English.</p></div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
       <tr><td class="id">M5-08</td><td class="ti">Decision lookup, explanation viewer, audit trail
         <div class="no">The <b>audit trail screen is built</b>, with the chain verification at the top rather than buried in a tools menu: an audit log's value is entirely in whether it can be shown to be untampered, so that banner is a live recomputation and not a reassurance. Each entry's detail is rendered as the data the service recorded, including a field this screen has never heard of. An end-to-end test asserts there is <b>no write control anywhere on it</b>. <b>Not built:</b> decision lookup and the explanation viewer — both read the decision service's hot store, which is M4.</div></td>
         <td class="st"><span class="pill a">partial</span></td></tr>
@@ -421,7 +425,7 @@
         take unilaterally.</li>
   </ul>
 
-  <div class="foot">Generated from the repository · 52 commits · 667 tests passing · 9 October 2026</div>
+  <div class="foot">Generated from the repository · 53 commits · 667 tests passing · 9 October 2026</div>
 </div>
 </body>
 </html>
