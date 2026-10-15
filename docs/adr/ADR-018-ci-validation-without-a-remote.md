@@ -58,6 +58,21 @@ say precisely what remains unverified.
   is not a formality: the first local run found a parser stack overflow in 54
   seconds.
 
+## Amendment, 2026-10-15: the validation is now a command
+
+Everything above was run by hand, which means once. The workflows were edited
+afterwards and nothing re-checked them. A validation that is not a command is
+not a check, so it is `devstack/check-ci.sh` now: the negative control, both
+workflows, the CODEOWNERS resolution and the SHA-pinning grep, in one run.
+
+The same pass found that the studio job ran only `npx playwright test` — not
+types, not lint, not unit tests — so three of the Definition of Done's steps
+were absent from the gate that is supposed to enforce it. Worse, `npm run lint`
+had no `eslint.config.js` behind it and had therefore failed every time it ran
+since the first commit, and `npm test` globbed the Playwright specs into
+vitest, where they cannot execute. Both are fixed; all four steps are in the
+job now.
+
 ## What is still unverified, and what would change it
 
 **Orchestration has never executed.** Everything above tests the workflows as

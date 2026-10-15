@@ -115,6 +115,20 @@ jobs:
       - name: Install
         run: npm ci
 
+      # Before the browser is installed, so a type error or a lint failure reports in seconds
+      # rather than after a two-minute download.
+      - name: Types
+        run: npx tsc -b --noEmit
+
+      # This step is why eslint.config.js exists. `npm run lint` was in package.json from the first
+      # commit with no config behind it, so it failed every time it ran and the Definition of
+      # Done's lint step checked nothing.
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
       - name: Install the browser
         run: npx playwright install --with-deps chromium
 
