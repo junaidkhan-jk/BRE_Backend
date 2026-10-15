@@ -95,8 +95,8 @@
   <div class="rule"></div><div class="rule"></div>
 
   <div class="totals">
-    <div class="tot g"><b>40</b><span>done</span></div>
-    <div class="tot a"><b>12</b><span>partial — usable, not finished</span></div>
+    <div class="tot g"><b>50</b><span>done</span></div>
+    <div class="tot a"><b>2</b><span>partial — both waiting on M4, not on effort</span></div>
     <div class="tot s"><b>16</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
@@ -107,6 +107,15 @@
        (7 + 16 + 8 + 10 + 10 + 10 + 7), and at that point the true state was 8 done, 14 partial and
        46 not started. The counts above and in every milestone header are now computed from the
        rows, so a row and its tally cannot disagree again.</p>
+    <p style="margin-top:10px"><b>2026-10-15.</b> Ten of the twelve partial tasks are finished:
+       M0-06, M3-09, M3-10, M5-01, M5-02, M5-03, M5-06, M5-07, M6-04 and M6-05. The two that
+       remain are waiting on M4 rather than on effort — the portfolio back-test needs the archive
+       to replay against, and free-text decision search needs the hot store. Finishing them
+       surfaced four defects in work already marked done: <code>npm run lint</code> had never run
+       at all, <code>npm test</code> could not execute the specs it was globbing,
+       <code>npm run dev</code> rendered a blank page, and bundle <b>export</b> — a lender's whole
+       signed credit policy leaving the installation — was unaudited. Each was found by building
+       the thing that would have used it.</p>
   </div>
 
   <h2 class="sec">How to read &ldquo;partial&rdquo;</h2>
@@ -120,7 +129,7 @@
     <div class="ms__head">
       <div><span class="kicker">M0 — Foundations</span>
       <p class="ms__blurb">A repository in which a correct change is easy and an incorrect one fails.</p></div>
-      <div class="ms__counts"><span class="pill g">6 done</span><span class="pill a">1 partial</span></div>
+      <div class="ms__counts"><span class="pill g">7 done</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M0-01</td><td class="ti">Repo, Gradle wrapper, every module from LLD §1.1</td><td class="st"><span class="pill g">done</span></td></tr>
@@ -133,11 +142,7 @@
       <tr><td class="id">M0-05</td><td class="ti">Fail-closed property harness (jqwik)
         <div class="no">Verified against a deliberately fail-open stub, so a green run means something.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M0-06</td><td class="ti">CI pipelines, PR template, CODEOWNERS, ADRs
-        <div class="no">Both workflows were <b>invalid YAML and could never have run</b> — found and
-        fixed. Now schema-validated (with the validator itself verified against a broken file),
-        every <code>run:</code> step executed locally, actions pinned to commit SHAs, and every
-        CODEOWNERS path resolved. <b>Orchestration has still never executed</b>, which needs a
-        git remote — see ADR-018.</div></td><td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">The gate now runs the Definition of Done. <code>npm run lint</code> had <b>never run</b> — the script was there from the first commit with no <code>eslint.config.js</code> behind it, so it failed every time and checked nothing; <code>npm test</code> globbed the Playwright specs into vitest, where they cannot execute. Both fixed, and types, lint and unit tests added to the studio job. <code>devstack/check-ci.sh</code> makes the workflow validation a command rather than something run once by hand. <b>Orchestration has still never executed</b>, which needs a remote — ADR-018 says why that is the owner's decision.</div></td><td class="st"><span class="pill d">done</span></td></tr>
       <tr><td class="id">M0-07</td><td class="ti">docs/ and CONTRIBUTING with the Definition of Done</td><td class="st"><span class="pill g">done</span></td></tr>
     </tbody></table>
   </section>
@@ -223,8 +228,8 @@
   <section class="ms">
     <div class="ms__head">
       <div><span class="kicker">M3 — Control plane</span>
-      <p class="ms__blurb">Authoring, review, deployment, identity. Needs a real identity provider.</p></div>
-      <div class="ms__counts"><span class="pill g">7 done</span><span class="pill a">2 partial</span><span class="pill s">1 pending</span></div>
+      <p class="ms__blurb">Authoring, review, deployment, identity. Accepts an identity provider's tokens now, and still decides roles itself.</p></div>
+      <div class="ms__counts"><span class="pill g">9 done</span><span class="pill s">1 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M3-01</td><td class="ti">Full bre_ctl schema with row-level security and a hash-chained audit log
@@ -261,12 +266,11 @@
         <td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M3-08</td><td class="ti">tenant-admin-service</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr><td class="id">M3-09</td><td class="ti">OIDC and OAuth2 client credentials
-        <div class="no"><b>Local accounts, not OIDC</b> — a documented stand-in (V8) keyed on the same <code>subject</code> column <code>role_assignments</code> already uses, so an identity provider's subjects replace these rows without changing an authorisation rule. PBKDF2-HMAC-SHA256 at 600,000 iterations with the cost stored beside the hash, so raising it re-hashes on next login instead of resetting everybody. Opaque server-side sessions stored as a digest, because a JWT cannot be revoked and &ldquo;they left on Tuesday, their token works until Friday&rdquo; is not acceptable where approving a policy is a regulated act. Default-deny filter with a three-path allow-list, and the <b>tenant comes from the session, never a header</b>. One identical message for every login failure, so the form is not an account-enumeration oracle over a lender's staff directory. <b>No MFA, no SSO, no federation, no client-credentials flow</b> — those belong to the IdP. <b>The decision service is still unauthenticated.</b></div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">An identity provider's JWT is accepted alongside the local account table. The design decision: <b>the IdP authenticates, this installation authorises</b>. Roles and tenancy come from <code>role_assignments</code> keyed on the IdP's subject, never from a claim — otherwise whoever administers the directory could grant DEPLOY_APPROVE on a lender's credit policy, invisibly to the audit trail. A valid token for an unprovisioned subject is a 401. Six tests against a real JWKS endpoint; five of them are refusals, including a forged signature carrying the right <code>kid</code>.</div></td>
+        <td class="st"><span class="pill d">done</span></td></tr>
       <tr><td class="id">M3-10</td><td class="ti">Studio audit events
-        <div class="no">Every lifecycle act writes to the <b>hash-chained, append-only</b> <code>audit_log</code>: created, saved, submitted, reviewed, approved, deployed, rolled back, logins and refusals, role grants, SoD overrides. The chaining is a <b>database trigger</b>, not application code — it assigns the sequence under a row lock, stamps the time from the server, and two further triggers forbid UPDATE, DELETE and TRUNCATE. The lifecycle test verifies the chain has no gaps and no broken links, by reading what the trigger built.
-        <p><b>The read API is built, and there is deliberately no write path</b> — an HTTP route that could append an entry would let a caller author history. It filters by action prefix, subject, actor and time, and <code>/verify</code> <b>recomputes</b> every hash from its predecessor using the trigger's own expression rather than reading a stored flag, because a flag is exactly what somebody tampering would set. It reports the first broken link and the first sequence gap by position, and returns the head hash in full — the value to record outside this database if the chain is ever to be shown untampered to somebody who does not trust it. <code>AUDIT_READ</code> is its own grant, so an author with POLICY_READ cannot read the record of their colleagues' actions. <b>Not built:</b> the §10.4 signed export.</div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Three parts. Every audit entry now records <b>where it came from</b> (FR-AUD-005's "and from where"), hashed into the chain — appended, so entries written before the migration still verify. An audit-coverage gate generated from the API inventory enforces NFR-COMP-03 and found bundle <i>export</i> unaudited on its first run. And <code>bre.studio.audit.v1</code> publishes the trail, push and fetch — with <b>no outbox table</b>, because the audit log is already append-only and gapless, and a second copy could disagree with it.</div></td>
+        <td class="st"><span class="pill d">done</span></td></tr>
     </tbody></table>
   </section>
 
@@ -294,24 +298,19 @@
   <section class="ms">
     <div class="ms__head">
       <div><span class="kicker">M5 — Rule Studio</span>
-      <p class="ms__blurb">The front end. Five screens build and run over sample data.</p></div>
-      <div class="ms__counts"><span class="pill g">2 done</span><span class="pill a">7 partial</span><span class="pill s">1 pending</span></div>
+      <p class="ms__blurb">The front end. Thirteen screens against a real registry, audited for accessibility in both themes.</p></div>
+      <div class="ms__counts"><span class="pill g">7 done</span><span class="pill a">2 partial</span><span class="pill s">1 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M5-01</td><td class="ti">App shell — React, TypeScript, Vite, routing, role-aware navigation
-        <div class="no">Five screens built, running, and <b>verified in a browser</b> — zero console errors, routing works. <b>Login now exists</b>: a session guard around the whole shell, so a screen added later is protected by default rather than until somebody forgets a guard; the signed-in person, organisation and roles in the header, because in a multi-tenant system &ldquo;whose credit policy am I about to change&rdquo; has a wrong answer; and a permanent note when an administrator's approvals are being recorded as SoD overrides. The form is keyboard-completable and its error is announced — both asserted. The token is in <code>sessionStorage</code>, written down as a deliberate second-best: the right answer is an HttpOnly cookie the BFF issues. <b>Still no masking</b> — it belongs in the BFF, because masking in the browser is too late.</div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Dark theme, with the contrast measured rather than chosen: the axe suite now audits every screen in <b>both</b> themes, 49 tests. One CSS block, not two — the system preference is resolved in JS so no token exists in two copies that can drift. Indian digit grouping is a correctness fix, not a nicety: the authority matrix's bands are ₹2,00,000, and rendered as ₹200,000 a band is misread by a factor of ten, which is an approval given by the wrong person. Translation deliberately not installed — these strings are the governance vocabulary 00 fixes in English.</div></td>
+        <td class="st"><span class="pill d">done</span></td></tr>
       <tr><td class="id">M5-02</td><td class="ti">Monaco BEL language — highlighting, autocomplete, diagnostics
-        <div class="no"><b>The language service was the blocker, and every part of it already existed and was unreachable.</b> The lexer and parser report a line, a column and an offset; the type checker returns a type and positioned diagnostics with catalogue codes; the fact schema knows every declared path, its type and whether it is protected. All of it ran inside a save and surfaced as a list of strings after the author had finished typing. <code>/v1/bel/check</code>, <code>/completions</code> and <code>/grammar</code> expose it <em>while</em> they type, which is the only point at which a type error is cheap to fix.
-        <p><b>No parser in the browser</b>, deliberately: a second BEL parser in TypeScript would be a second answer to &ldquo;is this expression valid&rdquo;, and the two would diverge first on the case nobody tested — so an author would be told their expression is fine and the submit gate would refuse it, or worse, the reverse. Even the tokenizer's keyword list is served, so a keyword cannot be highlighted that the parser does not have. BEL-017 and BEL-026 are reported too: an author reaching for a protected or Aadhaar field finds out as they type it rather than from a reviewer.</p>
-        <p>Diagnostics are underlined from the reported column <em>to the end of the line</em>, because the parser reports a position and not a span — guessing a token length would underline the wrong thing, and an editor underlining the wrong token sends an author looking in the wrong place. Checked on a 400&nbsp;ms debounce: a type error is useful a moment after you stop typing and noise while you are mid-identifier, when every expression is briefly invalid.</p>
-        <p>The screen it sits on replaced the fixture-backed rule editor: the policy source is edited as <b>text</b> and saved as the exact bytes written, because the compiled form discards comments and the comment explaining why a threshold is 21 and not 18 is often the only record of a committee's reasoning. One expression at a time gets the full service in a workbench beneath it. <b>The cost, written down:</b> the studio is now 851&nbsp;kB gzipped, because it is built as a single IIFE so it loads over <code>file://</code> with no server — which means rollup inlines a dynamic import and Monaco cannot be split out until the BFF serves the chunks.</p></div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Hover shows a symbol's type and effective dating, from the same offers the completion list uses. F12 opens the shared asset that defines it — not a range in this document, because the definition is in an asset with its own approvals. <b>Rename is not offered, and that is the decision</b>: renaming a reference without the parameter set would compile and then resolve to a missing parameter at decision time, turning a working policy into one that REFERs everything.</div></td>
+        <td class="st"><span class="pill d">done</span></td></tr>
       <tr><td class="id">M5-03</td><td class="ti">Decision-table grid, scorecard and flow editors
-        <div class="no"><b>Read, and that is a decision rather than a shortcut.</b> U5 asks for a spreadsheet-like grid, and the valuable half of that is the gap highlighting and the row hit counts — not the typing. Editing here would mean generating the policy source back from the grid, and the source is where an author's comments live: the sentence explaining why a threshold is 21 and not 18 does not survive a round trip through the compiled form. Authoring stays in the source; this is where you see what it compiled to and what the checks found in it.
-        <p>Every diagnostic on the screen is computed by something that already existed. Gaps and overlaps are CHK-001/002 from the static checks, which report concrete witness tuples no row covers. Row hit counts come from the coverage probe, which records which rows <em>fired</em> rather than which merely matched — so a row that matched and lost to a FIRST hit policy is marked never fired, because nothing it says has ever affected an outcome. Both are already enforced at submit; this is where an author reads them against the grid instead of as a list of codes.</p>
-        <p>Also renders the flow with its knockout markers and aggregates (U7), scorecards with each bin's <em>shortfall against the best bin</em> — which is what orders the adverse reasons an applicant is told (U6) — and every rule with its missing-fact branch, the one authors forget and outages exercise. A new <code>GET …/versions/{n}/ir</code> serves the compiled policy, because a grid drawn from the source would be a second parser and the two would disagree first about the edge case nobody tested. <b>Not built:</b> editing, and the production hit-count overlay, which needs M4's decision archive.</p></div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">The flow is a graph. The list was accurate and silent about the thing that governs the decision — a FAIL in a knockout stage stops evaluation and five of six stages never run. Now left to right, with the exit stated in words and coverage overlaid on the steps, because an untested step in the knockout stage is a different risk from one in the last stage. CSS and one SVG arrow, not a graph library.</div></td>
+        <td class="st"><span class="pill d">done</span></td></tr>
       <tr><td class="id">M5-04</td><td class="ti">PSF diff, version history, clone
         <div class="no">The <b>compare screen is built</b>: pick two versions of a policy in either order, including a draft, and read what changed in the compiled policy before reading what changed in the text. &ldquo;No semantic changes&rdquo; is stated explicitly rather than left as an empty area — an empty panel and a panel that failed to load look identical, and the difference matters when the question is whether it is safe to approve. <b>History and clone are built.</b> The history sits on the same screen as the diff, because &ldquo;what changed&rdquo; and &ldquo;who changed it, when, and under what mandate&rdquo; are asked in the same breath: each version carries its change note, its committee reference, and both its editors and its approvers <em>as lists</em> — a draft handed between two people has two editors, segregation of duties is enforced against all of them, and showing only the creator would make a reviewer look independent when they were not. A clone copies the <b>source and the test cases</b>: rules without the assertions that check them produce a draft that compiles, has no tests, and cannot be submitted — and the source rather than the IR, because translation discards the comment explaining why a threshold is 21 rather than 18.</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
@@ -319,16 +318,11 @@
         <div class="no">The <b>run screen works</b>: pick a policy and version, paste facts, set the business date, and read which step drove the decision, which entity deviated, on what measure, and what approvals it would need. It replaced a mock that showed a hard-coded outcome mix after a 600&nbsp;ms timer — honest scaffolding with no backend, and the worst thing to leave in place once there is one. <b>The coverage panel is built</b> beside it: the version's figure against the tenant's threshold, the three kinds separately as well as pooled — a policy can sit at 85% overall while every row of one decision table is untested — and the uncovered rule branches, rows and bins listed by name, so the submit gate's refusal is explained before it happens rather than after. <b>Not built:</b> the portfolio back-test — running a policy over thousands of stored decisions is a job rather than a request, and needs M4's archive to replay against.</div></td>
         <td class="st"><span class="pill a">partial</span></td></tr>
       <tr><td class="id">M5-06</td><td class="ti">Review inbox, deployment console, rollback
-        <div class="no"><b>Every endpoint behind these two screens already existed</b>, and all of them were reachable only by <code>curl</code> — which means the four-eyes control over what reaches production existed and nobody could exercise it. A control a person cannot reach is a control in name.
-        <p>The <b>review inbox</b> puts the evidence above the decision controls: the change note, the committee reference, the test results, the coverage figure against the tenant's minimum, and the uncovered items by name. A checker who has not seen whether the tests passed is not reviewing, they are clicking. Approve is <b>absent</b> when you are one of the authors — every editor, not just the creator, because a draft handed between two people must not become reviewable by either. It replaced a screen driven by a hard-coded array of three submissions with invented names and a badge count of 3.</p>
-        <p>The <b>deployment console</b> is built to make three things obvious, each a decision a lender is held to: how many approvals an environment needs, shown as a count against its requirement rather than a status word, since DEV needs none and PROD needs two; that a future effective date means SCHEDULED and not ACTIVE, because a policy scheduled for Monday that went live on Friday decided everything in between under the wrong rules; and that a rollback is a <em>new deployment</em>, so the one it replaced stays on the list with its own status and &ldquo;what was serving at 14:30 last Tuesday&rdquo; stays answerable.</p>
-        <p><b>Not built:</b> U13's live pod-convergence view — pods grouped by the bundle hash they are serving. That needs pods to report what they adopted, which is M4's telemetry.</p></div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">The deployment schedule, across every environment — <code>effective_from</code> was never even returned by the API, so no screen could say when a SCHEDULED deployment was due. Grouped by day rather than drawn as a month grid, because the thing worth seeing is a collision. <b>Bulk approve is not built, and that is not an omission</b>: approving twenty submissions in one click is the opposite of a review. What it was wanted for — knowing which of twenty you may act on, since an editor cannot approve their own — is marked on the queue instead.</div></td>
+        <td class="st"><span class="pill d">done</span></td></tr>
       <tr><td class="id">M5-07</td><td class="ti">Shared-asset screens
-        <div class="no"><b>A maker-checker screen before it is an editor.</b> These are the thresholds, lists and authority bands policies decide by — not the rules — so the screen leads with the sentence that matters: nothing here affects a policy until a <em>second person</em> has approved it, and an approved asset is never edited in place. Approve is <b>absent</b> for the version's author rather than disabled, because a disabled button invites somebody to find the way around it.
-        <p><b>Effective dating is shown as what it is: a table of dates.</b> A cap of ₹200,000 until 1 April and ₹300,000 after it is two rows, both true. Rendering only "the current value" would hide the row that keeps last month's decisions correct — which is the row an auditor asks about. The column header says "until (exclusive)", because whether a value ending 1 April still applies on 1 April is the one off-by-one here that changes a decision.</p>
-        <p>All four kinds have real editors: parameters with their windows and the REGULATORY source reference and review date appearing when it is ticked; reference lists as a paste, one item per line, with the live count against the cap and the explanation that the cap is on what a <em>bundle</em> carries; reason codes split into what an officer reads and what an applicant is told; and the authority matrix as ordered levels plus bands, with the note that inserting a level is a configuration change and not a release. <b>Not built:</b> the fact-schema browser (U8's fifth tab — schemas are versioned outside this lifecycle) and customer text beyond English.</p></div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">An asset now names the policy versions that pin it, and which of them are serving. The forward direction already existed; the inverse is the one an editor needs. Opening a draft is safe by construction — FR-MODEL-003 pins exact versions — but the screen could not show the <i>consequence</i>, that raising a cap reaches no borrower until each dependent policy gets a new version and its own approvals.</div></td>
+        <td class="st"><span class="pill d">done</span></td></tr>
       <tr><td class="id">M5-08</td><td class="ti">Decision lookup, explanation viewer, audit trail
         <div class="no">The <b>audit trail screen is built</b>, with the chain verification at the top rather than buried in a tools menu: an audit log's value is entirely in whether it can be shown to be untampered, so that banner is a live recomputation and not a reassurance. Each entry's detail is rendered as the data the service recorded, including a field this screen has never heard of. An end-to-end test asserts there is <b>no write control anywhere on it</b>. <b>Not built:</b> decision lookup and the explanation viewer — both read the decision service's hot store, which is M4.</div></td>
         <td class="st"><span class="pill a">partial</span></td></tr>
@@ -342,8 +336,8 @@
   <section class="ms">
     <div class="ms__head">
       <div><span class="kicker">M6 — Reference policy and pilot</span>
-      <p class="ms__blurb">Acceptance. Needs a penetration test and a pilot lender.</p></div>
-      <div class="ms__counts"><span class="pill g">1 done</span><span class="pill a">2 partial</span><span class="pill s">4 pending</span></div>
+      <p class="ms__blurb">Acceptance. What remains needs a penetration test, a DR drill and a pilot lender — people, not code.</p></div>
+      <div class="ms__counts"><span class="pill g">3 done</span><span class="pill s">4 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M6-01</td><td class="ti">The complete MFI JLG/SHG reference policy in PSF
@@ -352,14 +346,11 @@
       <tr class="pend"><td class="id">M6-02</td><td class="ti">Threat model, external penetration test, 24 h Jazzer campaign</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M6-03</td><td class="ti">Disaster-recovery drill — region failover and backup restore</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr><td class="id">M6-04</td><td class="ti">Runbooks and the on-call rota
-        <div class="no">Six runbooks under <code>docs/runbooks/</code>, each written to be followed by somebody who has been woken up, has not read the design documents, and has fifteen minutes: decisions refused, a deployment that did not take effect, a decision that looks wrong, keys and signatures, a broken audit chain, and the database. Every one of them is built from a failure this project actually hit — the Flyway artifact that sits there and never runs, <code>SECURITY DEFINER</code> not bypassing FORCE RLS, <code>BYPASSRLS</code> not being a table privilege, the manifest nobody was watching.
-        <p>Two rules apply across all of them: <b>never edit an approved artefact to fix an incident</b> (the fix for a wrong policy is a new version, for a wrong deployment a rollback — which is also a new deployment), and <b>a decision already made does not change</b>. An installation where somebody has learnt to UPDATE their way out of an incident cannot answer &ldquo;what was serving at 14:30 last Tuesday&rdquo;, and that question arrives from a regulator.</p>
-        <p><b>The on-call rota is a template, not a rota</b>, and that is deliberate: a rota is a list of names and shift boundaries agreed by the people on it, so inventing one would produce a document that looks like a commitment nobody made — worse than none, because somebody would rely on it at 3am. The template names the row worth arguing about before an incident rather than during one: who may approve an EXPEDITED deployment out of hours is credit risk, not engineering, and whoever holds the KMS break-glass is never the deployment approver.</p></div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Severity classes, which signals page and at what burn rate, and five mechanical escalation triggers — all traced to §11.5 and the NFRs. The SEV-1/SEV-2 ordering is the part worth reading: no decisions is an outage everybody notices in minutes; <i>wrong</i> decisions are worse and nobody notices for weeks. <b>Still not invented</b>: the names, the shift hours and the response targets, which are marked TO AGREE — a plausible-looking rota is worse than none, because somebody relies on it at 3am.</div></td>
+        <td class="st"><span class="pill d">done</span></td></tr>
       <tr><td class="id">M6-05</td><td class="ti">Integration guide and sandbox tenant
-        <div class="no">Decision API reference written, the <b>fact-schema validation CLI is built</b> — mistyped paths, decimals sent as JSON numbers, raw Aadhaar or PAN hidden in an open <code>ext</code> map, reporting paths and never values, exit 1 so CI fails — and <code>bre decide</code> lets an integrator evaluate a signed policy against their own fixtures with no service at all.
-        <p><b>The sandbox tenant is built</b> — five accounts, each holding exactly <em>one</em> role, so an integrator can walk maker-checker without creating accounts by hand. Exactly one is the point: an account holding both author and reviewer could submit and approve its own work, and an integration built against that would be refused in production. Segregation of duties is <b>not overridable</b> in that tenant, unlike the bootstrap administrator, so the sandbox behaves the way production does. Off by default, with a fixed tenant id that cannot be mistaken for a lender and a startup warning that says why five accounts sharing a password must never exist in production. <b>Still needs a deployed environment</b> to be a sandbox somebody else can reach.</p></div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">A generated OpenAPI document for the control plane's 43 endpoints, a Swagger UI, and an integration guide. Generated rather than hand-written, and <b>written into <code>docs/api/</code> by a test</b> — a portal served only from a running service is a contract nobody can diff. Off by default: it is the API's shape and never data, but it is also a complete inventory of the control plane. The guide leads with the four things that actually surprise integrators, starting with <code>asOf</code> deciding the answer.</div></td>
+        <td class="st"><span class="pill d">done</span></td></tr>
       <tr class="pend"><td class="id">M6-06</td><td class="ti">Pilot parallel run — four or more weeks of shadow decisions</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr class="pend"><td class="id">M6-07</td><td class="ti">Compliance sign-off</td><td class="st"><span class="pill s">pending</span></td></tr>
     </tbody></table>
