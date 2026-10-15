@@ -70,10 +70,12 @@ not fetched at decision time, precisely so a replay cannot drift. §8.4.
 | 6 | **KMS / HSM** — wrap data keys (§9.2) | KMS API | out | decision-service | `LocalDevKms` — real AES-256-GCM key wrapping, not a pass-through, so the envelope format is genuinely exercised |
 | 7 | **Identity provider (OIDC)** | OIDC | out | policy-registry | **A local account table** (V8), keyed on the same `subject` column `role_assignments` already uses, so an IdP's subjects replace these rows without changing an authorisation rule |
 | 7a | **Your downstream system** — the decision relay | HTTPS POST, CloudEvents | **out** | decision-service, only when `bre.outbox.endpoint` is set | Off by default. Any HTTP endpoint; the end-to-end test uses a real `HttpServer` |
+| 7b | **Your SIEM or group audit system** — the studio audit relay | HTTPS POST, CloudEvents | **out** | policy-registry, only when `bre.studio-audit.endpoint` is set | Off by default. Any HTTP endpoint; the end-to-end test uses a real `HttpServer` |
 | 8 | **A tenant's shared assets** — parameter sets, reference lists, reason codes, authority matrices | JDBC 5432 | out | policy-registry | The same embedded PostgreSQL. **APPROVED versions only**, which is how AC-MODEL-007 is enforced. An `assets-<tenant>.json` file is the offline fallback for `bre psf bundle --assets`, and the registry logs when a threshold came from one |
 
 That is the complete list. Rows 1 and 2 are the only ones that are a network call today; 3–7 are
-all in-process or filesystem substitutes.
+all in-process or filesystem substitutes. Rows 7a and 7b are the two calls BRE will make *out* to
+a system you own, and both are off until you name an endpoint — see §3a and §3b.
 
 ### Inbound — what calls BRE
 
@@ -175,6 +177,73 @@ handled cannot miss a decision. Keep your own cursor — the feed will serve the
 it. §9.6 keeps fact values out of anything leaving the decision path, and a test asserts it on the
 delivered bytes rather than on the stored row. A caller that needs the facts has them already: they
 sent them.
+
+## 3b. Getting the audit trail out — `bre.studio.audit.v1`
+
+Everything in §3a is about decisions. This is about **who changed the policy**, which is a
+different audience: a SIEM, or a group-level governance system at a holding company that audits
+several lenders.
+
+**Why you would want it, when `/v1/audit` already answers the question.** A query answers a
+question somebody thought to ask. A stream does two things a query cannot: alert on a policy
+approval from an unexpected address with nobody looking, and hold the trail **outside the
+installation being audited**. An audit log whose only copy lives in the system it audits is a copy
+an administrator of that system can be asked to explain away.
+
+**There is no outbox table.** The audit log is already append-only, gapless, sequenced per tenant
+by a database trigger, and forbidden to UPDATE, DELETE or TRUNCATE. Copying every entry into a
+second table would double the writes and add the one failure mode neither table has alone — a
+published trail that disagrees with the recorded one. So `audit_log.seq` is the cursor.
+
+### Push
+
+```yaml
+bre:
+  studio-audit:
+    endpoint: https://siem.yourbank.internal/bre/audit
+    authorization: Bearer ...        # from the environment, never committed
+```
+
+Each entry arrives as a CloudEvent:
+
+```json
+{ "specversion": "1.0", "type": "bre.studio.audit.v1",
+  "source": "/bre/policy-registry", "id": "t_lender:412",
+  "subject": "policy_version/MFI_JLG_CREDIT_UW/3",
+  "time": "2026-10-15T09:41:02.118Z",
+  "data": { "tenantId": "t_lender", "seq": 412,
+            "action": "POLICY_VERSION.APPROVED", "actor": "head.credit@lender.com",
+            "actorType": "USER", "subjectKind": "policy_version",
+            "subjectKey": "MFI_JLG_CREDIT_UW/3",
+            "detail": { "round": 2 },
+            "sourceIp": "10.4.19.7", "client": "Mozilla/5.0 ...",
+            "entryHash": "9f2c…" } }
+```
+
+`entryHash` travels with the entry on purpose: **you can verify the chain yourself**, without
+trusting this installation to tell you the chain is intact. That is most of the reason to hold the
+trail somewhere else.
+
+### Fetch
+
+```
+GET /v1/audit/events?since=411&limit=200     # AUDIT_READ, oldest first
+```
+
+The cursor is a sequence number, not a timestamp — two entries can share a microsecond, and a
+timestamp cursor then either skips one or redelivers both forever. `seq` is assigned under
+`FOR UPDATE` on the tenant's chain head, so **a gap means tampering**, not a writer still in
+flight. Reading does not consume: the relay's cursor is its own.
+
+### What to build on your side
+
+- **Deduplicate on `ce-id`** (`<tenant>:<seq>`). Delivery is at-least-once: a crash between
+  delivering and advancing the cursor redelivers.
+- **Alert on a gap**, not just on a failure. A missing seq is the finding.
+- Expect `sourceIp` and `client` to be **empty for a SYSTEM entry** — a scheduled activation has
+  no caller, and null is the honest answer rather than an invented one.
+- Treat `client` as evidence of *which* client, never as identity: a caller sets its own
+  `User-Agent`, and `X-Forwarded-For` is read but not trusted.
 
 ## 4. Running the whole thing locally
 

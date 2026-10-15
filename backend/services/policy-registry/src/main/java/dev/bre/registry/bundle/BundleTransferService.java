@@ -132,7 +132,7 @@ public class BundleTransferService {
    * @param bundleHash the content address
    * @return the document, or empty when this installation does not hold it
    */
-  public Optional<String> export(String tenantId, String bundleHash) {
+  public Optional<String> export(String tenantId, String actor, String bundleHash) {
     boolean known =
         Boolean.TRUE.equals(
             jdbc.queryForObject(
@@ -152,7 +152,22 @@ public class BundleTransferService {
       return Optional.empty();
     }
     try {
-      return Optional.of(Files.readString(file));
+      String document = Files.readString(file);
+      // Audited, and this is the one of the two directions that was not.
+      //
+      // An import was recorded because it brings an unreviewed policy in. An export was not — and
+      // an export sends a lender's complete, signed credit policy OUT of the installation: every
+      // threshold, every parameter value, every rule. That is the asset, and "who took a copy of
+      // it, when, from where" is a question that arrives after somebody has left the company.
+      // Recorded after the bytes are read, so a failed export is not recorded as a successful one.
+      audit.record(
+          tenantId,
+          actor,
+          "BUNDLE.EXPORTED",
+          "bundle",
+          bundleHash,
+          "{\"bytes\":" + document.length() + "}");
+      return Optional.of(document);
     } catch (IOException unreadable) {
       throw new PolicyVersionService.LifecycleException(
           "bundle " + bundleHash + " is recorded but its bytes could not be read.");

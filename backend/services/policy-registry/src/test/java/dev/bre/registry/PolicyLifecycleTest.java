@@ -840,6 +840,42 @@ class PolicyLifecycleTest {
 
   @Test
   @Order(19)
+  @DisplayName("19d. every entry records where it came from, and the chain covers it")
+  void auditRecordsProvenance() throws Exception {
+    // FR-AUD-005's "from where". It answers a different question from the rest of the entry: not
+    // "what did this person do" but "was it this person" — a reviewer's approval arriving from an
+    // address the lender does not operate from is the finding an audit trail exists to surface.
+    JsonNode entries = json(get("/v1/audit?action=POLICY_VERSION&limit=100", token));
+    assertThat(entries).isNotEmpty();
+    for (JsonNode entry : entries) {
+      assertThat(entry.get("sourceIp").asText())
+          .as("a policy change made over HTTP has a caller, and it is recorded")
+          .isNotBlank();
+      assertThat(entry.get("client").asText())
+          .as("which client sent it — evidence, not identity")
+          .isNotBlank();
+    }
+
+    // A SYSTEM entry has no caller, and says so rather than inventing one.
+    JsonNode scheduled = json(get("/v1/audit?action=DEPLOYMENT&limit=100", token));
+    for (JsonNode entry : scheduled) {
+      if ("SYSTEM".equals(entry.get("actorType").asText())) {
+        assertThat(entry.hasNonNull("sourceIp"))
+            .as("a scheduled activation has no caller: null is the honest answer")
+            .isFalse();
+      }
+    }
+
+    // The point of hashing it. V14 appends the two columns to the chain input, so a provenance
+    // field cannot be rewritten any more than an action can — and because concat_ws skips nulls,
+    // entries written before V14 still verify against the new expression.
+    assertThat(json(get("/v1/audit/verify", token)).get("intact").asBoolean())
+        .as("the chain still verifies with the provenance columns in the hash")
+        .isTrue();
+  }
+
+  @Test
+  @Order(19)
   @DisplayName("19c. a reviewer cannot read the audit trail: AUDIT_READ is its own grant")
   void auditNeedsItsOwnCapability() throws Exception {
     String reviewer =

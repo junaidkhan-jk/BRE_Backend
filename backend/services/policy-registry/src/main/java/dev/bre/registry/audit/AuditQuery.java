@@ -68,6 +68,11 @@ public class AuditQuery {
       // comes out as {"array":false,"object":true,"nodeType":"OBJECT",…}: every bean-style
       // accessor, and none of the data. Found by asserting on a field of it.
       Map<String, Object> detail,
+      // Where the request came from. Null for a SYSTEM entry — there was no caller.
+      String sourceIp,
+      // The client that sent it. Evidence of WHICH client, never a trusted identity: a caller
+      // sets its own User-Agent.
+      String client,
       String entryHash) {}
 
   /**
@@ -120,7 +125,8 @@ public class AuditQuery {
     return jdbc.query(
         """
         SELECT seq, occurred_at, actor, actor_type, action, subject_kind, subject_key,
-               detail, encode(entry_hash, 'hex') AS entry_hash
+               detail, host(source_ip) AS source_ip, client,
+               encode(entry_hash, 'hex') AS entry_hash
           FROM bre_ctl.audit_log
          WHERE tenant_id = ?
            AND (?::text IS NULL OR action = ?::text OR action LIKE ?::text || '.%')
@@ -142,6 +148,8 @@ public class AuditQuery {
                 rs.getString("subject_kind"),
                 rs.getString("subject_key"),
                 readDetail(rs.getString("detail")),
+                rs.getString("source_ip"),
+                rs.getString("client"),
                 rs.getString("entry_hash")),
         tenantId,
         filter.action(),
@@ -158,6 +166,54 @@ public class AuditQuery {
         filter.to(),
         filter.to(),
         limit);
+  }
+
+  /**
+   * Entries after a sequence number, oldest first — the {@code bre.studio.audit.v1} feed.
+   *
+   * <p><b>Ascending from a cursor, which is the opposite of {@link #list}.</b> That one serves a
+   * screen, where the newest entry is the one somebody wants; this one serves a consumer replaying
+   * a stream, where the oldest unseen entry is the only correct place to start.
+   *
+   * <p>{@code seq} is the cursor, and it is a better one than a timestamp or a generated id: the
+   * chain trigger assigns it under {@code FOR UPDATE} on the tenant's chain head, so it is gapless
+   * by construction. A consumer holding seq 400 knows it has seen everything up to 400 — and a gap
+   * it does encounter means somebody reached past the no-mutation triggers, which is a finding
+   * rather than a concurrent writer to wait for.
+   *
+   * @param tenantId the tenant
+   * @param sinceSeq return entries with a higher seq than this; 0 for the beginning
+   * @param limit how many at most
+   * @return the entries, oldest first
+   */
+  @Transactional(readOnly = true)
+  public List<Entry> since(String tenantId, long sinceSeq, int limit) {
+    return jdbc.query(
+        """
+        SELECT seq, occurred_at, actor, actor_type, action, subject_kind, subject_key,
+               detail, host(source_ip) AS source_ip, client,
+               encode(entry_hash, 'hex') AS entry_hash
+          FROM bre_ctl.audit_log
+         WHERE tenant_id = ? AND seq > ?
+         ORDER BY seq
+         LIMIT ?
+        """,
+        (rs, rowNum) ->
+            new Entry(
+                rs.getLong("seq"),
+                rs.getObject("occurred_at", OffsetDateTime.class),
+                rs.getString("actor"),
+                rs.getString("actor_type"),
+                rs.getString("action"),
+                rs.getString("subject_kind"),
+                rs.getString("subject_key"),
+                readDetail(rs.getString("detail")),
+                rs.getString("source_ip"),
+                rs.getString("client"),
+                rs.getString("entry_hash")),
+        tenantId,
+        sinceSeq,
+        Math.clamp(limit <= 0 ? 100 : limit, 1, MAX_LIMIT));
   }
 
   /**
@@ -188,7 +244,11 @@ public class AuditQuery {
                      tenant_id, seq::text,
                      to_char(occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
                      actor, actor_type, action, subject_kind, subject_key,
-                     detail::text), 'UTF8')), 'hex') AS recomputed,
+                     detail::text,
+                     -- Appended, exactly as V14's trigger appends them. concat_ws skips nulls, so
+                     -- an entry written before V14 recomputes to the same bytes it was written
+                     -- with and still verifies.
+                     source_ip::text, client), 'UTF8')), 'hex') AS recomputed,
                    encode(prev_hash, 'hex') AS prev_hash,
                    lag(encode(entry_hash, 'hex')) OVER (ORDER BY seq) AS previous_entry_hash
               FROM bre_ctl.audit_log

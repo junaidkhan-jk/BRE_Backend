@@ -63,6 +63,28 @@ bre:
     # day, so thirty seconds is already far finer than the requirement.
     activation-poll-ms: 30000
 
+  # bre.studio.audit.v1 — publishing the governance trail to a SIEM or a
+  # group-level audit system (M3-10, FR-AUD-005).
+  #
+  # OFF by default, and that is deliberate: an installation that has not named a
+  # consumer has none, and inventing one would send a lender's governance trail
+  # somewhere nobody chose. The trail is queryable at /v1/audit either way, and
+  # pullable at /v1/audit/events for a consumer that cannot accept a push.
+  studio-audit:
+    # CHANGE ME to the consumer's collector URL to turn publishing on. Blank
+    # publishes nothing.
+    endpoint: ""
+
+    # CHANGE ME. An Authorization header value for the consumer — and this is a
+    # SECRET: supply it as BRE_STUDIO_AUDIT_AUTHORIZATION in the environment, or
+    # from a mounted secret. It must not be committed.
+    authorization: ""
+
+    # Five seconds. A SIEM alerting on a policy approval is not a real-time
+    # system, and the poll is one indexed query per pass.
+    poll-ms: 5000
+    timeout-ms: 5000
+
   registry:
     # The cell this registry publishes manifests for (§8.1). A manifest is per
     # cell and monotonically versioned, so two registries writing to one cell

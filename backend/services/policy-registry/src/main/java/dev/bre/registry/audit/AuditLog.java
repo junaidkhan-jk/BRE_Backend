@@ -115,8 +115,8 @@ public class AuditLog {
         """
         INSERT INTO bre_ctl.audit_log (
             tenant_id, seq, occurred_at, actor, actor_type, action,
-            subject_kind, subject_key, detail, prev_hash, entry_hash)
-        VALUES (?, 0, now(), ?, ?, ?, ?, ?, ?::jsonb,
+            subject_kind, subject_key, detail, source_ip, client, prev_hash, entry_hash)
+        VALUES (?, 0, now(), ?, ?, ?, ?, ?, ?::jsonb, ?::inet, ?,
                 decode(repeat('00', 32), 'hex'), decode(repeat('00', 32), 'hex'))
         """,
         tenantId,
@@ -125,6 +125,65 @@ public class AuditLog {
         action,
         subjectKind,
         subjectKey,
-        detailJson);
+        detailJson,
+        callerIp(),
+        callerClient());
+  }
+
+  /**
+   * Where the current request came from, or null when there is no request.
+   *
+   * <p>Read from the request here rather than threaded through forty-seven call sites. The
+   * alternative — an ip parameter on every {@code record} — would be forty-seven places to forget
+   * it, and a provenance field that is present on most entries is worse than one that is absent
+   * from all of them, because its absence then reads as evidence rather than as an oversight.
+   *
+   * <p><b>{@code X-Forwarded-For} is read, and is NOT trusted as identity.</b> A caller can set any
+   * value in it, so what this records is "the chain of addresses the request claimed", evidence
+   * rather than proof — which is also true of the remote address itself behind a proxy. The
+   * left-most entry is taken because that is the convention, and the whole header is kept short
+   * enough that a forged thousand-hop chain cannot bloat the row.
+   *
+   * <p>A SYSTEM entry — a scheduled activation, the bootstrap — has no request and records null.
+   * That is the honest answer: there was no caller.
+   */
+  private static String callerIp() {
+    jakarta.servlet.http.HttpServletRequest request = currentRequest();
+    if (request == null) {
+      return null;
+    }
+    String forwarded = request.getHeader("X-Forwarded-For");
+    if (forwarded != null && !forwarded.isBlank()) {
+      String first = forwarded.split(",", 2)[0].trim();
+      // Validated as an address before it reaches an inet column, because the header is attacker
+      // controlled and a malformed value would fail the INSERT — turning a forged header into a
+      // way to stop an action being audited, which is the opposite of what this is for.
+      if (!first.isEmpty() && first.length() <= 45 && first.matches("[0-9a-fA-F.:]+")) {
+        return first;
+      }
+    }
+    return request.getRemoteAddr();
+  }
+
+  /** The User-Agent, truncated. Evidence of which client, never a trusted identity. */
+  private static String callerClient() {
+    jakarta.servlet.http.HttpServletRequest request = currentRequest();
+    if (request == null) {
+      return null;
+    }
+    String agent = request.getHeader("User-Agent");
+    if (agent == null || agent.isBlank()) {
+      return null;
+    }
+    return agent.length() > 400 ? agent.substring(0, 400) : agent;
+  }
+
+  private static jakarta.servlet.http.HttpServletRequest currentRequest() {
+    org.springframework.web.context.request.RequestAttributes attributes =
+        org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+    return attributes
+            instanceof org.springframework.web.context.request.ServletRequestAttributes servlet
+        ? servlet.getRequest()
+        : null;
   }
 }

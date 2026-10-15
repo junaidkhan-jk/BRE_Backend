@@ -78,6 +78,37 @@ public class AuditController {
   }
 
   /**
+   * The {@code bre.studio.audit.v1} feed: entries after a cursor, oldest first.
+   *
+   * <p><b>The pull half of M3-10.</b> The relay pushes to a configured consumer; this is for a
+   * consumer that would rather pull — a SIEM on a schedule, a group governance system behind a
+   * firewall that accepts no inbound connections, or an operator reconciling what was delivered.
+   * Both read the same rows, so neither can disagree with the other.
+   *
+   * <p><b>The cursor is a sequence number, not a timestamp.</b> Two entries can share a
+   * microsecond, and a timestamp cursor then either skips one or redelivers both forever. {@code
+   * seq} is assigned under {@code FOR UPDATE} on the tenant's chain head, so it is gapless: a
+   * consumer holding 400 knows it has everything, and a gap means somebody reached past the
+   * no-mutation triggers rather than that a writer is still in flight.
+   *
+   * <p>Reading does not consume. The relay's cursor is its own, in {@code studio_audit_delivery},
+   * and a pull consumer keeps its own.
+   *
+   * @param request the request
+   * @param since return entries after this sequence number; 0 or absent for the beginning
+   * @param limit how many at most, capped
+   * @return the entries, oldest first
+   */
+  @GetMapping("/events")
+  public List<AuditQuery.Entry> events(
+      HttpServletRequest request,
+      @RequestParam(defaultValue = "0") long since,
+      @RequestParam(defaultValue = "100") int limit) {
+    Principal caller = Authorisation.require(request, Role.Capability.AUDIT_READ);
+    return audit.since(caller.tenantId(), since, limit);
+  }
+
+  /**
    * Verifies the hash chain.
    *
    * @param request the request

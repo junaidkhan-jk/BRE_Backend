@@ -54,7 +54,7 @@ public class BundleController {
       HttpServletRequest request, @PathVariable String bundleHash) {
     Principal caller = Authorisation.require(request, Role.Capability.POLICY_READ);
     return transfer
-        .export(caller.tenantId(), bundleHash)
+        .export(caller.tenantId(), caller.subject(), bundleHash)
         .map(
             document ->
                 ResponseEntity.ok()
