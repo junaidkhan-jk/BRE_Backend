@@ -96,8 +96,8 @@
 
   <div class="totals">
     <div class="tot g"><b>39</b><span>done</span></div>
-    <div class="tot a"><b>8</b><span>partial — usable, not finished</span></div>
-    <div class="tot s"><b>21</b><span>not started</span></div>
+    <div class="tot a"><b>9</b><span>partial — usable, not finished</span></div>
+    <div class="tot s"><b>20</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
 
@@ -291,7 +291,7 @@
     <div class="ms__head">
       <div><span class="kicker">M5 — Rule Studio</span>
       <p class="ms__blurb">The front end. Five screens build and run over sample data.</p></div>
-      <div class="ms__counts"><span class="pill g">2 done</span><span class="pill a">4 partial</span><span class="pill s">4 pending</span></div>
+      <div class="ms__counts"><span class="pill g">2 done</span><span class="pill a">5 partial</span><span class="pill s">3 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M5-01</td><td class="ti">App shell — React, TypeScript, Vite, routing, role-aware navigation
@@ -307,7 +307,12 @@
       <tr><td class="id">M5-05</td><td class="ti">Test runner with coverage, simulation console
         <div class="no">The <b>run screen works</b>: pick a policy and version, paste facts, set the business date, and read which step drove the decision, which entity deviated, on what measure, and what approvals it would need. It replaced a mock that showed a hard-coded outcome mix after a 600&nbsp;ms timer — honest scaffolding with no backend, and the worst thing to leave in place once there is one. <b>The coverage panel is built</b> beside it: the version's figure against the tenant's threshold, the three kinds separately as well as pooled — a policy can sit at 85% overall while every row of one decision table is untested — and the uncovered rule branches, rows and bins listed by name, so the submit gate's refusal is explained before it happens rather than after. <b>Not built:</b> the portfolio back-test — running a policy over thousands of stored decisions is a job rather than a request, and needs M4's archive to replay against.</div></td>
         <td class="st"><span class="pill a">partial</span></td></tr>
-      <tr class="pend"><td class="id">M5-06</td><td class="ti">Review inbox, deployment console, rollback</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M5-06</td><td class="ti">Review inbox, deployment console, rollback
+        <div class="no"><b>Every endpoint behind these two screens already existed</b>, and all of them were reachable only by <code>curl</code> — which means the four-eyes control over what reaches production existed and nobody could exercise it. A control a person cannot reach is a control in name.
+        <p>The <b>review inbox</b> puts the evidence above the decision controls: the change note, the committee reference, the test results, the coverage figure against the tenant's minimum, and the uncovered items by name. A checker who has not seen whether the tests passed is not reviewing, they are clicking. Approve is <b>absent</b> when you are one of the authors — every editor, not just the creator, because a draft handed between two people must not become reviewable by either. It replaced a screen driven by a hard-coded array of three submissions with invented names and a badge count of 3.</p>
+        <p>The <b>deployment console</b> is built to make three things obvious, each a decision a lender is held to: how many approvals an environment needs, shown as a count against its requirement rather than a status word, since DEV needs none and PROD needs two; that a future effective date means SCHEDULED and not ACTIVE, because a policy scheduled for Monday that went live on Friday decided everything in between under the wrong rules; and that a rollback is a <em>new deployment</em>, so the one it replaced stays on the list with its own status and &ldquo;what was serving at 14:30 last Tuesday&rdquo; stays answerable.</p>
+        <p><b>Not built:</b> U13's live pod-convergence view — pods grouped by the bundle hash they are serving. That needs pods to report what they adopted, which is M4's telemetry.</p></div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
       <tr><td class="id">M5-07</td><td class="ti">Shared-asset screens
         <div class="no"><b>A maker-checker screen before it is an editor.</b> These are the thresholds, lists and authority bands policies decide by — not the rules — so the screen leads with the sentence that matters: nothing here affects a policy until a <em>second person</em> has approved it, and an approved asset is never edited in place. Approve is <b>absent</b> for the version's author rather than disabled, because a disabled button invites somebody to find the way around it.
         <p><b>Effective dating is shown as what it is: a table of dates.</b> A cap of ₹200,000 until 1 April and ₹300,000 after it is two rows, both true. Rendering only "the current value" would hide the row that keeps last month's decisions correct — which is the row an auditor asks about. The column header says "until (exclusive)", because whether a value ending 1 April still applies on 1 April is the one off-by-one here that changes a decision.</p>
@@ -425,7 +430,7 @@
         take unilaterally.</li>
   </ul>
 
-  <div class="foot">Generated from the repository · 53 commits · 667 tests passing · 9 October 2026</div>
+  <div class="foot">Generated from the repository · 54 commits · 667 tests passing · 9 October 2026</div>
 </div>
 </body>
 </html>
