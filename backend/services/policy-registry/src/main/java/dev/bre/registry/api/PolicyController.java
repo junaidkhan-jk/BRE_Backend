@@ -52,6 +52,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/v1/policies")
 public class PolicyController {
 
+  private static final com.fasterxml.jackson.databind.ObjectMapper JSON =
+      new com.fasterxml.jackson.databind.ObjectMapper();
+
   private final PolicyVersionService versions;
   private final PolicyVersionRepository repository;
   private final dev.bre.registry.policy.PolicyRunService runs;
@@ -233,6 +236,32 @@ public class PolicyController {
         .sourceOf(caller.tenantId(), policyCode, version)
         .map(ResponseEntity::ok)
         .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+  }
+
+  /**
+   * The compiled policy, as the studio renders it (U3, U5, U6, U7).
+   *
+   * <p>The IR rather than the source, because the source is YAML a person wrote and the IR is the
+   * structure the engine actually runs: every table's rows in order, every scorecard's bins, the
+   * flow's stages and their knockout markers. A grid drawn from the source would be a second
+   * parser, and the two would disagree first about the edge case nobody tested.
+   *
+   * <p>A {@code Map}, not a Jackson 2 node — Spring Boot 4 serialises HTTP with Jackson 3, to
+   * which a Jackson 2 node is an unrecognised POJO that comes out as every bean accessor and none
+   * of the data.
+   *
+   * @param request the request
+   * @param policyCode the policy
+   * @param version the version
+   * @return the IR
+   */
+  @GetMapping("/{policyCode}/versions/{version}/ir")
+  public Map<String, Object> ir(
+      HttpServletRequest request, @PathVariable String policyCode, @PathVariable int version) {
+    Principal caller = Authorisation.require(request, Role.Capability.POLICY_READ);
+    return JSON.convertValue(
+        requireIr(caller.tenantId(), policyCode, version),
+        new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
   }
 
   /**

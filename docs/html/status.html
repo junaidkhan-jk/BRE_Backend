@@ -96,8 +96,8 @@
 
   <div class="totals">
     <div class="tot g"><b>39</b><span>done</span></div>
-    <div class="tot a"><b>9</b><span>partial — usable, not finished</span></div>
-    <div class="tot s"><b>20</b><span>not started</span></div>
+    <div class="tot a"><b>10</b><span>partial — usable, not finished</span></div>
+    <div class="tot s"><b>19</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
 
@@ -291,7 +291,7 @@
     <div class="ms__head">
       <div><span class="kicker">M5 — Rule Studio</span>
       <p class="ms__blurb">The front end. Five screens build and run over sample data.</p></div>
-      <div class="ms__counts"><span class="pill g">2 done</span><span class="pill a">5 partial</span><span class="pill s">3 pending</span></div>
+      <div class="ms__counts"><span class="pill g">2 done</span><span class="pill a">6 partial</span><span class="pill s">2 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M5-01</td><td class="ti">App shell — React, TypeScript, Vite, routing, role-aware navigation
@@ -299,8 +299,11 @@
         <td class="st"><span class="pill a">partial</span></td></tr>
       <tr class="pend"><td class="id">M5-02</td><td class="ti">Monaco BEL language — highlighting, autocomplete, diagnostics
         <div class="no">Needs the §13.3 language service; Monaco without one is a 2 MB textarea.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M5-03</td><td class="ti">Decision-table grid, scorecard and flow editors
-        <div class="no">The grid needs M1-10 to know where the gaps are.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M5-03</td><td class="ti">Decision-table grid, scorecard and flow editors
+        <div class="no"><b>Read, and that is a decision rather than a shortcut.</b> U5 asks for a spreadsheet-like grid, and the valuable half of that is the gap highlighting and the row hit counts — not the typing. Editing here would mean generating the policy source back from the grid, and the source is where an author's comments live: the sentence explaining why a threshold is 21 and not 18 does not survive a round trip through the compiled form. Authoring stays in the source; this is where you see what it compiled to and what the checks found in it.
+        <p>Every diagnostic on the screen is computed by something that already existed. Gaps and overlaps are CHK-001/002 from the static checks, which report concrete witness tuples no row covers. Row hit counts come from the coverage probe, which records which rows <em>fired</em> rather than which merely matched — so a row that matched and lost to a FIRST hit policy is marked never fired, because nothing it says has ever affected an outcome. Both are already enforced at submit; this is where an author reads them against the grid instead of as a list of codes.</p>
+        <p>Also renders the flow with its knockout markers and aggregates (U7), scorecards with each bin's <em>shortfall against the best bin</em> — which is what orders the adverse reasons an applicant is told (U6) — and every rule with its missing-fact branch, the one authors forget and outages exercise. A new <code>GET …/versions/{n}/ir</code> serves the compiled policy, because a grid drawn from the source would be a second parser and the two would disagree first about the edge case nobody tested. <b>Not built:</b> editing, and the production hit-count overlay, which needs M4's decision archive.</p></div></td>
+        <td class="st"><span class="pill a">partial</span></td></tr>
       <tr><td class="id">M5-04</td><td class="ti">PSF diff, version history, clone
         <div class="no">The <b>compare screen is built</b>: pick two versions of a policy in either order, including a draft, and read what changed in the compiled policy before reading what changed in the text. &ldquo;No semantic changes&rdquo; is stated explicitly rather than left as an empty area — an empty panel and a panel that failed to load look identical, and the difference matters when the question is whether it is safe to approve. <b>History and clone are built.</b> The history sits on the same screen as the diff, because &ldquo;what changed&rdquo; and &ldquo;who changed it, when, and under what mandate&rdquo; are asked in the same breath: each version carries its change note, its committee reference, and both its editors and its approvers <em>as lists</em> — a draft handed between two people has two editors, segregation of duties is enforced against all of them, and showing only the creator would make a reviewer look independent when they were not. A clone copies the <b>source and the test cases</b>: rules without the assertions that check them produce a draft that compiles, has no tests, and cannot be submitted — and the source rather than the IR, because translation discards the comment explaining why a threshold is 21 rather than 18.</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
@@ -430,7 +433,7 @@
         take unilaterally.</li>
   </ul>
 
-  <div class="foot">Generated from the repository · 54 commits · 667 tests passing · 9 October 2026</div>
+  <div class="foot">Generated from the repository · 55 commits · 667 tests passing · 9 October 2026</div>
 </div>
 </body>
 </html>
