@@ -282,6 +282,12 @@ if $WITH_REGISTRY; then
     --bre.registry.bootstrap-admin-password="$ADMIN_PASSWORD" \
     --bre.registry.sandbox-enabled="$WITH_SANDBOX" \
     --bre.registry.sandbox-password=sandbox-password-1 \
+    `# The OpenAPI document and the Swagger UI, reachable without a session. On here and off by` \
+    `# default in application.yaml: locally it is the integration portal M6-05 asks for, and in a` \
+    `# deployment it is a complete inventory of the control plane handed to anybody who can reach` \
+    `# the port. Serve it from the gateway to named integrators there, or send them the committed` \
+    `# file in docs/api/ instead.` \
+    --bre.openapi.public=true \
     > "$VAR/policy-registry.log" 2>&1 &
   echo $! > "$REGISTRY_PID_FILE"
 
@@ -316,6 +322,7 @@ if $WITH_REGISTRY; then
     || { printf '%s\n' "$LOGIN"; tail -20 "$VAR/policy-registry.log"; \
          fail "the bootstrapped administrator could not sign in"; }
   log "administrator can sign in: $ADMIN_EMAIL"
+  log "API portal: http://127.0.0.1:$REGISTRY_PORT/swagger-ui.html (43 endpoints, no session needed)"
 fi
 
 log "starting decision-service on port $PORT"

@@ -52,6 +52,8 @@ dependencies {
     // Verifies an identity provider's JWTs (M3-09). Not the oauth2-resource-server starter — see
     // the note on the version in libs.versions.toml.
     implementation(libs.nimbus.jose.jwt)
+    // The OpenAPI document and the Swagger UI, generated from the mappings (M6-05).
+    implementation(libs.springdoc.webmvc.ui)
     runtimeOnly(libs.postgresql)
 
     testImplementation(platform("org.springframework.boot:spring-boot-dependencies:${libs.versions.spring.boot.get()}"))

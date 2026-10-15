@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.core.annotation.Order;
@@ -39,15 +40,41 @@ public class AuthFilter extends OncePerRequestFilter {
   private static final Set<String> OPEN_PATHS =
       Set.of("/v1/auth/login", "/actuator/health", "/error");
 
+  /**
+   * The API documentation, when it is published (M6-05).
+   *
+   * <p>Prefixes rather than exact paths, because the Swagger UI is a directory of assets. That is
+   * the reason it is a separate, CONFIGURABLE list rather than three more entries in {@code
+   * OPEN_PATHS} above: that set is exact-match and complete, and a prefix rule is a materially
+   * weaker thing — {@code /v3/api-docs} as a prefix also opens {@code /v3/api-docsanything}.
+   * Keeping them apart means the strong guarantee above stays strong and readable.
+   *
+   * <p><b>What this exposes, and the judgement.</b> The document is the API's SHAPE — paths,
+   * parameters, schemas — and never a lender's data; every endpoint it describes still requires a
+   * session and a capability. An integrator needs it, which is what M6-05 is for. But it is also a
+   * complete inventory of the control plane's attack surface handed to anybody who can reach the
+   * port, so it is off by default and {@code bre.openapi.public} turns it on. devstack turns it on;
+   * a production deployment should serve it from the gateway to named integrators, or leave it off
+   * and send them the file from {@code docs/api/}.
+   */
+  private static final List<String> DOC_PREFIXES =
+      List.of("/v3/api-docs", "/swagger-ui", "/swagger-ui.html");
+
   private final AuthService authService;
+  private final boolean publicDocs;
 
   /**
    * Creates the filter.
    *
    * @param authService resolves tokens
+   * @param publicDocs whether the OpenAPI document and Swagger UI are reachable without a session
    */
-  public AuthFilter(AuthService authService) {
+  public AuthFilter(
+      AuthService authService,
+      @org.springframework.beans.factory.annotation.Value("${bre.openapi.public:false}")
+          boolean publicDocs) {
     this.authService = authService;
+    this.publicDocs = publicDocs;
   }
 
   @Override
@@ -76,7 +103,7 @@ public class AuthFilter extends OncePerRequestFilter {
   private void filter(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
 
-    if (OPEN_PATHS.contains(request.getRequestURI())) {
+    if (OPEN_PATHS.contains(request.getRequestURI()) || isPublicDoc(request.getRequestURI())) {
       chain.doFilter(request, response);
       return;
     }
@@ -143,6 +170,10 @@ public class AuthFilter extends OncePerRequestFilter {
     FilterFailure(Exception cause) {
       super(cause);
     }
+  }
+
+  private boolean isPublicDoc(String uri) {
+    return publicDocs && DOC_PREFIXES.stream().anyMatch(uri::startsWith);
   }
 
   private static Optional<String> bearerToken(HttpServletRequest request) {

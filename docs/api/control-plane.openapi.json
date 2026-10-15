@@ -1,0 +1,2751 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "BRE Control Plane API",
+    "description" : "Authoring, reviewing, approving and deploying credit policy. This is the control plane — it is NOT the Decision API.\n\n**Two things to know before you integrate.**\n\n**1. This is not where decisions are made.** Decisions come from the decision-service (`POST /v1/decisions`), whose contract is published separately as `decision-api.openapi.yaml`. Everything here is about the policy a decision is made *with*. `POST /v1/policies/{code}/versions/{version}/run` looks like a decision endpoint and is not: it evaluates a DRAFT against facts you supply, stores nothing, and its result is not a decision anybody can be held to.\n\n**2. Authentication establishes who; authorisation comes from this installation.** Present either a session token from `POST /v1/auth/login` or your identity provider's JWT. In both cases the tenant and the roles come from this installation's own tables, never from a header or a token claim — so a valid IdP token for a subject nobody here has provisioned is a 401, not a 200 with no permissions. Every endpoint needs a specific capability, and a 403 names the one you are missing and which roles grant it.\n\n**Segregation of duties is enforced, not advisory.** A version's editor cannot review it; a deployment's approver can be neither the author, nor the reviewer, nor the requester. Those are database constraints and triggers, so a client that works around the UI still cannot work around them. Plan your integration test users accordingly — the commonest first failure is one service account trying to do all three.\n",
+    "version" : "0.1.0"
+  },
+  "servers" : [ {
+    "url" : "http://127.0.0.1:43889",
+    "description" : "Generated server url"
+  } ],
+  "security" : [ {
+    "bearer" : [ ]
+  } ],
+  "paths" : {
+    "/v1/policies/{policyCode}/versions/{version}/test-cases/{name}" : {
+      "put" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "upsertTestCase",
+        "parameters" : [ {
+          "name" : "policyCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "name",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TestCaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SavedVersion"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "deleteTestCase",
+        "parameters" : [ {
+          "name" : "policyCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "name",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SavedVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/policies/{policyCode}/versions/{version}/source" : {
+      "get" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "source",
+        "parameters" : [ {
+          "name" : "policyCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "save",
+        "parameters" : [ {
+          "name" : "policyCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "If-Match",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "text/plain" : {
+              "schema" : {
+                "type" : "string"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SavedVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assets/{kind}/{code}/versions/{version}" : {
+      "get" : {
+        "tags" : [ "asset-controller" ],
+        "operationId" : "read",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "PARAMETER_SET", "REFERENCE_LIST", "REASON_CODE_CATALOGUE", "AUTHORITY_MATRIX" ]
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetVersion"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "asset-controller" ],
+        "operationId" : "save_1",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "PARAMETER_SET", "REFERENCE_LIST", "REASON_CODE_CATALOGUE", "AUTHORITY_MATRIX" ]
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetVersion"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "asset-controller" ],
+        "operationId" : "discard",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "PARAMETER_SET", "REFERENCE_LIST", "REASON_CODE_CATALOGUE", "AUTHORITY_MATRIX" ]
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users" : {
+      "get" : {
+        "tags" : [ "user-admin-controller" ],
+        "operationId" : "list",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Profile"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "user-admin-controller" ],
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateUserRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CreatedUser"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users/{subject}/suspend" : {
+      "post" : {
+        "tags" : [ "user-admin-controller" ],
+        "operationId" : "suspend",
+        "parameters" : [ {
+          "name" : "subject",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/v1/users/{subject}/roles/{role}" : {
+      "post" : {
+        "tags" : [ "user-admin-controller" ],
+        "operationId" : "grant",
+        "parameters" : [ {
+          "name" : "subject",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "role",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "POLICY_AUTHOR", "POLICY_REVIEWER", "DEPLOYMENT_APPROVER", "RISK_ANALYST", "AUDITOR", "OPS_VIEWER", "TENANT_ADMIN", "PLATFORM_ADMIN" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "user-admin-controller" ],
+        "operationId" : "revoke",
+        "parameters" : [ {
+          "name" : "subject",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "role",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "POLICY_AUTHOR", "POLICY_REVIEWER", "DEPLOYMENT_APPROVER", "RISK_ANALYST", "AUDITOR", "OPS_VIEWER", "TENANT_ADMIN", "PLATFORM_ADMIN" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/v1/users/{subject}/reset-password" : {
+      "post" : {
+        "tags" : [ "user-admin-controller" ],
+        "operationId" : "resetPassword",
+        "parameters" : [ {
+          "name" : "subject",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CreatedUser"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users/{subject}/activate" : {
+      "post" : {
+        "tags" : [ "user-admin-controller" ],
+        "operationId" : "activate",
+        "parameters" : [ {
+          "name" : "subject",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/v1/policies" : {
+      "get" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "listPolicies",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "type" : "object",
+                    "additionalProperties" : {
+                      "type" : "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "createPolicy",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreatePolicyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/policies/{policyCode}/versions" : {
+      "get" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "listVersions",
+        "parameters" : [ {
+          "name" : "policyCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/HistoryEntry"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "createDraft",
+        "parameters" : [ {
+          "name" : "policyCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "cloneFrom",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SavedVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/policies/{policyCode}/versions/{version}/submit" : {
+      "post" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "submit",
+        "parameters" : [ {
+          "name" : "policyCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SubmitRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SavedVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/policies/{policyCode}/versions/{version}/run" : {
+      "post" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "run",
+        "parameters" : [ {
+          "name" : "policyCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RunRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Run"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/policies/{policyCode}/versions/{version}/reviews" : {
+      "post" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "review",
+        "parameters" : [ {
+          "name" : "policyCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReviewRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SavedVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/policies/{policyCode}/versions/{version}/discard" : {
+      "post" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "discard_1",
+        "parameters" : [ {
+          "name" : "policyCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SavedVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/policies/import" : {
+      "post" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "importPolicy",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ImportRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SavedVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/deployments" : {
+      "get" : {
+        "tags" : [ "deployment-controller" ],
+        "operationId" : "list_1",
+        "parameters" : [ {
+          "name" : "envCode",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Deployment"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "deployment-controller" ],
+        "operationId" : "request",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeployRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Deployment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/deployments/{deploymentId}/rollback" : {
+      "post" : {
+        "tags" : [ "deployment-controller" ],
+        "operationId" : "rollback",
+        "parameters" : [ {
+          "name" : "deploymentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RollbackRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Deployment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/deployments/{deploymentId}/cancel" : {
+      "post" : {
+        "tags" : [ "deployment-controller" ],
+        "operationId" : "cancel",
+        "parameters" : [ {
+          "name" : "deploymentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Deployment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/deployments/{deploymentId}/approvals" : {
+      "post" : {
+        "tags" : [ "deployment-controller" ],
+        "operationId" : "approve",
+        "parameters" : [ {
+          "name" : "deploymentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApprovalRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Deployment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bundles/import" : {
+      "post" : {
+        "tags" : [ "bundle-controller" ],
+        "operationId" : "importBundle",
+        "requestBody" : {
+          "content" : {
+            "application/vnd.bre.bundle+json" : {
+              "schema" : {
+                "type" : "string"
+              }
+            },
+            "application/json" : {
+              "schema" : {
+                "type" : "string"
+              }
+            },
+            "text/plain" : {
+              "schema" : {
+                "type" : "string"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Imported"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bel/completions" : {
+      "post" : {
+        "tags" : [ "bel-controller" ],
+        "operationId" : "completions",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CheckRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Completion"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bel/check" : {
+      "post" : {
+        "tags" : [ "bel-controller" ],
+        "operationId" : "check",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CheckRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Checked"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/password" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "changePassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PasswordChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/v1/auth/logout" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "logout",
+        "parameters" : [ {
+          "name" : "Authorization",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/v1/auth/login" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assets/{kind}/{code}/versions" : {
+      "post" : {
+        "tags" : [ "asset-controller" ],
+        "operationId" : "createDraft_1",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "PARAMETER_SET", "REFERENCE_LIST", "REASON_CODE_CATALOGUE", "AUTHORITY_MATRIX" ]
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "clone",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : true
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assets/{kind}/{code}/versions/{version}/submit" : {
+      "post" : {
+        "tags" : [ "asset-controller" ],
+        "operationId" : "submit_1",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "PARAMETER_SET", "REFERENCE_LIST", "REASON_CODE_CATALOGUE", "AUTHORITY_MATRIX" ]
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assets/{kind}/{code}/versions/{version}/reviews" : {
+      "post" : {
+        "tags" : [ "asset-controller" ],
+        "operationId" : "review_1",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "PARAMETER_SET", "REFERENCE_LIST", "REASON_CODE_CATALOGUE", "AUTHORITY_MATRIX" ]
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReviewRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tenant/settings" : {
+      "get" : {
+        "tags" : [ "tenant-settings-controller" ],
+        "operationId" : "read_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Settings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "tenant-settings-controller" ],
+        "operationId" : "update",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Change"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Settings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/policies/{policyCode}/versions/{version}" : {
+      "get" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "read_2",
+        "parameters" : [ {
+          "name" : "policyCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SavedVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/policies/{policyCode}/versions/{version}/ir" : {
+      "get" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "ir",
+        "parameters" : [ {
+          "name" : "policyCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/policies/{policyCode}/versions/{from}/diff/{to}" : {
+      "get" : {
+        "tags" : [ "policy-controller" ],
+        "operationId" : "diff",
+        "parameters" : [ {
+          "name" : "policyCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "from",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "to",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Diff"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/deployments/{deploymentId}" : {
+      "get" : {
+        "tags" : [ "deployment-controller" ],
+        "operationId" : "read_3",
+        "parameters" : [ {
+          "name" : "deploymentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Deployment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/deployments/schedule" : {
+      "get" : {
+        "tags" : [ "deployment-controller" ],
+        "operationId" : "schedule",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Deployment"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bundles/{bundleHash}" : {
+      "get" : {
+        "tags" : [ "bundle-controller" ],
+        "operationId" : "export",
+        "parameters" : [ {
+          "name" : "bundleHash",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/vnd.bre.bundle+json" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bel/grammar" : {
+      "get" : {
+        "tags" : [ "bel-controller" ],
+        "operationId" : "grammar",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "array",
+                    "items" : {
+                      "type" : "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/roles" : {
+      "get" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "roles",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/RoleDescription"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/me" : {
+      "get" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/audit" : {
+      "get" : {
+        "tags" : [ "audit-controller" ],
+        "operationId" : "list_2",
+        "parameters" : [ {
+          "name" : "action",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "subjectKind",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "subjectKey",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "actor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 100
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Entry"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/audit/verify" : {
+      "get" : {
+        "tags" : [ "audit-controller" ],
+        "operationId" : "verify",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Verification"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/audit/events" : {
+      "get" : {
+        "tags" : [ "audit-controller" ],
+        "operationId" : "events",
+        "parameters" : [ {
+          "name" : "since",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "default" : 0
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 100
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Entry"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assets" : {
+      "get" : {
+        "tags" : [ "asset-controller" ],
+        "operationId" : "list_3",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "PARAMETER_SET", "REFERENCE_LIST", "REASON_CODE_CATALOGUE", "AUTHORITY_MATRIX" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Header"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assets/{kind}/{code}/usage" : {
+      "get" : {
+        "tags" : [ "asset-controller" ],
+        "operationId" : "usage",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "PARAMETER_SET", "REFERENCE_LIST", "REASON_CODE_CATALOGUE", "AUTHORITY_MATRIX" ]
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Usage"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "TestCaseRequest" : {
+        "type" : "object",
+        "properties" : {
+          "asOf" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "facts" : { },
+          "expect" : { }
+        }
+      },
+      "CoverageView" : {
+        "type" : "object",
+        "properties" : {
+          "overallPercent" : {
+            "type" : "number"
+          },
+          "ruleStatusPercent" : {
+            "type" : "number"
+          },
+          "rowPercent" : {
+            "type" : "number"
+          },
+          "binPercent" : {
+            "type" : "number"
+          },
+          "ruleStatusesTotal" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "ruleStatusesCovered" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "rowsTotal" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "rowsCovered" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "binsTotal" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "binsCovered" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "uncoveredRuleStatuses" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "uncoveredRows" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "uncoveredBins" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "SavedVersion" : {
+        "type" : "object",
+        "properties" : {
+          "policyCode" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "IN_REVIEW", "APPROVED", "ARCHIVED", "DISCARDED" ]
+          },
+          "submissionRound" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bundleHash" : {
+            "type" : "string"
+          },
+          "compileOk" : {
+            "type" : "boolean"
+          },
+          "findings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "tests" : {
+            "$ref" : "#/components/schemas/TestResults"
+          },
+          "coverage" : {
+            "$ref" : "#/components/schemas/CoverageView"
+          },
+          "minCoveragePercent" : {
+            "type" : "number"
+          },
+          "changeNote" : {
+            "type" : "string"
+          },
+          "committeeReference" : {
+            "type" : "string"
+          },
+          "rowVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "TestResults" : {
+        "type" : "object",
+        "properties" : {
+          "total" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "passed" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "failures" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "AssetVersion" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "PARAMETER_SET", "REFERENCE_LIST", "REASON_CODE_CATALOGUE", "AUTHORITY_MATRIX" ]
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "contentHash" : {
+            "type" : "string"
+          },
+          "author" : {
+            "type" : "string"
+          },
+          "submissionRound" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "approvedAt" : {
+            "type" : "string"
+          },
+          "content" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "rowVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CreateUserRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "minLength" : 1
+          },
+          "fullName" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "POLICY_AUTHOR", "POLICY_REVIEWER", "DEPLOYMENT_APPROVER", "RISK_ANALYST", "AUDITOR", "OPS_VIEWER", "TENANT_ADMIN", "PLATFORM_ADMIN" ]
+            },
+            "uniqueItems" : true
+          },
+          "employeeRef" : {
+            "type" : "string"
+          },
+          "department" : {
+            "type" : "string"
+          },
+          "designation" : {
+            "type" : "string"
+          },
+          "phone" : {
+            "type" : "string"
+          },
+          "branchCode" : {
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "email", "fullName" ]
+      },
+      "CreatedUser" : {
+        "type" : "object",
+        "properties" : {
+          "subject" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "POLICY_AUTHOR", "POLICY_REVIEWER", "DEPLOYMENT_APPROVER", "RISK_ANALYST", "AUDITOR", "OPS_VIEWER", "TENANT_ADMIN", "PLATFORM_ADMIN" ]
+            },
+            "uniqueItems" : true
+          },
+          "initialPassword" : {
+            "type" : "string"
+          }
+        }
+      },
+      "CreatePolicyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "policyCode" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "name" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "stage" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "segment" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "name", "policyCode", "stage" ]
+      },
+      "SubmitRequest" : {
+        "type" : "object",
+        "properties" : {
+          "changeNote" : {
+            "type" : "string"
+          },
+          "committeeReference" : {
+            "type" : "string"
+          }
+        }
+      },
+      "RunRequest" : {
+        "type" : "object",
+        "properties" : {
+          "facts" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "asOf" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }
+      },
+      "EntityOutcome" : {
+        "type" : "object",
+        "properties" : {
+          "component" : {
+            "type" : "string"
+          },
+          "entity" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "effectiveStatus" : {
+            "type" : "string"
+          },
+          "reasonCode" : {
+            "type" : "string"
+          },
+          "measure" : {
+            "type" : "string"
+          },
+          "outputs" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "error" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Run" : {
+        "type" : "object",
+        "properties" : {
+          "policyCode" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "asOf" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "decision" : {
+            "type" : "string"
+          },
+          "stpEligible" : {
+            "type" : "boolean"
+          },
+          "steps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/StepOutcome"
+            }
+          },
+          "customerReasons" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "internalReasons" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "approvals" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "factWarnings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "assetsResolved" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "StepOutcome" : {
+        "type" : "object",
+        "properties" : {
+          "component" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "entities" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/EntityOutcome"
+            }
+          }
+        }
+      },
+      "ReviewRequest" : {
+        "type" : "object",
+        "properties" : {
+          "approve" : {
+            "type" : "boolean"
+          },
+          "comment" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ImportRequest" : {
+        "type" : "object",
+        "properties" : {
+          "policyCode" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "psf" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DeployRequest" : {
+        "type" : "object",
+        "properties" : {
+          "envCode" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "policyCode" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "mode" : {
+            "type" : "string",
+            "enum" : [ "CHAMPION", "CHALLENGER", "SHADOW" ]
+          },
+          "reason" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "expedited" : {
+            "type" : "boolean"
+          },
+          "effectiveFrom" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "envCode", "policyCode", "reason" ]
+      },
+      "Deployment" : {
+        "type" : "object",
+        "properties" : {
+          "deploymentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "envCode" : {
+            "type" : "string"
+          },
+          "policyCode" : {
+            "type" : "string"
+          },
+          "bundleHash" : {
+            "type" : "string"
+          },
+          "mode" : {
+            "type" : "string",
+            "enum" : [ "CHAMPION", "CHALLENGER", "SHADOW" ]
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "approvals" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "approvalsRequired" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "effectiveFrom" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "manifestVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "RollbackRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "reason" ]
+      },
+      "ApprovalRequest" : {
+        "type" : "object",
+        "properties" : {
+          "comment" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Imported" : {
+        "type" : "object",
+        "properties" : {
+          "bundleHash" : {
+            "type" : "string"
+          },
+          "policyCode" : {
+            "type" : "string"
+          },
+          "policyVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "originKid" : {
+            "type" : "string"
+          },
+          "countersignedBy" : {
+            "type" : "string"
+          }
+        }
+      },
+      "CheckRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expression" : {
+            "type" : "string"
+          },
+          "parameters" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "referenceLists" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "variables" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "Completion" : {
+        "type" : "object",
+        "properties" : {
+          "label" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "documentation" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Checked" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string"
+          },
+          "markers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Marker"
+            }
+          },
+          "ok" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Marker" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "severity" : {
+            "type" : "string"
+          },
+          "line" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "column" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PasswordChangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "currentPassword" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "newPassword" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "currentPassword", "newPassword" ]
+      },
+      "LoginRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "password" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "organisation" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "email", "password" ]
+      },
+      "LoginResponse" : {
+        "type" : "object",
+        "properties" : {
+          "token" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "subject" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "tenantId" : {
+            "type" : "string"
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "POLICY_AUTHOR", "POLICY_REVIEWER", "DEPLOYMENT_APPROVER", "RISK_ANALYST", "AUDITOR", "OPS_VIEWER", "TENANT_ADMIN", "PLATFORM_ADMIN" ]
+            },
+            "uniqueItems" : true
+          },
+          "capabilities" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "POLICY_EDIT", "POLICY_SUBMIT", "POLICY_REVIEW", "POLICY_READ", "TEST_EDIT", "SIMULATE", "DEPLOY_REQUEST", "DEPLOY_APPROVE", "DEPLOY_ROLLBACK", "DECISION_READ_MASKED", "DECISION_UNMASK", "AUDIT_READ", "USER_MANAGE", "ROLE_MANAGE", "TENANT_SETTINGS", "PLATFORM_MANAGE", "SOD_OVERRIDE" ]
+            },
+            "uniqueItems" : true
+          },
+          "mustChangePassword" : {
+            "type" : "boolean"
+          },
+          "canOverrideSegregationOfDuties" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Change" : {
+        "type" : "object",
+        "properties" : {
+          "minPolicyReviewers" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minCoveragePercent" : {
+            "type" : "number"
+          },
+          "allowAdminSodOverride" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Settings" : {
+        "type" : "object",
+        "properties" : {
+          "tenantId" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "timeZone" : {
+            "type" : "string"
+          },
+          "minPolicyReviewers" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minCoveragePercent" : {
+            "type" : "number"
+          },
+          "allowAdminSodOverride" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Profile" : {
+        "type" : "object",
+        "properties" : {
+          "subject" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "fullName" : {
+            "type" : "string"
+          },
+          "employeeRef" : {
+            "type" : "string"
+          },
+          "department" : {
+            "type" : "string"
+          },
+          "designation" : {
+            "type" : "string"
+          },
+          "phone" : {
+            "type" : "string"
+          },
+          "branchCode" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "POLICY_AUTHOR", "POLICY_REVIEWER", "DEPLOYMENT_APPROVER", "RISK_ANALYST", "AUDITOR", "OPS_VIEWER", "TENANT_ADMIN", "PLATFORM_ADMIN" ]
+            },
+            "uniqueItems" : true
+          },
+          "lastLoginAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "HistoryEntry" : {
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "bundleHash" : {
+            "type" : "string"
+          },
+          "basedOnVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "imported" : {
+            "type" : "boolean"
+          },
+          "submissionRound" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "changeNote" : {
+            "type" : "string"
+          },
+          "committeeReference" : {
+            "type" : "string"
+          },
+          "createdBy" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string"
+          },
+          "submittedAt" : {
+            "type" : "string"
+          },
+          "approvedAt" : {
+            "type" : "string"
+          },
+          "editors" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "approvers" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "Diff" : {
+        "type" : "object",
+        "properties" : {
+          "policyCode" : {
+            "type" : "string"
+          },
+          "fromVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "toVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "semantic" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Change"
+            }
+          },
+          "unified" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "textDiffSkipped" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "RoleDescription" : {
+        "type" : "object",
+        "properties" : {
+          "role" : {
+            "type" : "string",
+            "enum" : [ "POLICY_AUTHOR", "POLICY_REVIEWER", "DEPLOYMENT_APPROVER", "RISK_ANALYST", "AUDITOR", "OPS_VIEWER", "TENANT_ADMIN", "PLATFORM_ADMIN" ]
+          },
+          "capabilities" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "POLICY_EDIT", "POLICY_SUBMIT", "POLICY_REVIEW", "POLICY_READ", "TEST_EDIT", "SIMULATE", "DEPLOY_REQUEST", "DEPLOY_APPROVE", "DEPLOY_ROLLBACK", "DECISION_READ_MASKED", "DECISION_UNMASK", "AUDIT_READ", "USER_MANAGE", "ROLE_MANAGE", "TENANT_SETTINGS", "PLATFORM_MANAGE", "SOD_OVERRIDE" ]
+            },
+            "uniqueItems" : true
+          }
+        }
+      },
+      "Entry" : {
+        "type" : "object",
+        "properties" : {
+          "seq" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "actor" : {
+            "type" : "string"
+          },
+          "actorType" : {
+            "type" : "string"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "subjectKind" : {
+            "type" : "string"
+          },
+          "subjectKey" : {
+            "type" : "string"
+          },
+          "detail" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "sourceIp" : {
+            "type" : "string"
+          },
+          "client" : {
+            "type" : "string"
+          },
+          "entryHash" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Verification" : {
+        "type" : "object",
+        "properties" : {
+          "entries" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "intact" : {
+            "type" : "boolean"
+          },
+          "firstBrokenSeq" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "firstGapAfterSeq" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "headHash" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Header" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "PARAMETER_SET", "REFERENCE_LIST", "REASON_CODE_CATALOGUE", "AUTHORITY_MATRIX" ]
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "contentHash" : {
+            "type" : "string"
+          },
+          "author" : {
+            "type" : "string"
+          },
+          "submissionRound" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "approvedAt" : {
+            "type" : "string"
+          },
+          "rowVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Usage" : {
+        "type" : "object",
+        "properties" : {
+          "policyCode" : {
+            "type" : "string"
+          },
+          "policyVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "assetVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "policyStatus" : {
+            "type" : "string"
+          },
+          "liveEnvironments" : {
+            "type" : "string"
+          }
+        }
+      }
+    },
+    "securitySchemes" : {
+      "bearer" : {
+        "type" : "http",
+        "description" : "A session token from POST /v1/auth/login, or your identity provider's access token. Both go in the same header.",
+        "scheme" : "bearer"
+      }
+    }
+  }
+}
