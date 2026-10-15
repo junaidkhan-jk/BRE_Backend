@@ -239,6 +239,12 @@ if $WITH_REGISTRY; then
   fi
 
   log "starting policy-registry on port $REGISTRY_PORT"
+  # Truncated HERE, in the parent, before the child is forked. `nohup ... > file &` truncates in
+  # the CHILD, and the wait loop below can reach its first grep before that happens — so it
+  # matched the PREVIOUS run's "FIRST ADMINISTRATOR CREATED", decided the registry was ready at
+  # t=0, and curled a port nothing was listening on yet. The symptom was "the login request
+  # failed / connection refused" against a registry that was in fact starting normally.
+  : > "$VAR/policy-registry.log"
   nohup "$JAVA" -jar "$REGISTRY_JAR" \
     --server.port="$REGISTRY_PORT" \
     --spring.datasource.url="$PG_ADMIN_URL" \
@@ -275,26 +281,57 @@ if $WITH_REGISTRY; then
   grep -qE "FIRST ADMINISTRATOR CREATED|bootstrap skipped" "$VAR/policy-registry.log" \
     || { tail -40 "$VAR/policy-registry.log"; fail "the registry started but never bootstrapped"; }
 
-  # "It started" and "you can sign in" are different claims, so prove the second one.
-  LOGIN="$(curl -sS -X POST "http://127.0.0.1:$REGISTRY_PORT/v1/auth/login" \
-      -H 'Content-Type: application/json' \
-      -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}")" \
-    || fail "the login request failed"
+  # "It started" and "you can sign in" are different claims, so prove the second one. Retried,
+  # because the log line and the listening socket are not the same instant: a single-shot curl
+  # here reports a wrong password for a service that is two seconds from ready.
+  LOGIN=""
+  for _ in $(seq 1 30); do
+    LOGIN="$(curl -sS -X POST "http://127.0.0.1:$REGISTRY_PORT/v1/auth/login" \
+        -H 'Content-Type: application/json' \
+        -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}" 2>/dev/null)" || true
+    printf '%s' "$LOGIN" | grep -q '"token"' && break
+    sleep 1
+  done
   printf '%s' "$LOGIN" | grep -q '"token"' \
-    || { printf '%s\n' "$LOGIN"; fail "the bootstrapped administrator could not sign in"; }
+    || { printf '%s\n' "$LOGIN"; tail -20 "$VAR/policy-registry.log"; \
+         fail "the bootstrapped administrator could not sign in"; }
   log "administrator can sign in: $ADMIN_EMAIL"
 fi
 
 log "starting decision-service on port $PORT"
 JAR="$(ls "$ROOT"/backend/services/decision-service/build/libs/*.jar | grep -v plain | head -1)"
 
+# WHICH manifest the pod watches, and WHOSE signature it trusts, depend on who is publishing.
+#
+# Without --registry the CLI builds and signs the bundle and writes $VAR/manifest.json, so the pod
+# trusts the CLI's keys. With --registry the REGISTRY signs both, into $VAR/manifests/manifest.json
+# — a different file and a different pair of keys. Pointing the pod at the CLI's manifest in
+# registry mode is why a policy deployed through the API never reached it: everything worked and
+# the two halves were watching different files.
+if $WITH_REGISTRY; then
+  POD_MANIFEST="$VAR/manifests/manifest.json"
+  POD_MANIFEST_KEY="$(cat "$VAR/registry-manifest.x509")"
+  POD_BUNDLE_KID="reg-local-2026-01"                 # bre.registry.bundle-signing-kid's default
+  POD_BUNDLE_KEY="$(cat "$VAR/registry-bundle.x509")"
+  # The registry has published nothing yet, so the pod starts with no manifest and refuses every
+  # decision (§8.5) until e2e.sh deploys one. That is the correct behaviour, not a failure.
+  mkdir -p "$VAR/manifests"
+else
+  POD_MANIFEST="$VAR/manifest.json"
+  POD_MANIFEST_KEY="$(cat "$VAR/manifest-signing.x509")"
+  POD_BUNDLE_KID="$KID"
+  POD_BUNDLE_KEY="$(cat "$VAR/bundle-signing.x509")"
+fi
+
+# Same truncation, for the same reason: the loop below waits for a line in this file.
+: > "$VAR/decision-service.log"
 nohup "$JAVA" -jar "$JAR" \
   --server.port="$PORT" \
   --bre.env-code=LOCAL \
   --bre.policy.bundles="$VAR/bundles" \
-  --bre.policy.manifest="$VAR/manifest.json" \
-  --bre.policy.manifest-key="$(cat "$VAR/manifest-signing.x509")" \
-  --bre.policy.trusted-keys.$KID="$(cat "$VAR/bundle-signing.x509")" \
+  --bre.policy.manifest="$POD_MANIFEST" \
+  --bre.policy.manifest-key="$POD_MANIFEST_KEY" \
+  --bre.policy.trusted-keys.$POD_BUNDLE_KID="$POD_BUNDLE_KEY" \
   --bre.decision-log.mode=IN_MEMORY \
   > "$VAR/decision-service.log" 2>&1 &
 echo $! > "$PID_FILE"
@@ -307,6 +344,15 @@ for _ in $(seq 1 90); do
 done
 grep -q "Started DecisionServiceApplication" "$VAR/decision-service.log" \
   || { tail -40 "$VAR/decision-service.log"; fail "the service did not start in 90s"; }
+
+if $WITH_REGISTRY; then
+  # Nothing is deployed yet — the registry has published no manifest, so the pod is correctly
+  # refusing every decision. e2e.sh authors the policy through the API, approves it, deploys it,
+  # waits for the pod to adopt the manifest, and only then decides. That walk IS the test.
+  log "handing over to devstack/e2e.sh for the end-to-end walk"
+  echo
+  exec "$ROOT/devstack/e2e.sh"
+fi
 
 # "It started" and "it decides correctly" are different claims. Post all three reference
 # fixtures and print what came back: a devstack that comes up serving a policy that refers

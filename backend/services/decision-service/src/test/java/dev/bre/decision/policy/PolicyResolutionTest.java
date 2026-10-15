@@ -353,6 +353,63 @@ class PolicyResolutionTest {
       assertThat(source.refresh()).isFalse();
       assertThat(source.current()).as("§8.5: keep serving what we have").isPresent();
     }
+
+    /**
+     * The gap this closes: refresh() was called once, at startup, and never again.
+     *
+     * <p>Everything downstream worked — the registry published a signed manifest, the bundle was on
+     * disk, the signature verified — and a policy deployed through the registry still did not reach
+     * a running pod, because nothing looked at the file a second time. The only way to serve a
+     * newly approved policy was to restart the service, which is not a deployment mechanism.
+     */
+    @Test
+    @DisplayName("a running pod adopts a manifest published after it started (§8.2)")
+    void aRunningPodAdoptsANewManifest() throws IOException {
+      FilePointerSource source = pointerSource(false, true);
+      ManifestWatcher watcher = new ManifestWatcher(source);
+      assertThat(source.current().orElseThrow().manifestVersion()).isEqualTo(1L);
+
+      // A poll with nothing new must be a no-op: a watcher that re-adopted every tick would log
+      // an adoption every two seconds and make the log useless for "what changed when".
+      watcher.poll();
+      assertThat(source.current().orElseThrow().manifestVersion()).isEqualTo(1L);
+
+      writeManifestVersion(2L);
+      watcher.poll();
+      assertThat(source.current().orElseThrow().manifestVersion())
+          .as("the pod serves what the registry last published, without a restart")
+          .isEqualTo(2L);
+
+      // The watcher delegates every rule to the source rather than re-implementing any: an older
+      // version is still refused on the timer path, not only on the startup path.
+      writeManifestVersion(1L);
+      watcher.poll();
+      assertThat(source.current().orElseThrow().manifestVersion()).isEqualTo(2L);
+    }
+
+    /** An unreadable manifest must not stop a pod that is already serving one (§8.5). */
+    @Test
+    void theWatcherSurvivesAnUnreadableManifest() throws IOException {
+      FilePointerSource source = pointerSource(false, true);
+      ManifestWatcher watcher = new ManifestWatcher(source);
+      Files.writeString(tmp.resolve("manifest.json"), "{ not json");
+
+      watcher.poll();
+
+      assertThat(source.current().orElseThrow().manifestVersion()).isEqualTo(1L);
+    }
+
+    private void writeManifestVersion(long version) throws IOException {
+      ObjectNode root = MAPPER.createObjectNode();
+      root.put("format", PointerManifest.FORMAT)
+          .put("cellId", 7)
+          .put("manifestVersion", version)
+          .put("issuedAt", NOW.toString())
+          .putArray("entries");
+      Files.writeString(
+          tmp.resolve("manifest.json"),
+          PointerManifest.sign(root, "manifest-cell7", MANIFEST_KEY.getPrivate()).toString());
+    }
   }
 
   @Nested

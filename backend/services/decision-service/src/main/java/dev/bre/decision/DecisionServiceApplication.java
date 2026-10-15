@@ -11,6 +11,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * simplest thing that meets the latency budget without an async programming model.
  */
 @SpringBootApplication
+// The one timer in this service: ManifestWatcher adopts a newly published Active Pointer Manifest
+// (§8.2). Without this annotation the @Scheduled method is a method nobody calls, and a policy
+// deployed through the registry reaches this pod only when somebody restarts it.
+@org.springframework.scheduling.annotation.EnableScheduling
 @org.springframework.boot.context.properties.EnableConfigurationProperties(
     dev.bre.decision.policy.PolicyConfiguration.PolicyProperties.class)
 public class DecisionServiceApplication {
