@@ -81,7 +81,20 @@ public class AuthFilter extends OncePerRequestFilter {
       return;
     }
 
-    Optional<Principal> principal = bearerToken(request).flatMap(authService::resolve);
+    // Which resolver, decided by the SHAPE of the token rather than by trying both.
+    //
+    // A local session token is opaque base64 with no dots; a JWT is three dot-separated segments.
+    // Trying both would mean every expired IdP token also became a database lookup for a session
+    // that cannot exist — and, worse, that a local token was fed through JWT parsing, where a
+    // library's parse of attacker-supplied input is a surface worth not having. One shape, one
+    // path.
+    Optional<Principal> principal =
+        bearerToken(request)
+            .flatMap(
+                token ->
+                    OidcVerifier.looksLikeJwt(token)
+                        ? authService.resolveOidcToken(token)
+                        : authService.resolve(token));
     if (principal.isEmpty()) {
       // 401 with a problem body, and no detail about why. "Unknown token", "expired" and "revoked"
       // are all the same answer to a caller who should not have been here.

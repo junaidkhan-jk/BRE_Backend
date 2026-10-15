@@ -63,6 +63,38 @@ bre:
     # day, so thirty seconds is already far finer than the requirement.
     activation-poll-ms: 30000
 
+  # The identity provider (M3-09). OFF by default: with no issuer configured,
+  # sign-in uses the local account table, which is what devstack does and what
+  # the tests run against.
+  #
+  # The token establishes WHO; this installation still decides WHAT. Tenancy and
+  # roles come from the users and role_assignments tables keyed on the IdP's
+  # subject — never from a claim. Reading roles from a token would let whoever
+  # administers the directory grant DEPLOY_APPROVE on a lender's credit policy,
+  # without appearing in this system's audit trail and without the lender's own
+  # administrators being part of a decision 00 §3.3 says needs two of them.
+  #
+  # So an IdP user must be provisioned here before they can act. A valid token
+  # for an unknown subject is a 401, and the log says why.
+  oidc:
+    # CHANGE ME to your provider's issuer, e.g.
+    # https://login.microsoftonline.com/<tenant>/v2.0 or
+    # https://keycloak.yourbank.internal/realms/bre. Blank keeps OIDC off.
+    issuer-uri: ""
+
+    # Optional. Defaults to <issuer>/.well-known/jwks.json. Set it when your
+    # provider publishes keys elsewhere — Microsoft Entra and Keycloak both do.
+    # Deliberately NOT discovered from /.well-known/openid-configuration: that
+    # is a second network dependency at startup for one string an operator
+    # already knows, and a discovery document fetched over a compromised
+    # connection chooses the signing keys.
+    jwks-uri: ""
+
+    # CHANGE ME. The audience this service accepts — your client or API
+    # identifier. Blank accepts any audience, which means a token minted for a
+    # DIFFERENT service by the same provider is accepted here. Set it.
+    audience: ""
+
   # bre.studio.audit.v1 — publishing the governance trail to a SIEM or a
   # group-level audit system (M3-10, FR-AUD-005).
   #

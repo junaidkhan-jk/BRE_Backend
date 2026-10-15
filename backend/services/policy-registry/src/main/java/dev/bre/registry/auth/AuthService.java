@@ -55,6 +55,7 @@ public class AuthService {
   private final UserRepository users;
   private final AuditLog audit;
   private final TenantSession tenantSession;
+  private final OidcVerifier oidc;
 
   /**
    * Creates the service.
@@ -64,11 +65,14 @@ public class AuthService {
    * @param tenantSession binds the tenant to the transaction once the login has established it —
    *     the session row is under row-level security, and the connection was acquired before anybody
    *     knew which tenant to set
+   * @param oidc verifies an identity provider's tokens, when one is configured
    */
-  public AuthService(UserRepository users, AuditLog audit, TenantSession tenantSession) {
+  public AuthService(
+      UserRepository users, AuditLog audit, TenantSession tenantSession, OidcVerifier oidc) {
     this.users = users;
     this.audit = audit;
     this.tenantSession = tenantSession;
+    this.oidc = oidc;
   }
 
   /** A login was refused. Mapped to 401, with the same message every time. */
@@ -213,6 +217,45 @@ public class AuthService {
         .findBySubjectPreTenant(subject)
         .filter(user -> "ACTIVE".equals(user.status()))
         .map(this::principalOf);
+  }
+
+  /**
+   * Resolves an identity provider's token to a principal (M3-09).
+   *
+   * <p><b>The token establishes a subject; this installation decides the rest.</b> The tenant and
+   * the roles come from {@code users} and {@code role_assignments}, keyed on the subject the IdP
+   * authenticated — the same two tables a local sign-in reads, and the same rows. That is what the
+   * {@code subject} column was for.
+   *
+   * <p>A valid token for a subject with no active user row here resolves to empty, and the filter
+   * answers 401. Authenticated and provisioned for nothing is the correct outcome: a lender's
+   * administrators decide who may author and approve their credit policy, and reading roles out of
+   * a claim would move that decision to whoever administers the directory — who is not a
+   * credit-risk approver at any lender, and would not appear in this system's audit trail.
+   *
+   * <p>No session row is created. An IdP token is its own session with its own expiry and its own
+   * revocation; mirroring it here would produce two lifetimes for one login and a local session
+   * that outlives a revoked token.
+   *
+   * @param token the compact JWT
+   * @return the principal, or empty when the token does not verify or the subject is unknown here
+   */
+  public Optional<Principal> resolveOidcToken(String token) {
+    Optional<String> subject = oidc.verify(token);
+    if (subject.isEmpty()) {
+      return Optional.empty();
+    }
+    Optional<Principal> principal =
+        users
+            .findBySubjectPreTenant(subject.get())
+            .filter(user -> "ACTIVE".equals(user.status()))
+            .map(this::principalOf);
+    if (principal.isEmpty()) {
+      log.info(
+          "a valid identity-provider token presented a subject this installation has no active"
+              + " user for. Provision the user and grant roles before they can act.");
+    }
+    return principal;
   }
 
   /**

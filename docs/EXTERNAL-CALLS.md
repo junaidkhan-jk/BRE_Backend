@@ -68,7 +68,7 @@ not fetched at decision time, precisely so a replay cannot drift. §8.4.
 | 4 | **Bundle object storage** | S3 GET | out | decision-service | **A directory** (`FileBundleStore`), content-addressed by bundle hash |
 | 5 | **KMS / HSM** — sign bundles and manifests | KMS API | out | policy-registry | **A locally configured Ed25519 private key**, which logs a warning naming itself as a finding if it appears in a deployed environment |
 | 6 | **KMS / HSM** — wrap data keys (§9.2) | KMS API | out | decision-service | `LocalDevKms` — real AES-256-GCM key wrapping, not a pass-through, so the envelope format is genuinely exercised |
-| 7 | **Identity provider (OIDC)** | OIDC | out | policy-registry | **A local account table** (V8), keyed on the same `subject` column `role_assignments` already uses, so an IdP's subjects replace these rows without changing an authorisation rule |
+| 7 | **Identity provider (OIDC)** — JWKS fetch | HTTPS GET | out | policy-registry, only when `bre.oidc.issuer-uri` is set | Off by default: **a local account table** (V8), keyed on the same `subject` column `role_assignments` already uses, so an IdP's subjects replace these rows without changing an authorisation rule. With an issuer set, a JWT is verified against the published keys — and the roles still come from those tables, never from a claim. See §3c |
 | 7a | **Your downstream system** — the decision relay | HTTPS POST, CloudEvents | **out** | decision-service, only when `bre.outbox.endpoint` is set | Off by default. Any HTTP endpoint; the end-to-end test uses a real `HttpServer` |
 | 7b | **Your SIEM or group audit system** — the studio audit relay | HTTPS POST, CloudEvents | **out** | policy-registry, only when `bre.studio-audit.endpoint` is set | Off by default. Any HTTP endpoint; the end-to-end test uses a real `HttpServer` |
 | 8 | **A tenant's shared assets** — parameter sets, reference lists, reason codes, authority matrices | JDBC 5432 | out | policy-registry | The same embedded PostgreSQL. **APPROVED versions only**, which is how AC-MODEL-007 is enforced. An `assets-<tenant>.json` file is the offline fallback for `bre psf bundle --assets`, and the registry logs when a threshold came from one |
@@ -244,6 +244,58 @@ flight. Reading does not consume: the relay's cursor is its own.
   no caller, and null is the honest answer rather than an invented one.
 - Treat `client` as evidence of *which* client, never as identity: a caller sets its own
   `User-Agent`, and `X-Forwarded-For` is read but not trusted.
+
+## 3c. Signing in with your identity provider
+
+```yaml
+bre:
+  oidc:
+    issuer-uri: https://login.microsoftonline.com/<tenant>/v2.0
+    jwks-uri: ""            # optional; defaults to <issuer>/.well-known/jwks.json
+    audience: bre-policy-registry
+```
+
+Present the IdP's access token as `Authorization: Bearer <jwt>`. The local password sign-in keeps
+working alongside it — a break-glass local administrator is what gets you back in when the IdP
+itself is the outage.
+
+### The one thing to understand before you configure it
+
+**Your identity provider says who someone is. BRE says what they may do.**
+
+The token is used for exactly one thing: establishing a `sub`. The tenant and the roles then come
+from `users` and `role_assignments` in this installation, keyed on that subject.
+
+Roles are **not** read from a claim, and that is deliberate. If they were, whoever administers your
+directory could grant `DEPLOY_APPROVE` on a lender's credit policy by editing a group mapping —
+without appearing in this system's audit trail, and without the lender's own administrators being
+part of a decision 00 §3.3 says needs two of them. A directory administrator is not a credit-risk
+approver, and at no lender are those the same team.
+
+The consequence, which will be the first thing you hit: **an IdP user must be provisioned here
+before they can act.** A valid token for an unknown subject gets a 401, and the log says so. The
+`sub` your provider issues must match the `subject` column — if it issues opaque identifiers rather
+than usernames, updating that column once is the migration, not re-granting every role.
+
+### What is checked, and what happens if you leave a setting blank
+
+| | |
+|---|---|
+| Signature | Against the keys at the JWKS endpoint. Asymmetric algorithms only (RS/ES 256/384/512) — an allow-list, because `alg: none` and the HMAC-with-the-public-key confusion are both long-standing JWT attacks |
+| `iss` | Must equal `issuer-uri` exactly |
+| `aud` | Must contain `audience`. **Leave `audience` blank and any audience is accepted** — meaning a token your provider minted for the staff directory would author credit policy. Set it |
+| `exp` | Required, not merely checked when present. A token with no expiry is not a session, it is a key somebody emailed. 30 s clock skew |
+| `sub` | Required, and must resolve to an ACTIVE user row here |
+
+Verification is nimbus-jose-jwt's — the same library Spring Security uses underneath — including
+the JWKS cache and rate limiter, so a burst of tokens with an unknown `kid` cannot be turned into a
+burst of outbound requests at your IdP. What this codebase owns is the policy above, not any
+crypto.
+
+`spring-boot-starter-oauth2-resource-server` is deliberately not used: it installs its own filter
+chain and authorisation model, and this service checks capabilities explicitly in each method body
+(see `Authorisation.java`). Two mechanisms deciding who may call what is a defect waiting for the
+day they disagree.
 
 ## 4. Running the whole thing locally
 

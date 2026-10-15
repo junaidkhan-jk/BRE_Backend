@@ -36,6 +36,13 @@ opentelemetry = "1.66.0"
 
 # --- services (M2 onwards) ---
 spring-boot = "4.1.1"
+# JWT verification for a real identity provider (M3-09). The LIBRARY, not Spring Security's
+# resource-server starter: that starter installs its own filter chain, and this service
+# deliberately checks authorisation explicitly at every endpoint rather than declaratively (see
+# Authorisation.java) — two mechanisms deciding who may call what is a defect waiting to happen.
+# nimbus-jose-jwt is what Spring Security itself uses underneath, so the crypto, the JWKS fetch
+# and the claim validation are all the library's and none of them is hand-rolled here.
+nimbus-jose-jwt = "10.10"
 postgresql = "42.7.9"
 flyway = "13.10.0"
 # Real PostgreSQL binaries for integration tests. The dev host has no Docker, so Testcontainers
@@ -63,6 +70,7 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
 archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
 jazzer-junit = { module = "com.code-intelligence:jazzer-junit", version.ref = "jazzer" }
 slf4j-nop = { module = "org.slf4j:slf4j-nop", version = "2.0.17" }
 jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }

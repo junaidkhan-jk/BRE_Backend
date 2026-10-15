@@ -49,6 +49,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-flyway")
     implementation(libs.flyway.core)
     implementation(libs.flyway.postgresql)
+    // Verifies an identity provider's JWTs (M3-09). Not the oauth2-resource-server starter — see
+    // the note on the version in libs.versions.toml.
+    implementation(libs.nimbus.jose.jwt)
     runtimeOnly(libs.postgresql)
 
     testImplementation(platform("org.springframework.boot:spring-boot-dependencies:${libs.versions.spring.boot.get()}"))
@@ -56,6 +59,10 @@ dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj)
+    // The test mints its own RSA-signed JWTs and serves its own JWKS, so a forged signature, a
+    // wrong issuer and a wrong audience are each refused by the real verifier rather than by a
+    // stub asserting my assumptions.
+    testImplementation(libs.nimbus.jose.jwt)
     testRuntimeOnly(libs.junit.platform.launcher)
 
     // Runs a REAL PostgreSQL. This host has no Docker, so Testcontainers is not an option
