@@ -165,9 +165,9 @@ public class OutboxDecisionLog implements DecisionLog {
           statement.setInt(index++, (int) record.latencyMicros());
           statement.setString(index++, response.decision());
           statement.setBoolean(index++, response.stpEligible());
-          statement.setArray(index++, textArray(reasonCodes(response)));
-          statement.setArray(index++, textArray(List.of()));
-          statement.setArray(index++, textArray(List.of()));
+          statement.setArray(index++, textArray(statement, reasonCodes(response)));
+          statement.setArray(index++, textArray(statement, List.of()));
+          statement.setArray(index++, textArray(statement, List.of()));
           statement.setShort(index++, (short) errorCount(response));
           statement.setLong(index++, record.fuelUsed());
           statement.setString(index, writeJson(response.results()));
@@ -402,20 +402,32 @@ public class OutboxDecisionLog implements DecisionLog {
     return (int) response.results().stream().filter(result -> result.error() != null).count();
   }
 
-  private java.sql.Array textArray(List<String> values) throws SQLException {
-    return jdbc.getDataSource()
-        .getConnection()
-        .createArrayOf("text", values.toArray(String[]::new));
+  /**
+   * Builds a {@code text[]} on the statement's own connection.
+   *
+   * <p><b>This used to call {@code jdbc.getDataSource().getConnection()}</b> — a second, borrowed,
+   * never-closed connection, three times per decision. Sixteen pooled connections therefore
+   * survived five decisions: a burst returned {@code Connection is not available, request timed out
+   * ... (total=16, active=16)} and the decision API answered 500 for decisions the engine had
+   * already made correctly. The statement already holds the connection this insert is running on,
+   * and an array created there is freed with the statement.
+   */
+  private static java.sql.Array textArray(PreparedStatement statement, List<String> values)
+      throws SQLException {
+    return statement.getConnection().createArrayOf("text", values.toArray(String[]::new));
   }
 
   private String writeJson(Object value) {
     try {
       return objectMapper.writeValueAsString(value);
     } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-      // Never put the value in the message: for the facts payload that would be the PII leak §9.6
-      // forbids, and the type name is enough to find the offending class.
+      // Never put the VALUE in the message: for the facts payload that would be the PII leak §9.6
+      // forbids. The CAUSE is kept, though — Jackson's own message names the type and the problem
+      // and never the data, and dropping it left "could not serialise DecisionResponse" as the
+      // only evidence of a failure that took a rebuild to identify.
       throw new IllegalStateException(
-          "could not serialise " + value.getClass().getSimpleName() + " for the decision record");
+          "could not serialise " + value.getClass().getSimpleName() + " for the decision record",
+          e);
     }
   }
 

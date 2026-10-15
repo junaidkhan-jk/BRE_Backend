@@ -99,6 +99,9 @@ class OutboxRelayTest {
     ids.clear();
     status.set(200);
     jdbc.update("DELETE FROM bre_dec.outbox");
+    // The lease too: a test that left one held would make the next test's drain a no-op, and the
+    // failure would look like "the relay delivered nothing" rather than "the lease was stale".
+    jdbc.update("DELETE FROM bre_dec.outbox_lease");
   }
 
   private OutboxRelay relay(String endpoint, int maxAttempts) {
@@ -108,7 +111,8 @@ class OutboxRelayTest {
         endpoint,
         "Bearer test-token",
         maxAttempts,
-        2000);
+        2000,
+        "test-instance");
   }
 
   /** Writes an outbox row the way OutboxDecisionLog does, without needing a whole decision. */
@@ -295,6 +299,81 @@ class OutboxRelayTest {
     // the decisions wait, available over the fetch API, rather than being discarded.
     assertThat(pending()).isEqualTo(1);
     assertThat(deadLettered()).isZero();
+  }
+
+  @Test
+  @DisplayName("a tenant is leased, so a second instance drains nothing while the first holds it")
+  void oneDrainerPerTenant() {
+    enqueue("APP-LEASE", "APPROVE");
+    // Two instances, as two pods would be. The lease is what keeps one application's decisions in
+    // order across them — without it, the second could deliver a later decision first.
+    OutboxRelay first = relay("http://127.0.0.1:" + port + "/decisions", 12);
+    OutboxRelay second =
+        new OutboxRelay(
+            jdbc,
+            new DataSourceTransactionManager(dataSource),
+            "http://127.0.0.1:" + port + "/decisions",
+            "",
+            12,
+            2000,
+            "other-instance");
+
+    // Hold the lease by hand, as a pod mid-delivery would.
+    jdbc.update(
+        "INSERT INTO bre_dec.outbox_lease (tenant_id, leased_by, leased_until)"
+            + " VALUES (?, 'other-instance', now() + interval '60 seconds')",
+        TENANT);
+
+    first.deliverFor(TENANT);
+    assertThat(received)
+        .as("the lease is held elsewhere, so this instance delivers nothing")
+        .isEmpty();
+    assertThat(pending()).isEqualTo(1);
+
+    // An expired lease is free. A pod that dies mid-drain blocks its tenant only until then,
+    // which is why the lease is short and renewed rather than long and optimistic.
+    jdbc.update("UPDATE bre_dec.outbox_lease SET leased_until = now() - interval '1 second'");
+    first.deliverFor(TENANT);
+
+    assertThat(received).hasSize(1);
+    assertThat(pending()).isZero();
+
+    // And it is released afterwards rather than left to expire, so the next pass picks the tenant
+    // straight up instead of waiting out a minute.
+    enqueue("APP-LEASE-2", "DECLINE");
+    second.deliverFor(TENANT);
+    assertThat(received).as("the first instance released it, so another can drain").hasSize(2);
+  }
+
+  @Test
+  @DisplayName("no database connection is held across the delivery")
+  void noConnectionHeldAcrossTheCall() {
+    // The defect this replaced: the relay took a transaction-scoped advisory lock, which meant
+    // holding a connection for the whole HTTP call. A burst of decisions against a healthy
+    // receiver exhausted all sixteen connections and the decision API returned 500s for decisions
+    // the engine had already made correctly.
+    //
+    // Asserted by making the receiver slow and doing database work from this thread while the
+    // relay is mid-delivery. With a connection held per in-flight event, a small pool starves.
+    for (int i = 0; i < 6; i++) {
+      enqueue("APP-POOL-" + i, "APPROVE");
+    }
+    OutboxRelay relay = relay("http://127.0.0.1:" + port + "/decisions", 12);
+
+    Thread drain = new Thread(() -> relay.deliverFor(TENANT));
+    drain.start();
+    for (int i = 0; i < 20 && drain.isAlive(); i++) {
+      // Any query will do: the point is that the pool can still serve one.
+      assertThat(jdbc.queryForObject("SELECT 1", Integer.class)).isEqualTo(1);
+    }
+    try {
+      drain.join(30_000);
+    } catch (InterruptedException interrupted) {
+      Thread.currentThread().interrupt();
+    }
+
+    assertThat(received).hasSize(6);
+    assertThat(pending()).isZero();
   }
 
   @Test

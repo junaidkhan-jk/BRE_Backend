@@ -38,6 +38,14 @@ dependencies {
     // Compact mode (D6): PostgreSQL-first with a transactional outbox.
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     runtimeOnly(libs.postgresql)
+    // Spring Boot 4 split the monolithic autoconfigure module: Flyway's auto-configuration lives
+    // in its own artifact now, and without it flyway-core sits on the classpath and never runs.
+    // The registry hit this and was fixed; THIS service was missed, and nothing caught it —
+    // every test that exercises bre_dec configures Flyway by hand, so the one path that relies on
+    // the auto-configuration is the deployed one. The symptom is silent: POSTGRES mode starts
+    // cleanly, no migration runs, and the first query fails with "relation does not exist" while
+    // the scripts are perfectly fine.
+    implementation("org.springframework.boot:spring-boot-flyway")
     implementation(libs.flyway.core)
     runtimeOnly(libs.flyway.postgresql)
 

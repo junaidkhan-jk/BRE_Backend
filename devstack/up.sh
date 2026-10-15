@@ -9,6 +9,10 @@
 #   ./devstack/up.sh            build, seed, start, and prove it decides
 #   ./devstack/up.sh --registry  also start PostgreSQL and the policy registry, with an admin
 #                                account you can sign in to the studio with
+#   ./devstack/up.sh --deliver   as --registry, plus a DURABLE decision log and delivery: a
+#                                stand-in downstream system is started and the relay pushes every
+#                                decision to it. Then ./devstack/deliver-demo.sh shows push and
+#                                fetch working, including what happens when the downstream breaks.
 #   ./devstack/up.sh --sandbox   as --registry, plus a `sandbox` tenant with one account per role
 #                                (author, reviewer, approver, viewer, auditor) so maker-checker can
 #                                be walked without creating accounts by hand. Password is printed
@@ -34,6 +38,9 @@ KID="devstack-2026"
 PID_FILE="$VAR/decision-service.pid"
 REGISTRY_PID_FILE="$VAR/policy-registry.pid"
 POSTGRES_PID_FILE="$VAR/postgres.pid"
+# Declared here with the others rather than beside its flag: stop() reads it, and stop() runs
+# before the flag parsing does when a previous instance is still up.
+RECEIVER_PID_FILE="$VAR/receiver.pid"
 PG_PROPERTIES="$VAR/postgres.properties"
 REGISTRY_PORT="${BRE_REGISTRY_PORT:-8081}"
 ADMIN_EMAIL="${BRE_ADMIN_EMAIL:-admin@lender.local}"
@@ -57,6 +64,7 @@ stop_pid() {
 }
 
 stop() {
+  stop_pid "$RECEIVER_PID_FILE" "the stand-in downstream"
   stop_pid "$REGISTRY_PID_FILE" "policy-registry"
   # PostgreSQL last: the registry holds connections to it, and killing the database first makes
   # the service log a wall of connection errors on its way out.
@@ -105,9 +113,15 @@ JAVA="${JAVA_HOME:+$JAVA_HOME/bin/}java"
 # knows about the most recent run, so match on the jar as well.
 WITH_REGISTRY=false
 WITH_SANDBOX=false
+WITH_DELIVERY=false
+RECEIVER_PORT="${BRE_RECEIVER_PORT:-9099}"
 for arg in "$@"; do
   case "$arg" in
     --registry) WITH_REGISTRY=true ;;
+    # Durable decision log plus delivery: the decision service runs in POSTGRES mode (which is
+    # what creates outbox rows at all), a stand-in downstream system is started, and the relay is
+    # pointed at it. Then both ways out of the outbox can be shown working.
+    --deliver)  WITH_REGISTRY=true; WITH_DELIVERY=true ;;
     # Seeds the `sandbox` tenant with one account per role, so maker-checker can be walked without
     # creating accounts by hand. Separate from --registry because it is a different decision: the
     # registry is infrastructure, five accounts sharing a password is a test fixture.
@@ -122,6 +136,12 @@ if [[ -f "$PID_FILE" ]] || pgrep -f "decision-service.jar" >/dev/null 2>&1 \
   pkill -f "decision-service.jar" 2>/dev/null || true
   pkill -f "policy-registry.jar" 2>/dev/null || true
   pkill -f "EmbeddedPostgresMain" 2>/dev/null || true
+  # The database runs as a Gradle task, so a stale run survives as a wrapper process rather than
+  # anything named after PostgreSQL. Missing it cost an hour: stop() killed the pid it recorded,
+  # the three-hour-old wrapper from an earlier run kept the port, and the new devPostgres died
+  # with "finished with non-zero exit value 143" — which reads like a crash, not a port clash.
+  pkill -f "devPostgres" 2>/dev/null || true
+  pkill -f "devstack/receiver.py" 2>/dev/null || true
   sleep 1
 fi
 
@@ -323,6 +343,34 @@ else
   POD_BUNDLE_KEY="$(cat "$VAR/bundle-signing.x509")"
 fi
 
+if $WITH_DELIVERY; then
+  log "starting the stand-in downstream system on port $RECEIVER_PORT"
+  nohup python3 "$ROOT/devstack/receiver.py" "$RECEIVER_PORT" > "$VAR/receiver.out" 2>&1 &
+  echo $! > "$RECEIVER_PID_FILE"
+  for _ in $(seq 1 30); do
+    grep -q "receiver listening" "$VAR/receiver.out" 2>/dev/null && break
+    sleep 1
+  done
+  grep -q "receiver listening" "$VAR/receiver.out" \
+    || { cat "$VAR/receiver.out"; fail "the stand-in downstream did not start"; }
+
+  # POSTGRES mode is what creates outbox rows: IN_MEMORY has no outbox, so there is nothing to
+  # deliver. Migrated as the superuser for the same reason bre_ctl is.
+  DECISION_LOG_ARGS=(
+    --bre.decision-log.mode=POSTGRES
+    --spring.datasource.url="$PG_ADMIN_URL"
+    --spring.datasource.username=postgres
+    --spring.datasource.password=
+    --spring.flyway.enabled=true
+    --bre.outbox.endpoint="http://127.0.0.1:$RECEIVER_PORT/decisions"
+    --bre.outbox.authorization="Bearer devstack-downstream-token"
+    --bre.outbox.poll-ms=1000
+    --bre.outbox.max-attempts=4
+  )
+else
+  DECISION_LOG_ARGS=(--bre.decision-log.mode=IN_MEMORY)
+fi
+
 # Same truncation, for the same reason: the loop below waits for a line in this file.
 : > "$VAR/decision-service.log"
 nohup "$JAVA" -jar "$JAR" \
@@ -332,7 +380,7 @@ nohup "$JAVA" -jar "$JAR" \
   --bre.policy.manifest="$POD_MANIFEST" \
   --bre.policy.manifest-key="$POD_MANIFEST_KEY" \
   --bre.policy.trusted-keys.$POD_BUNDLE_KID="$POD_BUNDLE_KEY" \
-  --bre.decision-log.mode=IN_MEMORY \
+  "${DECISION_LOG_ARGS[@]}" \
   > "$VAR/decision-service.log" 2>&1 &
 echo $! > "$PID_FILE"
 

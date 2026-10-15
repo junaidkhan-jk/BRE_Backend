@@ -36,11 +36,21 @@ import org.springframework.transaction.support.TransactionTemplate;
  * receiver is expected to deduplicate on it. A downstream team that assumes exactly-once will build
  * a double disbursement, so it is stated in the event, in the docs, and here.
  *
- * <p><b>Order is preserved per tenant, by taking one advisory lock per tenant.</b> The obvious
- * {@code FOR UPDATE SKIP LOCKED} would let a second pod skip past a row the first is retrying and
- * deliver a later decision for the same application first — so a downstream system could see an
- * approval superseded by a decline that was made before it. One drainer per tenant costs
- * parallelism across pods and buys an ordering guarantee worth more than it.
+ * <p><b>Order is preserved per tenant, by a LEASE rather than a lock.</b> One drainer per tenant is
+ * the guarantee that matters: two pods draining one tenant could deliver a later decision for the
+ * same application before an earlier one, so a downstream could see an approval superseded by a
+ * decline that was made before it — a wrong answer, not merely an out-of-order one.
+ *
+ * <p>The first version took a transaction-scoped advisory lock, which meant <b>holding a database
+ * connection across the HTTP call</b>. That is how a connection pool dies, and it was observed
+ * rather than theorised: a burst of decisions against a healthy receiver exhausted all sixteen
+ * connections, and the decision API returned 500s for decisions the engine had already made
+ * correctly. A slow downstream would be worse — a five-second timeout across a batch of fifty is
+ * over four minutes with one connection pinned.
+ *
+ * <p>So the drain is three separate, short pieces of database work: claim the tenant, deliver with
+ * <b>nothing held</b>, record each outcome. A pod that dies mid-drain leaves a lease that expires
+ * rather than a lock that needs a human.
  *
  * <p><b>This is the only outbound network call in the whole application</b>, and it is off by
  * default. Everything else BRE does is facts-in, decision-out: it never calls a bureau, a KYC
@@ -61,6 +71,15 @@ public class OutboxRelay {
    */
   private static final int BATCH = 50;
 
+  /**
+   * How long a tenant is leased for.
+   *
+   * <p>Long enough for a batch to drain against a slow downstream, short enough that a pod dying
+   * mid-drain does not block its tenant for long. Renewed as the batch progresses, so a genuinely
+   * slow downstream extends the lease rather than losing it mid-delivery.
+   */
+  private static final Duration LEASE = Duration.ofSeconds(60);
+
   private final JdbcTemplate jdbc;
   private final TransactionTemplate transactions;
   private final HttpClient client;
@@ -68,6 +87,7 @@ public class OutboxRelay {
   private final String authorization;
   private final int maxAttempts;
   private final Duration timeout;
+  private final String instanceId;
 
   /**
    * Creates the relay.
@@ -80,6 +100,7 @@ public class OutboxRelay {
    * @param authorization an {@code Authorization} header value for the downstream, or blank
    * @param maxAttempts how many times one event is retried before it is dead-lettered
    * @param timeoutMillis how long one delivery may take
+   * @param instanceId identifies this instance on a lease it holds; the pod name in a cluster
    */
   public OutboxRelay(
       JdbcTemplate jdbc,
@@ -87,13 +108,15 @@ public class OutboxRelay {
       @Value("${bre.outbox.endpoint:}") String endpoint,
       @Value("${bre.outbox.authorization:}") String authorization,
       @Value("${bre.outbox.max-attempts:12}") int maxAttempts,
-      @Value("${bre.outbox.timeout-ms:5000}") long timeoutMillis) {
+      @Value("${bre.outbox.timeout-ms:5000}") long timeoutMillis,
+      @Value("${bre.instance-id:local}") String instanceId) {
     this.jdbc = jdbc;
     this.transactions = new TransactionTemplate(transactionManager);
     this.endpoint = endpoint == null ? "" : endpoint.trim();
     this.authorization = authorization == null ? "" : authorization.trim();
     this.maxAttempts = maxAttempts;
     this.timeout = Duration.ofMillis(timeoutMillis);
+    this.instanceId = instanceId == null || instanceId.isBlank() ? "local" : instanceId;
     this.client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
   }
 
@@ -149,22 +172,70 @@ public class OutboxRelay {
    * @param tenantId the tenant
    */
   void deliverFor(String tenantId) {
-    transactions.executeWithoutResult(
-        status -> {
-          Boolean mine =
-              jdbc.queryForObject(
-                  "SELECT pg_try_advisory_xact_lock(hashtext(?))", Boolean.class, tenantId);
-          if (!Boolean.TRUE.equals(mine)) {
-            // Another pod is draining this tenant. Not an error, and not worth logging every
-            // two seconds.
-            return;
-          }
-          for (Event event : due(tenantId)) {
-            if (!deliver(event)) {
-              return;
-            }
-          }
-        });
+    if (!claim(tenantId)) {
+      // Another pod holds this tenant. Not an error, and not worth logging every two seconds.
+      return;
+    }
+    try {
+      // Read once, then deliver with no transaction and no connection held. Each outcome is
+      // recorded in its own brief transaction inside deliver().
+      for (Event event : due(tenantId)) {
+        renew(tenantId);
+        if (!deliver(event)) {
+          // Stopping matters: skipping a failed event and delivering the next would reorder a
+          // tenant's decisions. The failed one is retried with backoff and the rest wait behind
+          // it, which is what a queue does.
+          return;
+        }
+      }
+    } finally {
+      // Released rather than left to expire, so the next pass can pick the tenant straight up.
+      release(tenantId);
+    }
+  }
+
+  /**
+   * Takes the tenant's lease, if it is free or expired.
+   *
+   * <p>One statement, one short transaction, connection returned immediately. The {@code WHERE} on
+   * the conflict path is what makes it a lease rather than a reassignment: an unexpired lease held
+   * by somebody else is left alone.
+   *
+   * @param tenantId the tenant
+   * @return true when this instance now holds it
+   */
+  private boolean claim(String tenantId) {
+    return jdbc.update(
+            """
+            INSERT INTO bre_dec.outbox_lease (tenant_id, leased_by, leased_until)
+            VALUES (?, ?, now() + (? || ' seconds')::interval)
+            ON CONFLICT (tenant_id) DO UPDATE
+               SET leased_by = excluded.leased_by, leased_until = excluded.leased_until,
+                   leased_at = now()
+             WHERE bre_dec.outbox_lease.leased_until < now()
+            """,
+            tenantId,
+            instanceId,
+            LEASE.toSeconds())
+        > 0;
+  }
+
+  /** Extends the lease between events, so a slow downstream does not lose it mid-batch. */
+  private void renew(String tenantId) {
+    jdbc.update(
+        "UPDATE bre_dec.outbox_lease SET leased_until = now() + (? || ' seconds')::interval"
+            + " WHERE tenant_id = ? AND leased_by = ?",
+        LEASE.toSeconds(),
+        tenantId,
+        instanceId);
+  }
+
+  /** Gives the lease up. Only ever our own: expiring somebody else's would break ordering. */
+  private void release(String tenantId) {
+    jdbc.update(
+        "UPDATE bre_dec.outbox_lease SET leased_until = now() WHERE tenant_id = ? AND leased_by = ?",
+        tenantId,
+        instanceId);
   }
 
   private record Event(
@@ -230,10 +301,12 @@ public class OutboxRelay {
           client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
 
       if (response.statusCode() / 100 == 2) {
-        jdbc.update(
-            "UPDATE bre_dec.outbox SET published_at = now(), attempts = attempts + 1,"
-                + " last_error = NULL WHERE outbox_id = ?",
-            event.id());
+        transactions.executeWithoutResult(
+            status ->
+                jdbc.update(
+                    "UPDATE bre_dec.outbox SET published_at = now(), attempts = attempts + 1,"
+                        + " last_error = NULL WHERE outbox_id = ?",
+                    event.id()));
         log.info(
             "decision event delivered tenant={} id={} key={} status={}",
             event.tenantId(),
@@ -287,12 +360,14 @@ public class OutboxRelay {
   private void fail(Event event, String error, boolean permanent) {
     int attempts = event.attempts() + 1;
     if (permanent || attempts >= maxAttempts) {
-      jdbc.update(
-          "UPDATE bre_dec.outbox SET attempts = ?, last_error = ?, failed_at = now()"
-              + " WHERE outbox_id = ?",
-          attempts,
-          error,
-          event.id());
+      transactions.executeWithoutResult(
+          status ->
+              jdbc.update(
+                  "UPDATE bre_dec.outbox SET attempts = ?, last_error = ?, failed_at = now()"
+                      + " WHERE outbox_id = ?",
+                  attempts,
+                  error,
+                  event.id()));
       // At ERROR, naming the tenant and the key: a dead-lettered decision means a downstream is
       // missing a decision that was made, and nobody finds that out from a metric.
       log.error(
@@ -307,13 +382,16 @@ public class OutboxRelay {
     // 2s, 4s, 8s … capped at five minutes. Capped because an outage longer than the curve must not
     // push the next attempt hours out: when the downstream returns, the backlog should drain.
     long backoffSeconds = Math.min(300L, (long) Math.pow(2, Math.min(attempts, 8)));
-    jdbc.update(
-        "UPDATE bre_dec.outbox SET attempts = ?, last_error = ?,"
-            + " next_attempt_at = now() + (? || ' seconds')::interval WHERE outbox_id = ?",
-        attempts,
-        error,
-        backoffSeconds,
-        event.id());
+    transactions.executeWithoutResult(
+        status ->
+            jdbc.update(
+                "UPDATE bre_dec.outbox SET attempts = ?, last_error = ?,"
+                    + " next_attempt_at = now() + (? || ' seconds')::interval"
+                    + " WHERE outbox_id = ?",
+                attempts,
+                error,
+                backoffSeconds,
+                event.id()));
     log.warn(
         "decision event delivery failed tenant={} key={} attempt={} retrying in {}s: {}",
         event.tenantId(),
