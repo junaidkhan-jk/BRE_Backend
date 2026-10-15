@@ -41,6 +41,7 @@ public class DeploymentRepository {
       String status,
       String requestedBy,
       boolean expedited,
+      java.time.Instant effectiveFrom,
       Optional<Long> manifestVersion) {}
 
   /**
@@ -214,7 +215,7 @@ public class DeploymentRepository {
         .query(
             """
             SELECT env_code, policy_code, bundle_hash, mode, status, requested_by, expedited,
-                   manifest_version
+                   effective_from, manifest_version
               FROM bre_ctl.deployments
              WHERE tenant_id = ? AND deployment_id = ?
             """,
@@ -227,11 +228,40 @@ public class DeploymentRepository {
                     rs.getString("status"),
                     rs.getString("requested_by"),
                     rs.getBoolean("expedited"),
+                    rs.getTimestamp("effective_from").toInstant(),
                     Optional.ofNullable((Long) rs.getObject("manifest_version"))),
             tenantId,
             deploymentId)
         .stream()
         .findFirst();
+  }
+
+  /**
+   * Every deployment waiting to take effect, across every environment, soonest first.
+   *
+   * <p><b>Cross-environment on purpose.</b> The per-environment list answers "what has happened in
+   * PROD"; the question a release manager actually has is "what lands this week", and no
+   * per-environment list can answer it. Two credit-policy changes landing the same morning in the
+   * same environment is the collision worth seeing before it happens rather than afterwards in the
+   * decision log.
+   *
+   * <p>PENDING_APPROVAL future-dated deployments are included alongside SCHEDULED ones, because a
+   * change dated for Monday that still needs a second approver on Friday afternoon is the one piece
+   * of this list that needs somebody to act.
+   *
+   * @param tenantId the tenant
+   * @return the deployment ids, soonest effective date first
+   */
+  public List<UUID> listDue(String tenantId) {
+    return jdbc.query(
+        """
+        SELECT deployment_id FROM bre_ctl.deployments
+         WHERE tenant_id = ?
+           AND status IN ('SCHEDULED', 'PENDING_APPROVAL')
+         ORDER BY effective_from, created_at
+        """,
+        (rs, rowNum) -> (UUID) rs.getObject(1),
+        tenantId);
   }
 
   /**

@@ -566,14 +566,18 @@ class SharedAssetLifecycleTest {
               INSERT INTO bre_ctl.policies (tenant_id, policy_code, name, stage, created_by)
               VALUES (?, ?, ?, 'CREDIT_UW', ?) ON CONFLICT DO NOTHING
               """,
-              TENANT, policyCode, policyCode, AUTHOR_EMAIL);
+              TENANT,
+              policyCode,
+              policyCode,
+              AUTHOR_EMAIL);
           jdbc.update(
               """
               INSERT INTO bre_ctl.fact_schemas (tenant_id, schema_code, version, json_schema,
                   author)
               VALUES (?, 'lending-facts', '1.0.0', '{}'::jsonb, ?) ON CONFLICT DO NOTHING
               """,
-              TENANT, AUTHOR_EMAIL);
+              TENANT,
+              AUTHOR_EMAIL);
           // DRAFT first, then the pin, then APPROVED — in that order, because a trigger refuses
           // to let a child row be added to an approved policy version. Production takes the same
           // order for the same reason: the pins are written inside the approval transaction while
@@ -584,14 +588,20 @@ class SharedAssetLifecycleTest {
                   fact_schema_code, fact_schema_version, created_by)
               VALUES (?, ?, ?, '{}'::jsonb, 'lending-facts', '1.0.0', ?) ON CONFLICT DO NOTHING
               """,
-              TENANT, policyCode, version, AUTHOR_EMAIL);
+              TENANT,
+              policyCode,
+              version,
+              AUTHOR_EMAIL);
           jdbc.update(
               """
               INSERT INTO bre_ctl.policy_version_pins (tenant_id, policy_code, policy_version,
                   asset_kind, asset_code, asset_version)
               VALUES (?, ?, ?, 'PARAMETER_SET', ?, 1) ON CONFLICT DO NOTHING
               """,
-              TENANT, policyCode, version, PARAMS);
+              TENANT,
+              policyCode,
+              version,
+              PARAMS);
           // DRAFT -> IN_REVIEW -> APPROVED, one step at a time: the transition is enforced by a
           // trigger, so there is no way to seed an approved version that skipped review — which is
           // the point of the trigger.
@@ -602,7 +612,9 @@ class SharedAssetLifecycleTest {
                      change_note = 'seeded for the usage test', committee_reference = 'TEST-1'
                WHERE tenant_id = ? AND policy_code = ? AND version = ?
               """,
-              TENANT, policyCode, version);
+              TENANT,
+              policyCode,
+              version);
           jdbc.update(
               """
               UPDATE bre_ctl.policy_versions
@@ -611,7 +623,10 @@ class SharedAssetLifecycleTest {
                      committee_reference = 'TEST-1'
                WHERE tenant_id = ? AND policy_code = ? AND version = ?
               """,
-              bundleHash, TENANT, policyCode, version);
+              bundleHash,
+              TENANT,
+              policyCode,
+              version);
           if (environment != null) {
             jdbc.update(
                 """
@@ -619,7 +634,8 @@ class SharedAssetLifecycleTest {
                     promotion_order, min_deployment_approvers, dry_run_allowed)
                 VALUES (?, ?, true, 9, 2, false) ON CONFLICT DO NOTHING
                 """,
-                TENANT, environment);
+                TENANT,
+                environment);
             jdbc.update(
                 """
                 INSERT INTO bre_ctl.bundles (tenant_id, bundle_hash, policy_code, policy_version,
@@ -627,7 +643,11 @@ class SharedAssetLifecycleTest {
                 VALUES (?, ?, ?, ?, 'BUILT', ?, 1, 1, '1.0.0', '[]'::jsonb)
                 ON CONFLICT DO NOTHING
                 """,
-                TENANT, bundleHash, policyCode, version, "bundles/" + TENANT + "/" + bundleHash);
+                TENANT,
+                bundleHash,
+                policyCode,
+                version,
+                "bundles/" + TENANT + "/" + bundleHash);
             jdbc.update(
                 """
                 INSERT INTO bre_ctl.deployments (tenant_id, deployment_id, env_code, policy_code,
@@ -635,7 +655,11 @@ class SharedAssetLifecycleTest {
                 VALUES (?, gen_random_uuid(), ?, ?, ?, 'CHAMPION', now(), 'ACTIVE', 'test', ?,
                     now())
                 """,
-                TENANT, environment, policyCode, bundleHash, AUTHOR_EMAIL);
+                TENANT,
+                environment,
+                policyCode,
+                bundleHash,
+                AUTHOR_EMAIL);
           }
         });
   }

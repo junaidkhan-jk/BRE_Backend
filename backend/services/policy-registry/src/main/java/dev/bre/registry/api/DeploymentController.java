@@ -176,4 +176,19 @@ public class DeploymentController {
     Principal caller = Authorisation.require(request, Role.Capability.POLICY_READ);
     return deployments.list(caller.tenantId(), envCode);
   }
+
+  /**
+   * Everything waiting to take effect, across every environment, soonest first.
+   *
+   * <p>Deliberately not scoped to an environment: "what lands this week" is the question, and no
+   * per-environment list can answer it.
+   *
+   * @param request the request
+   * @return the pending and scheduled deployments
+   */
+  @GetMapping("/schedule")
+  public List<DeploymentService.Deployment> schedule(HttpServletRequest request) {
+    Principal caller = Authorisation.require(request, Role.Capability.POLICY_READ);
+    return deployments.listDue(caller.tenantId());
+  }
 }

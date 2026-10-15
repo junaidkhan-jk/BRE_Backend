@@ -819,8 +819,8 @@ public class AssetRepository {
    * Which policy versions pin this asset — the inverse of {@link #pinsOf}.
    *
    * <p><b>Why the inverse is the one that matters.</b> Opening a new DRAFT of a parameter set is
-   * safe by construction: FR-MODEL-003 pins exact asset versions, so an approved policy's
-   * behaviour cannot change underneath it. What the editor cannot see without this query is the
+   * safe by construction: FR-MODEL-003 pins exact asset versions, so an approved policy's behaviour
+   * cannot change underneath it. What the editor cannot see without this query is the
    * <em>consequence</em> — that the rate table they are about to raise is pinned by six policies,
    * two of them ACTIVE in PROD, and that every one of those needs a new policy version and its own
    * two approvals before the change reaches a borrower. A shared-asset screen that shows the asset

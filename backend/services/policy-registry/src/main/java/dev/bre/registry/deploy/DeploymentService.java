@@ -101,6 +101,7 @@ public class DeploymentService {
       String status,
       int approvals,
       int approvalsRequired,
+      java.time.Instant effectiveFrom,
       Optional<Long> manifestVersion) {}
 
   /**
@@ -374,6 +375,7 @@ public class DeploymentService {
         row.status(),
         repository.approvalCount(tenantId, deploymentId),
         repository.approvalsRequired(tenantId, row.envCode(), row.expedited()),
+        row.effectiveFrom(),
         row.manifestVersion());
   }
 
@@ -387,6 +389,19 @@ public class DeploymentService {
   @Transactional(readOnly = true)
   public List<Deployment> list(String tenantId, String envCode) {
     return repository.listIds(tenantId, envCode).stream().map(id -> read(tenantId, id)).toList();
+  }
+
+  /**
+   * Everything waiting to take effect, across every environment, soonest first.
+   *
+   * <p>The schedule rather than the history. See {@link DeploymentRepository#listDue}.
+   *
+   * @param tenantId the tenant
+   * @return the pending and scheduled deployments
+   */
+  @Transactional(readOnly = true)
+  public List<Deployment> listDue(String tenantId) {
+    return repository.listDue(tenantId).stream().map(id -> read(tenantId, id)).toList();
   }
 
   // ---------------------------------------------------------------------------------------------
