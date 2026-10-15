@@ -16,8 +16,10 @@ $ grep -E 'kafka|redis|valkey|s3|aws|minio|okhttp|retrofit|feign' gradle/libs.ve
 (no matches)
 ```
 
-No HTTP client is on any service's classpath. There is nothing to mock, because there is nothing
-being called.
+One outbound HTTP call now exists and it is **off by default**: the decision relay, which pushes
+each recorded decision to a downstream endpoint you configure (§7 below). Nothing else in the
+application calls out. Turning it on is a deliberate act and the only line of this document that
+changes when you do.
 
 ---
 
@@ -67,6 +69,7 @@ not fetched at decision time, precisely so a replay cannot drift. §8.4.
 | 5 | **KMS / HSM** — sign bundles and manifests | KMS API | out | policy-registry | **A locally configured Ed25519 private key**, which logs a warning naming itself as a finding if it appears in a deployed environment |
 | 6 | **KMS / HSM** — wrap data keys (§9.2) | KMS API | out | decision-service | `LocalDevKms` — real AES-256-GCM key wrapping, not a pass-through, so the envelope format is genuinely exercised |
 | 7 | **Identity provider (OIDC)** | OIDC | out | policy-registry | **A local account table** (V8), keyed on the same `subject` column `role_assignments` already uses, so an IdP's subjects replace these rows without changing an authorisation rule |
+| 7a | **Your downstream system** — the decision relay | HTTPS POST, CloudEvents | **out** | decision-service, only when `bre.outbox.endpoint` is set | Off by default. Any HTTP endpoint; the end-to-end test uses a real `HttpServer` |
 | 8 | **A tenant's shared assets** — parameter sets, reference lists, reason codes, authority matrices | JDBC 5432 | out | policy-registry | The same embedded PostgreSQL. **APPROVED versions only**, which is how AC-MODEL-007 is enforced. An `assets-<tenant>.json` file is the offline fallback for `bre psf bundle --assets`, and the registry logs when a threshold came from one |
 
 That is the complete list. Rows 1 and 2 are the only ones that are a network call today; 3–7 are
@@ -102,6 +105,76 @@ Named here so "we mocked it" is never mistaken for "we built it". All of M4.
 | **Kubernetes / Argo / Strimzi / CloudNativePG** | How any of this is deployed (M4-09) | Not built |
 
 ---
+
+## 3a. Getting decisions out — push and fetch
+
+A decision is written to a **transactional outbox** in the same transaction as the decision itself
+(D6). Publishing inside that transaction would give two failure modes, and the second is
+intolerable: a decision recorded and not published, or **published and not recorded** — a
+downstream acting on a decision this installation cannot show it made. The outbox removes the
+second phase. Both ways out read the same rows, so they can never disagree about what was decided.
+
+### Push — the relay comes to you
+
+```yaml
+bre:
+  decision-log:
+    mode: POSTGRES              # required: IN_MEMORY has no outbox
+  outbox:
+    endpoint: "https://los.internal/bre/decisions"
+    authorization: "Bearer …"   # prefer an environment variable
+```
+
+Each decision arrives as a CloudEvent 1.0 POST, with `ce-id`, `ce-type`, `ce-source`, `ce-subject`
+and `bre-record-key` as headers as well as in the body — so you can route and deduplicate without
+parsing the payload.
+
+```json
+{ "specversion": "1.0",
+  "id": "01a13e50-f995-7925-803f-88ecb41c4252",
+  "type": "bre.decision.recorded.v1",
+  "source": "/bre/decision-service",
+  "subject": "t_acme",
+  "recordkey": "t_acme:APP-10024",
+  "data": { "decision": "APPROVE", "stpEligible": true, "results": [ … ] } }
+```
+
+| Behaviour | What it does |
+|---|---|
+| **At-least-once** | A row is marked published *after* a successful POST, so a crash between the two redelivers. **Deduplicate on `id`.** A receiver that assumes exactly-once will eventually disburse twice |
+| **2xx accepted** | Anything else is a failure |
+| **Retry** | 2s, 4s, 8s … capped at 5 minutes, up to `max-attempts` (12). Capped so a long outage does not push the next attempt hours out — when you come back, the backlog drains |
+| **4xx is permanent** | Except 408 and 429. A rejected *content* will not succeed on a retry, so it is dead-lettered at once rather than buried under twelve attempts |
+| **Order per tenant** | One drainer per tenant, via a PostgreSQL advisory lock, and a stuck event **holds the ones behind it**. `SKIP LOCKED` would let a second pod deliver a later decision for the same application first |
+| **Dead letter** | After `max-attempts`, never retried automatically. A missing decision has to be *visible*, so it is logged at ERROR and surfaced by `/health`; an operator replays it once the cause is fixed |
+
+### Fetch — you come to the relay
+
+Always available, needs no configuration, and **reading does not consume**. A warehouse can pull
+the same decisions the origination system is being pushed.
+
+```bash
+# the feed, oldest first; `since` is the last outboxId you processed
+curl "http://127.0.0.1:8080/v1/decision-events?since=0&limit=100" -H "X-Tenant-Id: t_acme"
+
+# only what has not been delivered downstream
+curl "…/v1/decision-events?pendingOnly=true" -H "X-Tenant-Id: t_acme"
+
+# what is stuck — an operator's question, not an integrator's
+curl "…/v1/decision-events/health" -H "X-Tenant-Id: t_acme"
+
+# replay a dead-lettered event, after fixing whatever refused it
+curl -X POST "…/v1/decision-events/42/replay" -H "X-Tenant-Id: t_acme"
+```
+
+The cursor is an **outbox id, not a timestamp**. Two decisions in the same millisecond would make a
+timestamp cursor skip one; the id is monotonic per row, so a caller that records the last id it
+handled cannot miss a decision. Keep your own cursor — the feed will serve the same rows again.
+
+**No facts leave either path.** An event carries the decision, its reasons and which policy decided
+it. §9.6 keeps fact values out of anything leaving the decision path, and a test asserts it on the
+delivered bytes rather than on the stored row. A caller that needs the facts has them already: they
+sent them.
 
 ## 4. Running the whole thing locally
 

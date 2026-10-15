@@ -115,6 +115,40 @@ bre:
     grandfather-window-days: 90
 
 
+  # ---------------------------------------------------------------------------
+  # DELIVERING DECISIONS TO ANOTHER SYSTEM (D6, LLD §7.6)
+  # ---------------------------------------------------------------------------
+  # Two ways out, both reading the same transactional outbox rows, so they can
+  # never disagree about what was decided:
+  #
+  #   PUSH   this relay POSTs each decision to `endpoint` as a CloudEvent.
+  #          Off when the endpoint is blank, which is the default: an
+  #          installation that has not named a downstream has none, and
+  #          inventing one would send a lender's credit decisions somewhere
+  #          nobody chose.
+  #
+  #   FETCH  GET /v1/decision-events?since=<outboxId> — always available, needs
+  #          no configuration, and reading does NOT consume. A warehouse can
+  #          pull the same decisions the origination system is being pushed.
+  #
+  # Delivery is AT-LEAST-ONCE. A row is marked published after a successful
+  # POST, so a crash between the two redelivers. Every event carries a stable
+  # `ce_id` (the decision id) and your receiver must deduplicate on it — a
+  # receiver that assumes exactly-once will eventually disburse twice.
+  #
+  # Requires a durable decision log: set bre.decision-log.mode=POSTGRES. In
+  # IN_MEMORY mode there is no outbox, so there is nothing to deliver.
+  outbox:
+    endpoint: ""                                      # e.g. https://los.internal/bre/decisions
+    authorization: ""                                 # e.g. "Bearer …" — prefer an env var
+    poll-ms: 2000
+    timeout-ms: 5000
+    # After this many failed attempts an event is DEAD-LETTERED: never retried
+    # automatically, visible in /v1/decision-events/health, replayed by an
+    # operator once the cause is fixed. Silent infinite retry hides a
+    # downstream outage; a dead-letter row does not.
+    max-attempts: 12
+
 logging:
   level:
     dev.bre: INFO

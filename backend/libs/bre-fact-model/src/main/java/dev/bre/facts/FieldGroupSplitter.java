@@ -47,12 +47,48 @@ import java.util.Map;
  * protecting — goes into the DPK group as tagged. Recorded as an open question against §9.2, which
  * does not address the join.
  *
- * <p><b>An identifying field outside any party is a defect, not a case to handle.</b> If the schema
- * tags something {@code identifying} at a path with no enclosing party — a group's name, say —
- * there is no principal to key it to, and silently putting it in the non-identifying half would
- * mean personal data sealed under a key that is never destroyed. {@link #split} reports those paths
- * in {@link Split#unassignable} so the caller can refuse rather than guess; the schema should then
- * be corrected.
+ * <p><b>Three kinds of identifying field live outside a party, and they are not one problem</b>
+ * (Q10). §9.2 groups identifying fields by {@code principalRef} falling back to {@code partyRef},
+ * and four fields in the published schema have neither. Treating them alike is why there appeared
+ * to be no good answer:
+ *
+ * <ul>
+ *   <li><b>A pseudonymous reference</b> — {@code application.applicationRef}. It identifies an
+ *       application, not a person, and the decision record already carries the same value
+ *       TDK-sealed as its own reference. Sealing it under a DPK would break the join between the
+ *       halves while leaving the value exactly as exposed, which is the identical argument that
+ *       keeps {@code partyRef} in the non-identifying half (Q9). It is a <b>join key</b>.
+ *   <li><b>Data about a household</b> — {@code annualIncome} and {@code
+ *       monthlyRepaymentObligations}. This is financial data about a set of natural persons, and a
+ *       household is not an individual, so there is no single DPK. The resolution is that <b>a
+ *       household is a data principal in its own right</b>, keyed by {@code householdRef} — which
+ *       the schema already leaves non-identifying, so it survives in the other half and can serve
+ *       as the join key, exactly as {@code partyRef} does for a party. Mechanically it is a party:
+ *       its own DPK, its own envelope, its own erasure. The erasure <em>policy</em> is the
+ *       operator's: a household's key is destroyed when every member has been shredded, because the
+ *       aggregate is joint data and one member's withdrawal must not destroy four others' decision
+ *       record.
+ *   <li><b>The lender's own employee</b> — {@code deviationApprovals[].approvedBy}. Tagging this
+ *       {@code identifying} is a <b>schema error</b>. It is the maker-checker trail: the person who
+ *       authorised a deviation. Sealing it under a borrower's DPK would mean a borrower's erasure
+ *       request destroys the lender's approval record, which a regulator would read as destruction
+ *       of evidence — and it is not the borrower's personal data in any case. It is the employee's,
+ *       held on the lender's own basis and retained for audit. It stays in the non-identifying half
+ *       and keeps its {@code pii} tag, so §9.4 still masks it in a customer-facing explanation.
+ * </ul>
+ *
+ * <p>The right long-term home for all three is the schema itself, tagging them distinctly — but
+ * {@code lending-facts@1.0.0} is published and registered per tenant with a content hash, so
+ * changing its tags in place would make two installations disagree about what version 1.0.0 says.
+ * That is a schema version bump, and it belongs with fact-schema management (M3-08). Until then
+ * this class is the single place the rule lives, which is where Q9's deviation already is.
+ *
+ * <p><b>Anything still unassignable is a defect, not a case to handle.</b> If the schema tags
+ * something {@code identifying} at a path with no enclosing party and no enclosing household, there
+ * is no principal to key it to, and silently putting it in the non-identifying half would mean
+ * personal data sealed under a key that is never destroyed. {@link #split} reports those paths in
+ * {@link Split#unassignable} so the caller can refuse rather than guess; the schema should then be
+ * corrected.
  */
 public final class FieldGroupSplitter {
 
@@ -60,6 +96,40 @@ public final class FieldGroupSplitter {
 
   /** The fact roots whose elements are data principals (§3.8). */
   private static final String PARTIES = "parties";
+
+  private static final String HOUSEHOLDS = "households";
+
+  /**
+   * The prefix a household's principal id carries.
+   *
+   * <p>A household ref and a party ref are drawn from different namespaces in a caller's system and
+   * could collide — {@code H-1} is a perfectly possible party ref. Without the prefix, one
+   * household's income could be sealed under a party's key, and shredding that party would destroy
+   * the household's data or, worse, leave it readable under a key that was meant to be gone.
+   */
+  public static final String HOUSEHOLD_PRINCIPAL_PREFIX = "household:";
+
+  /**
+   * Identifying paths that are pseudonymous REFERENCES rather than personal attributes.
+   *
+   * <p>Each stays in the non-identifying half as a join key. The value is already TDK-sealed
+   * elsewhere in the decision record, so removing it here would break the join while leaving the
+   * value exactly as exposed. Crypto-shredding destroys the attributes a reference points at, which
+   * is what makes the reference meaningless — that is what pseudonymisation is, and §9.5 already
+   * relies on it for every {@code entityRef}.
+   */
+  private static final java.util.Set<String> JOIN_KEYS =
+      java.util.Set.of("application.applicationRef", "parties[].partyRef");
+
+  /**
+   * Identifying paths that belong to the LENDER rather than to a data principal.
+   *
+   * <p>Retained in the non-identifying half, and retained deliberately: this is the maker-checker
+   * trail, and a borrower's erasure request must not destroy the record of who authorised a
+   * deviation on their application. The {@code pii} tag still applies, so §9.4 masks it.
+   */
+  private static final java.util.Set<String> LENDER_RECORDS =
+      java.util.Set.of("deviationApprovals[].approvedBy");
 
   private final FactSchema schema;
 
@@ -143,6 +213,30 @@ public final class FieldGroupSplitter {
                 return;
               }
 
+              if (HOUSEHOLDS.equals(root.getKey()) && root.getValue().isArray()) {
+                // A household is a data principal of its own (Q10): householdRef is its identity,
+                // it is already non-identifying so it survives as the join key, and its income
+                // gets its own envelope under its own key — mechanically a party.
+                ArrayNode keptHouseholds = nonIdentifying.putArray(HOUSEHOLDS);
+                for (JsonNode household : root.getValue()) {
+                  String householdRef = textOf(household, "householdRef");
+                  ObjectNode kept = MAPPER.createObjectNode();
+                  ObjectNode taken = MAPPER.createObjectNode();
+                  partition(
+                      household, "households[]", kept, taken, unassignable, householdRef != null);
+                  if (householdRef != null) {
+                    kept.put("householdRef", householdRef);
+                  }
+                  keptHouseholds.add(kept);
+                  if (householdRef != null && !taken.isEmpty()) {
+                    String principal = HOUSEHOLD_PRINCIPAL_PREFIX + householdRef;
+                    identifying.put(principal, taken);
+                    principalOf.put(principal, principal);
+                  }
+                }
+                return;
+              }
+
               // Every other root. There is no principal to key an identifying field to here, so
               // partition reports any it finds as unassignable rather than placing it.
               JsonNode value = root.getValue();
@@ -156,7 +250,7 @@ public final class FieldGroupSplitter {
                 nonIdentifying.set(root.getKey(), reassemble(value, root.getKey(), unassignable));
                 return;
               }
-              if (isIdentifying(root.getKey())) {
+              if (isPrincipalData(root.getKey())) {
                 unassignable.add(root.getKey());
                 return;
               }
@@ -180,22 +274,31 @@ public final class FieldGroupSplitter {
    */
   public JsonNode rejoin(JsonNode nonIdentifying, Map<String, JsonNode> identifying) {
     ObjectNode out = nonIdentifying.deepCopy();
-    JsonNode parties = out.get(PARTIES);
-    if (parties == null || !parties.isArray()) {
-      return out;
+    rejoinEach(out.get(PARTIES), identifying, "partyRef", "");
+    // Households too, and forgetting this is how household income came back absent from a replay
+    // even after the split started sealing it: the inverse has to know about every root the
+    // split treats as a principal, or the data is sealed correctly and never read again.
+    rejoinEach(out.get(HOUSEHOLDS), identifying, "householdRef", HOUSEHOLD_PRINCIPAL_PREFIX);
+    return out;
+  }
+
+  /** Merges each element's group back, keyed by {@code refField} under an optional prefix. */
+  private static void rejoinEach(
+      JsonNode elements, Map<String, JsonNode> identifying, String refField, String prefix) {
+    if (elements == null || !elements.isArray()) {
+      return;
     }
-    for (JsonNode party : parties) {
-      String partyRef = textOf(party, "partyRef");
-      JsonNode group = partyRef == null ? null : identifying.get(partyRef);
-      if (group != null && party.isObject() && group.isObject()) {
+    for (JsonNode element : elements) {
+      String ref = textOf(element, refField);
+      JsonNode group = ref == null ? null : identifying.get(prefix + ref);
+      if (group != null && element.isObject() && group.isObject()) {
         // Deep, not setAll. The split takes `income.monthlyNet` and leaves `income.verified`, so
         // each half holds a PARTIAL `income` object — and a shallow put would replace the kept
         // half with the taken half and silently lose every non-identifying sibling. Found by
         // round-tripping a document rather than by inspecting the split, which looked correct.
-        merge((ObjectNode) party, (ObjectNode) group);
+        merge((ObjectNode) element, (ObjectNode) group);
       }
     }
-    return out;
   }
 
   /** Recursively copies {@code from} into {@code into}, descending into objects present in both. */
@@ -254,7 +357,7 @@ public final class FieldGroupSplitter {
                 kept.set(entry.getKey(), reassemble(value, childPath, unassignable));
                 return;
               }
-              if (isIdentifying(childPath)) {
+              if (isPrincipalData(childPath)) {
                 if (!hasPrincipal) {
                   unassignable.add(childPath);
                   return;
@@ -283,7 +386,7 @@ public final class FieldGroupSplitter {
         partition(element, elementPath, kept, null, unassignable, false);
         out.add(kept);
       } else {
-        if (isIdentifying(elementPath)) {
+        if (isPrincipalData(elementPath)) {
           unassignable.add(elementPath);
           continue;
         }
@@ -291,6 +394,17 @@ public final class FieldGroupSplitter {
       }
     }
     return out;
+  }
+
+  /**
+   * Whether a path's identifying tag means "seal under a data principal's key".
+   *
+   * <p>Three kinds of path are tagged identifying and must NOT be: a join key, whose value is
+   * already TDK-sealed elsewhere in the record; and the lender's own maker-checker trail, which a
+   * borrower's erasure must not destroy. See the class comment for why each (Q10).
+   */
+  private boolean isPrincipalData(String path) {
+    return isIdentifying(path) && !JOIN_KEYS.contains(path) && !LENDER_RECORDS.contains(path);
   }
 
   private boolean isIdentifying(String path) {

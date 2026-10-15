@@ -136,7 +136,11 @@ class MaskingAndSplittingTest {
         .as("a bureau score is regulated but not identifying: it stays under the TDK")
         .isEqualTo(720);
 
-    assertThat(split.identifying()).containsOnlyKeys("P-0001", "P-0002");
+    // Two parties and one household: a household is a principal of its own (Q10), so a document
+    // with household income has three groups rather than two.
+    assertThat(split.identifying())
+        .containsOnlyKeys(
+            "P-0001", "P-0002", FieldGroupSplitter.HOUSEHOLD_PRINCIPAL_PREFIX + "H-1");
     assertThat(split.identifying().get("P-0001").get("dateOfBirth").asText())
         .isEqualTo("1992-03-04");
     assertThat(split.principalOf())
@@ -183,15 +187,93 @@ class MaskingAndSplittingTest {
   }
 
   @Test
-  @DisplayName("an identifying field with no party is reported, not silently kept")
-  void unassignableIsReported() throws IOException {
-    // application.applicationRef and households[].annualIncome are tagged identifying but belong
-    // to no party. Keeping them under the TDK would mean personal data under a key that is never
-    // destroyed, so they are reported for the caller to refuse.
+  @DisplayName("a reference tagged identifying is a join key, not principal data (Q10)")
+  void aReferenceIsAJoinKey() throws IOException {
+    // application.applicationRef is tagged identifying and belongs to no party. It identifies an
+    // APPLICATION, not a person, and the decision record already carries the same value TDK-sealed
+    // as its own reference — so sealing it under a DPK would break the join between the halves
+    // while leaving the value exactly as exposed. Identical argument to partyRef (Q9).
     FieldGroupSplitter.Split split = new FieldGroupSplitter(SCHEMA).split(facts());
+
+    assertThat(split.nonIdentifying().get("application").get("applicationRef").asText())
+        .as("kept, because it is what the two halves are joined on")
+        .isEqualTo("APP-1");
     assertThat(split.unassignable())
-        .contains("application.applicationRef", "households[].annualIncome");
-    assertThat(split.nonIdentifying().get("application").has("applicationRef")).isFalse();
+        .as("not a defect any more: there is a rule for it")
+        .doesNotContain("application.applicationRef");
+    assertThat(split.identifying().values().toString())
+        .as("and not sealed under anybody's key")
+        .doesNotContain("APP-1");
+  }
+
+  @Test
+  @DisplayName("a household is a data principal of its own, keyed by householdRef (Q10)")
+  void aHouseholdIsAPrincipal() throws IOException {
+    // Household income is financial data about a SET of natural persons, so there is no single
+    // DPK — which is why it used to be dropped, and why replaying a decision that read it
+    // REFERred where the original passed. The resolution is that the household is a principal in
+    // its own right: its own key, its own envelope, its own erasure.
+    FieldGroupSplitter.Split split = new FieldGroupSplitter(SCHEMA).split(facts());
+
+    String principal = FieldGroupSplitter.HOUSEHOLD_PRINCIPAL_PREFIX + "H-1";
+    assertThat(split.identifying()).containsKey(principal);
+    assertThat(split.identifying().get(principal).get("annualIncome").asText())
+        .isEqualTo("180000.00");
+    assertThat(split.principalOf().get(principal))
+        .as("its own principal, not any member's")
+        .isEqualTo(principal);
+
+    // householdRef stays in the other half, so the two can be rejoined — exactly as partyRef does
+    // for a party. The schema already leaves it non-identifying, so this needs no deviation.
+    assertThat(split.nonIdentifying().get("households").get(0).get("householdRef").asText())
+        .isEqualTo("H-1");
+    assertThat(split.nonIdentifying().get("households").get(0).has("annualIncome"))
+        .as("the income itself is gone from the TDK half")
+        .isFalse();
+    assertThat(split.unassignable()).doesNotContain("households[].annualIncome");
+  }
+
+  @Test
+  @DisplayName("the prefix keeps a household ref from colliding with a party ref (Q10)")
+  void householdAndPartyNamespacesCannotCollide() throws IOException {
+    // A household ref and a party ref come from different namespaces in a caller's system, so
+    // H-1 is a perfectly possible party ref. Without the prefix one household's income could be
+    // sealed under a party's key — and shredding that party would either destroy the household's
+    // data or leave it readable under a key meant to be gone.
+    JsonNode colliding =
+        JSON.readTree(
+            """
+            { "parties": [ { "partyRef": "H-1", "gender": "F" } ],
+              "households": [ { "householdRef": "H-1", "annualIncome": "180000.00" } ] }
+            """);
+    FieldGroupSplitter.Split split = new FieldGroupSplitter(SCHEMA).split(colliding);
+
+    assertThat(split.identifying())
+        .containsOnlyKeys("H-1", FieldGroupSplitter.HOUSEHOLD_PRINCIPAL_PREFIX + "H-1");
+    assertThat(split.identifying().get("H-1").has("annualIncome")).isFalse();
+  }
+
+  @Test
+  @DisplayName("the lender's own approver is retained, not sealed under a borrower's key (Q10)")
+  void theApproverIsTheLendersRecord() throws IOException {
+    // deviationApprovals[].approvedBy is a LENDER'S EMPLOYEE who authorised a deviation — the
+    // maker-checker trail. Tagging it identifying is a schema error: sealing it under a borrower's
+    // DPK would mean a borrower's erasure request destroys the lender's approval record, which a
+    // regulator would read as destruction of evidence. It is kept, and §9.4 still masks it.
+    JsonNode withApproval =
+        JSON.readTree(
+            """
+            { "parties": [ { "partyRef": "P-1", "gender": "F" } ],
+              "deviationApprovals": [ { "deviationType": "INDEBTEDNESS",
+                                        "approvedBy": "emp-4471" } ] }
+            """);
+    FieldGroupSplitter.Split split = new FieldGroupSplitter(SCHEMA).split(withApproval);
+
+    assertThat(split.nonIdentifying().get("deviationApprovals").get(0).get("approvedBy").asText())
+        .as("a borrower's erasure must not destroy who approved their deviation")
+        .isEqualTo("emp-4471");
+    assertThat(split.unassignable()).doesNotContain("deviationApprovals[].approvedBy");
+    assertThat(split.identifying().values().toString()).doesNotContain("emp-4471");
   }
 
   @Test

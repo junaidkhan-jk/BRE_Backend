@@ -234,33 +234,72 @@ parties share a `principalRef` makes position the only distinguishing key, which
 
 ## Q10 — identifying facts that belong to no data principal
 
-**Status:** dropped in code, reported; §9.2 has no rule for them.
+**Status:** RESOLVED and implemented. It was not one question — the fields are three different
+kinds of thing, which is why no single rule fit any of them.
 
-§9.2 says identifying fields are "grouped per party, by `principalRef`, falling back to
-`partyRef`". Several fields the schema tags `identifying` are not under a party at all:
+§9.2 groups identifying fields by `principalRef`, falling back to `partyRef`. Four fields in the
+published schema have neither. (An earlier version of this note listed six; `memberPartyRefs` and
+`ownerPartyRefs` turned out not to be tagged `identifying` at all, which is worth recording because
+part of the problem was imaginary.)
 
-- `application.applicationRef`
-- `households[].memberPartyRefs[]`, `households[].annualIncome`,
-  `households[].monthlyRepaymentObligations`
-- `group.memberPartyRefs[]`
-- `collaterals[].ownerPartyRefs[]`
-- `deviationApprovals[].approvedBy`
+### 1. A pseudonymous reference — `application.applicationRef`
 
-There is no principal to key them to. Three options, and none is free:
+**It is a join key.** It identifies an *application*, not a person, and the decision record already
+carries the same value TDK-sealed as its own reference. Sealing it under a DPK would break the join
+between the two halves while leaving the value exactly as exposed — which is the identical argument
+that already keeps `parties[].partyRef` in the non-identifying half (Q9). Crypto-shredding destroys
+the *attributes* a reference points at, which is what makes the reference meaningless. That is what
+pseudonymisation is, and §9.5 already relies on it for every `entityRef`.
 
-1. **Seal them under the TDK.** They then survive every erasure, because a TDK is never destroyed —
-   so §9.5's promise is quietly false for exactly these fields, and nothing says so.
-2. **Refuse the decision.** Rejects a sound credit decision because of a defect in the *storage*
-   path.
-3. **Drop them.** The snapshot is then incomplete, so a replay sees them as missing and the rules
-   that read them fail closed.
+### 2. Data about a household — `annualIncome`, `monthlyRepaymentObligations`
 
-`FactsSealer` does (3), lists them in `Sealed.excludedPaths`, and logs them by path. It is the only
-option that is both lawful and visible — but it means `household.annualIncome` is absent from a
-replay, and that is a rule the MFI reference policy actually uses (E2's RBI income ceiling), so a
-replayed decision for a household-scope rule will REFER where the original passed.
+**A household is a data principal in its own right**, keyed by `householdRef`, with its own DPK.
 
-**Needs deciding, and it is not a small decision.** Either the household is a data principal in its
-own right with its own key, or household income is not identifying, or §9.2 gains a rule for
-application-scope identifying data. The first looks most likely to be correct — a household is a
-set of people — but it changes the key hierarchy, so it is not a code change to make unilaterally.
+This is financial data about a *set* of natural persons, so there is no single individual's key —
+which is why it used to be dropped, and dropping it was the actual bug: a replay of a decision that
+read household income saw it as missing, so the RBI income-ceiling rule REFERred where the original
+had passed. The same decision, re-asked, answered differently.
+
+Mechanically a household is now a party: its own key, its own envelope, its own erasure.
+`householdRef` was already non-identifying in the schema, so it survives in the other half and
+serves as the join key with no deviation needed. The principal id carries a `household:` prefix,
+because a household ref and a party ref come from different namespaces in a caller's system and
+`H-1` is a perfectly possible party ref — without the prefix, one household's income could be
+sealed under a party's key, and shredding that party would either destroy the household's data or
+leave it readable under a key meant to be gone.
+
+**The erasure policy is the operator's, and it is the one judgement here.** A household's key is
+destroyed when *every* member has been shredded. One member's withdrawal must not destroy four
+others' decision record, and the aggregate stays while anybody it describes still has a
+relationship with the lender. The alternative — wrapping a household key under each member's DPK —
+was considered and rejected: it complicates the key hierarchy for no legal gain, since each
+member's own attributes are already individually shreddable.
+
+### 3. The lender's own employee — `deviationApprovals[].approvedBy`
+
+**The schema tag is wrong.** This is the person who authorised a deviation: the maker-checker trail.
+Sealing it under a borrower's DPK would mean a borrower's erasure request destroys the lender's
+approval record, which a regulator would read as destruction of evidence. It is not the borrower's
+personal data in any case — it is the employee's, held on the lender's own basis and retained for
+audit. It stays in the non-identifying half and keeps its `pii` tag, so §9.4 still masks it in a
+customer-facing explanation.
+
+### Where the rule lives, and where it should live
+
+In `FieldGroupSplitter`, which is where Q9's deviation already is. The right long-term home is the
+schema itself, tagging the three categories distinctly — but `lending-facts@1.0.0` is published and
+registered per tenant with a content hash, so changing its tags in place would make two
+installations disagree about what version 1.0.0 says. That is a schema version bump, and it belongs
+with fact-schema management (M3-08).
+
+Anything still unassignable remains reported rather than guessed at: an identifying field with no
+enclosing party and no enclosing household is a schema defect, and the caller is told rather than
+having it quietly placed.
+
+### A second bug this surfaced
+
+Making the split seal household income was half the job. `rejoin` — the inverse — only knew about
+parties, so the income was sealed correctly and **never read back**: a replay still saw it as
+missing. The inverse has to know about every root the split treats as a principal, and now does.
+Caught by round-tripping a document rather than by inspecting the split, which looked correct.
+

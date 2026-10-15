@@ -207,23 +207,57 @@ class FactsSealerTest {
   }
 
   @Test
-  @DisplayName("identifying fields with no party are reported, and not stored anywhere")
-  void unassignableFieldsAreReported() throws IOException {
-    // application.applicationRef is tagged identifying and belongs to no party, so there is no DPK
-    // to key it to. Storing it under the tenant key would make it unerasable; it is dropped, and
-    // the drop is reported so it cannot pass unnoticed.
+  @DisplayName("an application reference survives the round trip as a join key (Q10)")
+  void aReferenceSurvives() throws IOException {
+    // This used to be dropped and reported: applicationRef is tagged identifying and belongs to
+    // no party, so there was no DPK to key it to. Q10 resolves it as a JOIN KEY — it identifies
+    // an application rather than a person, and the decision record already carries the same value
+    // TDK-sealed as its own reference, so sealing it under a DPK would break the join while
+    // leaving the value exactly as exposed.
     Fixture f = fixture();
     JsonNode withAppRef =
         JSON.readTree(
             "{\"application\":{\"applicationRef\":\"APP-1\",\"requestedAmount\":\"1000.00\"}}");
     FactsSealer.Sealed sealed = f.sealer().seal(TENANT, DECISION, withAppRef, AT);
 
-    assertThat(sealed.excludedPaths()).containsExactly("application.applicationRef");
+    assertThat(sealed.excludedPaths())
+        .as("nothing is dropped any more: every identifying field has a rule")
+        .isEmpty();
 
     FactsSealer.Opened opened = open(f, sealed);
-    assertThat(opened.facts().get("application").has("applicationRef")).isFalse();
+    assertThat(opened.facts().get("application").get("applicationRef").asText()).isEqualTo("APP-1");
     assertThat(opened.facts().get("application").get("requestedAmount").asText())
         .isEqualTo("1000.00");
+  }
+
+  @Test
+  @DisplayName("household income round-trips under the household's own key (Q10)")
+  void householdIncomeRoundTrips() throws IOException {
+    // The bug Q10 actually was. Household income is financial data about a SET of people, so it
+    // belonged to no principal and was DROPPED — which meant a replay of a decision that read it
+    // saw it as missing, and the RBI income-ceiling rule REFERred where the original had passed.
+    // The household is now a principal of its own.
+    Fixture f = fixture();
+    JsonNode withHousehold =
+        JSON.readTree(
+            """
+            { "application": { "requestedAmount": "1000.00" },
+              "households": [ { "householdRef": "H-1", "annualIncome": "180000.00" } ] }
+            """);
+
+    FactsSealer.Sealed sealed = f.sealer().seal(TENANT, DECISION, withHousehold, AT);
+
+    assertThat(sealed.excludedPaths()).isEmpty();
+    assertThat(sealed.principalEnvelopes())
+        .as("its own envelope, under its own key")
+        .containsKey("household:H-1");
+
+    FactsSealer.Opened opened = open(f, sealed);
+    assertThat(opened.facts().get("households").get(0).get("annualIncome").asText())
+        .as("a replay now sees the income the original decision was made on")
+        .isEqualTo("180000.00");
+    assertThat(opened.facts().get("households").get(0).get("householdRef").asText())
+        .isEqualTo("H-1");
   }
 
   @Test
