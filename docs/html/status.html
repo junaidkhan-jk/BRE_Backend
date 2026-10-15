@@ -95,8 +95,8 @@
   <div class="rule"></div><div class="rule"></div>
 
   <div class="totals">
-    <div class="tot g"><b>35</b><span>done</span></div>
-    <div class="tot a"><b>10</b><span>partial — usable, not finished</span></div>
+    <div class="tot g"><b>37</b><span>done</span></div>
+    <div class="tot a"><b>8</b><span>partial — usable, not finished</span></div>
     <div class="tot s"><b>23</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
@@ -224,15 +224,15 @@
     <div class="ms__head">
       <div><span class="kicker">M3 — Control plane</span>
       <p class="ms__blurb">Authoring, review, deployment, identity. Needs a real identity provider.</p></div>
-      <div class="ms__counts"><span class="pill g">3 done</span><span class="pill a">4 partial</span><span class="pill s">3 pending</span></div>
+      <div class="ms__counts"><span class="pill g">4 done</span><span class="pill a">3 partial</span><span class="pill s">3 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M3-01</td><td class="ti">Full bre_ctl schema with row-level security and a hash-chained audit log
         <div class="no">Twelve migrations, executed against real PostgreSQL <b>as the restricted application role</b>, not as a superuser — which is the only way row-level security is exercised at all, and the reason the next five entries exist. RLS enabled and FORCED on every tenant-owned table, asserted by a test that walks the schema. The audit chain is a database trigger, so it holds for every writer including <code>psql</code>, and a test verifies the chain is gapless with no broken links. <b>Found by running it:</b> table ownership landed on the migrating role, so the SECURITY DEFINER audit trigger could not write; SECURITY DEFINER does not bypass RLS when the definer owns the table and FORCE is on; and §5.2's own RLS list omits <code>audit_chain_heads</code> (Q7).</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M3-02</td><td class="ti">studio-service — version lifecycle, PSF import/export, diff
-        <div class="no"><b>The lifecycle is built, in policy-registry rather than a separate service</b> — one control-plane deployable while there is one database and one set of §5.2 tables; splitting it would give two services the same schema and no boundary between them. DRAFT → IN_REVIEW → APPROVED → ARCHIVED with both side transitions, optimistic locking so two authors in one draft is an error rather than a silent lost edit, and the author's PSF source kept verbatim beside the IR (V9) because translation discards every comment — and a credit policy's comments are where the reason for a threshold lives. <b>The diff is built, and it is two diffs</b> — a semantic one over the compiled policy keyed by component code, so reordering rules or reflowing a block shows as no change at all, and a text one over the source, because the comment explaining a threshold is sometimes the most review-worthy part of a change. A reviewer asked to approve a 400-line text diff that changes nothing approves the next one without reading it. <b>Import/export between installations is not built</b> (M3-07).</div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no"><b>The lifecycle is built, in policy-registry rather than a separate service</b> — one control-plane deployable while there is one database and one set of §5.2 tables; splitting it would give two services the same schema and no boundary between them. DRAFT → IN_REVIEW → APPROVED → ARCHIVED with both side transitions, optimistic locking so two authors in one draft is an error rather than a silent lost edit, and the author's PSF source kept verbatim beside the IR (V9) because translation discards every comment — and a credit policy's comments are where the reason for a threshold lives. <b>The diff is built, and it is two diffs</b> — a semantic one over the compiled policy keyed by component code, so reordering rules or reflowing a block shows as no change at all, and a text one over the source, because the comment explaining a threshold is sometimes the most review-worthy part of a change. A reviewer asked to approve a 400-line text diff that changes nothing approves the next one without reading it. <b>Import is built</b> too: PSF carries no tenant and no bundle hash, which is exactly what makes a policy portable — the receiving installation compiles it against its <em>own</em> parameter sets, so the same document means different thresholds for different lenders. An import lands as a DRAFT and is marked imported, because one arriving APPROVED would be a way to put a policy live with nobody at the receiving lender having read it; source that does not translate creates no policy row at all, since a code reserved for a document nobody can compile collides with the next import of the same policy. Export is the version's source, byte for byte. <b>Signed bundle interchange is separate</b> and is M3-07.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr class="pend"><td class="id">M3-03</td><td class="ti">Shared assets with maker-checker and effective dating</td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr><td class="id">M3-04</td><td class="ti">Test cases, coverage, submit gates, simulation API
         <div class="no">Test cases are stored per version and <b>re-run on every save</b>, against the tenant's resolved parameters — the same ones the bundle will be signed with, because a test run against different thresholds from the deployed ones is not a test of anything. <code>POST …/versions/{n}/run</code> evaluates any version — including a DRAFT — against supplied facts, returning per-step and per-entity outcomes with the measure a deviation was judged on.
@@ -285,7 +285,7 @@
     <div class="ms__head">
       <div><span class="kicker">M5 — Rule Studio</span>
       <p class="ms__blurb">The front end. Five screens build and run over sample data.</p></div>
-      <div class="ms__counts"><span class="pill g">1 done</span><span class="pill a">4 partial</span><span class="pill s">5 pending</span></div>
+      <div class="ms__counts"><span class="pill g">2 done</span><span class="pill a">3 partial</span><span class="pill s">5 pending</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M5-01</td><td class="ti">App shell — React, TypeScript, Vite, routing, role-aware navigation
@@ -296,8 +296,8 @@
       <tr class="pend"><td class="id">M5-03</td><td class="ti">Decision-table grid, scorecard and flow editors
         <div class="no">The grid needs M1-10 to know where the gaps are.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
       <tr><td class="id">M5-04</td><td class="ti">PSF diff, version history, clone
-        <div class="no">The <b>compare screen is built</b>: pick two versions of a policy in either order, including a draft, and read what changed in the compiled policy before reading what changed in the text. &ldquo;No semantic changes&rdquo; is stated explicitly rather than left as an empty area — an empty panel and a panel that failed to load look identical, and the difference matters when the question is whether it is safe to approve. <b>Not built:</b> version history as a timeline, and clone.</div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">The <b>compare screen is built</b>: pick two versions of a policy in either order, including a draft, and read what changed in the compiled policy before reading what changed in the text. &ldquo;No semantic changes&rdquo; is stated explicitly rather than left as an empty area — an empty panel and a panel that failed to load look identical, and the difference matters when the question is whether it is safe to approve. <b>History and clone are built.</b> The history sits on the same screen as the diff, because &ldquo;what changed&rdquo; and &ldquo;who changed it, when, and under what mandate&rdquo; are asked in the same breath: each version carries its change note, its committee reference, and both its editors and its approvers <em>as lists</em> — a draft handed between two people has two editors, segregation of duties is enforced against all of them, and showing only the creator would make a reviewer look independent when they were not. A clone copies the <b>source and the test cases</b>: rules without the assertions that check them produce a draft that compiles, has no tests, and cannot be submitted — and the source rather than the IR, because translation discards the comment explaining why a threshold is 21 rather than 18.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M5-05</td><td class="ti">Test runner with coverage, simulation console
         <div class="no">The <b>run screen works</b>: pick a policy and version, paste facts, set the business date, and read which step drove the decision, which entity deviated, on what measure, and what approvals it would need. It replaced a mock that showed a hard-coded outcome mix after a 600&nbsp;ms timer — honest scaffolding with no backend, and the worst thing to leave in place once there is one. <b>The coverage panel is built</b> beside it: the version's figure against the tenant's threshold, the three kinds separately as well as pooled — a policy can sit at 85% overall while every row of one decision table is untested — and the uncovered rule branches, rows and bins listed by name, so the submit gate's refusal is explained before it happens rather than after. <b>Not built:</b> the portfolio back-test — running a policy over thousands of stored decisions is a job rather than a request, and needs M4's archive to replay against.</div></td>
         <td class="st"><span class="pill a">partial</span></td></tr>
@@ -415,7 +415,7 @@
         take unilaterally.</li>
   </ul>
 
-  <div class="foot">Generated from the repository · 50 commits · 641 tests passing · 9 October 2026</div>
+  <div class="foot">Generated from the repository · 51 commits · 644 tests passing · 9 October 2026</div>
 </div>
 </body>
 </html>

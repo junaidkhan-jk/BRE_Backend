@@ -40,8 +40,16 @@ public final class PolicyDiff {
   /** How many text-diff lines are returned; past this the semantic diff is the useful artefact. */
   public static final int MAX_UNIFIED_LINES = 2000;
 
-  /** How many lines of source either side may have before the text diff is skipped. */
-  public static final int MAX_SOURCE_LINES = 20_000;
+  /**
+   * How many lines of source either side may have before the text diff is skipped.
+   *
+   * <p><b>This bound is the quadratic diff's memory, not a style limit.</b> The table below is
+   * {@code (n+1)×(m+1)} ints: at 4,000 lines each side that is 16 million ints, 64 MB, allocated
+   * for the length of one request. At the 20,000 this was first written as, it is 400 million ints
+   * — 1.6 GB — and a single diff request would take down a service that holds signing keys. A PSF
+   * policy is a document a person writes and reads; the MFI reference policy is 328 lines.
+   */
+  public static final int MAX_SOURCE_LINES = 4_000;
 
   private PolicyDiff() {}
 
@@ -306,8 +314,7 @@ public final class PolicyDiff {
    * forty lines, it has no security surface, and the alternative is a library on the classpath of a
    * service that holds signing keys. D11 keeps that classpath small on purpose.
    *
-   * <p>Quadratic in the number of lines, which is why {@link #MAX_SOURCE_LINES} exists. A policy is
-   * a document a person wrote and reads; twenty thousand lines is already far past that.
+   * <p>Quadratic in both time and <b>memory</b>, which is what {@link #MAX_SOURCE_LINES} bounds.
    */
   private static List<String> unified(String before, String after) {
     String[] left = before.split("\n", -1);

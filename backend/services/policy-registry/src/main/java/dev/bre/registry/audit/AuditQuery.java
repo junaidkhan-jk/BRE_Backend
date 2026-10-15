@@ -168,18 +168,20 @@ public class AuditQuery {
    * about how a timestamp is formatted, and then report a perfectly good chain as broken, which is
    * an alarm nobody can act on. The SQL below is the trigger's own expression, read back.
    *
-   * <p>Read-only and sequential. For a tenant with millions of entries this is a report, not a
-   * request — but the control plane's audit log records policy changes and user administration, not
-   * decisions, so its size is measured in thousands.
+   * <p><b>Streamed, not materialised.</b> The walk keeps four values — the expected sequence, the
+   * previous entry's hash, and the first fault of each kind — so memory does not grow with the
+   * chain. The first draft collected every row into a list first, which works until a tenant with a
+   * few hundred thousand entries asks whether its audit log is intact and gets an OutOfMemoryError
+   * for an answer.
    *
    * @param tenantId the tenant
    * @return the verification
    */
   @Transactional(readOnly = true)
   public Verification verify(String tenantId) {
-    List<Object[]> rows =
-        jdbc.query(
-            """
+    Walk walk = new Walk();
+    jdbc.query(
+        """
             SELECT seq,
                    encode(entry_hash, 'hex') AS entry_hash,
                    encode(sha256(prev_hash || convert_to(concat_ws(E'\\x1f',
@@ -193,54 +195,51 @@ public class AuditQuery {
              WHERE tenant_id = ?
              ORDER BY seq
             """,
-            (rs, rowNum) ->
-                new Object[] {
-                  rs.getLong("seq"),
-                  rs.getString("entry_hash"),
-                  rs.getString("recomputed"),
-                  rs.getString("prev_hash"),
-                  rs.getString("previous_entry_hash")
-                },
-            tenantId);
+        (org.springframework.jdbc.core.RowCallbackHandler)
+            rs -> {
+              long seq = rs.getLong("seq");
+              String stored = rs.getString("entry_hash");
+              String recomputed = rs.getString("recomputed");
+              String prevHash = rs.getString("prev_hash");
+              String previousEntryHash = rs.getString("previous_entry_hash");
 
-    Long firstBroken = null;
-    Long firstGapAfter = null;
-    long expectedSeq = 1;
-    String headHash = null;
+              if (seq != walk.expectedSeq && walk.firstGapAfter == null) {
+                // A missing sequence number is a deleted entry. The no-mutation triggers make
+                // that impossible through SQL, so a gap means somebody reached past them —
+                // which is exactly the finding this endpoint exists to surface.
+                walk.firstGapAfter = walk.expectedSeq - 1;
+              }
+              walk.expectedSeq = seq + 1;
+              walk.entries++;
 
-    for (Object[] row : rows) {
-      long seq = (Long) row[0];
-      String stored = (String) row[1];
-      String recomputed = (String) row[2];
-      String prevHash = (String) row[3];
-      String previousEntryHash = (String) row[4];
+              boolean linked =
+                  previousEntryHash == null
+                      // The first entry's prev_hash is 32 zero bytes, by the chain-head default.
+                      ? prevHash.chars().allMatch(character -> character == '0')
+                      : prevHash.equals(previousEntryHash);
 
-      if (seq != expectedSeq && firstGapAfter == null) {
-        // A missing sequence number is a deleted entry. The no-mutation triggers make that
-        // impossible through SQL, so a gap means somebody reached past them — which is exactly
-        // the finding this endpoint exists to surface.
-        firstGapAfter = expectedSeq - 1;
-      }
-      expectedSeq = seq + 1;
-
-      boolean linked =
-          previousEntryHash == null
-              // The first entry's prev_hash is 32 zero bytes, by the chain-head default.
-              ? prevHash.chars().allMatch(character -> character == '0')
-              : prevHash.equals(previousEntryHash);
-
-      if ((!stored.equals(recomputed) || !linked) && firstBroken == null) {
-        firstBroken = seq;
-      }
-      headHash = stored;
-    }
+              if ((!stored.equals(recomputed) || !linked) && walk.firstBroken == null) {
+                walk.firstBroken = seq;
+              }
+              walk.headHash = stored;
+            },
+        tenantId);
 
     return new Verification(
-        rows.size(),
-        firstBroken == null && firstGapAfter == null,
-        Optional.ofNullable(firstBroken),
-        Optional.ofNullable(firstGapAfter),
-        Optional.ofNullable(headHash));
+        walk.entries,
+        walk.firstBroken == null && walk.firstGapAfter == null,
+        Optional.ofNullable(walk.firstBroken),
+        Optional.ofNullable(walk.firstGapAfter),
+        Optional.ofNullable(walk.headHash));
+  }
+
+  /** The running state of one chain walk. Mutable because a row callback cannot return one. */
+  private static final class Walk {
+    private long entries;
+    private long expectedSeq = 1;
+    private Long firstBroken;
+    private Long firstGapAfter;
+    private String headHash;
   }
 
   private static Map<String, Object> readDetail(String json) {

@@ -956,10 +956,13 @@ class PolicyLifecycleTest {
         .contains(">= 21");
     assertThat(diff.get("unified").toString()).contains("- ", "+ ");
 
-    // A third version with the SAME rules, reformatted: blank lines and a comment. The text diff
-    // reports it; the semantic diff reports nothing, which is the whole reason both exist.
-    HttpResponse<String> third = post("/v1/policies/" + POLICY + "/versions", token, "");
-    int reformatted = json(third).get("version").asInt();
+    // The SAME rules, reformatted: blank lines and a comment. The text diff reports it; the
+    // semantic diff reports nothing, which is the whole reason both exist.
+    //
+    // Saved into the same draft rather than a new one, because only ONE open DRAFT is allowed per
+    // policy — asking for a second returns the first, and treating the two as different versions
+    // made this test pass for the wrong reason.
+    int reformatted = second;
     putText(
         "/v1/policies/" + POLICY + "/versions/" + reformatted + "/source",
         token,
@@ -975,6 +978,13 @@ class PolicyLifecycleTest {
         .as("a reviewer asked to approve a diff that changes nothing stops reading diffs")
         .isEmpty();
     assertThat(noChange.get("unified")).isNotEmpty();
+
+    // Discarded, so the clone test below has no open draft in its way. A test that leaves the
+    // lifecycle in a state the next one cannot work from is a test that fails somebody else.
+    assertThat(
+            post("/v1/policies/" + POLICY + "/versions/" + second + "/discard", token, "")
+                .statusCode())
+        .isEqualTo(200);
   }
 
   @Test
@@ -1014,7 +1024,123 @@ class PolicyLifecycleTest {
 
   @Test
   @Order(25)
-  @DisplayName("25. logging out stops the token working")
+  @DisplayName("25. a clone carries the source AND the test cases")
+  void cloneCopiesSourceAndTests() throws Exception {
+    // The version to clone: the one that was approved, with its three test cases.
+    HttpResponse<String> cloned =
+        post("/v1/policies/" + POLICY + "/versions?cloneFrom=" + draftVersion, token, "");
+    assertThat(cloned.statusCode()).as("%s", cloned.body()).isEqualTo(201);
+
+    JsonNode version = json(cloned);
+    int clone = version.get("version").asInt();
+    assertThat(clone).isGreaterThan(draftVersion);
+    assertThat(version.get("status").asText()).isEqualTo("DRAFT");
+
+    // Copying rules without the assertions that check them produces a draft that compiles, has no
+    // tests and cannot be submitted — and whose author has to go and find the old cases by hand.
+    assertThat(version.get("tests").get("total").asInt()).isEqualTo(3);
+    assertThat(version.get("tests").get("passed").asInt()).isEqualTo(3);
+    assertThat(version.get("coverage").get("overallPercent").asDouble()).isEqualTo(100.0);
+
+    // The SOURCE is copied, not the IR: translation discards every comment, and the comment
+    // explaining why a threshold is what it is may be the only record of the reasoning.
+    HttpResponse<String> source =
+        get("/v1/policies/" + POLICY + "/versions/" + clone + "/source", token);
+    assertThat(source.statusCode()).isEqualTo(200);
+    assertThat(source.body()).isEqualTo(PSF);
+
+    assertThat(actionsOf(json(get("/v1/audit?action=POLICY_VERSION&limit=200", token))))
+        .contains("POLICY_VERSION.CLONED");
+
+    // A second clone while this draft is open is refused rather than silently handed the open one:
+    // the author asked for a specific version's content.
+    HttpResponse<String> refused =
+        post("/v1/policies/" + POLICY + "/versions?cloneFrom=" + draftVersion, token, "");
+    assertThat(refused.statusCode()).isEqualTo(409);
+    assertThat(refused.body()).contains("already an open DRAFT");
+
+    // Discarded rather than left open, so test 27's history has a known shape. DISCARDED is a
+    // side transition out of DRAFT (00 §3.3) — a version is never deleted.
+    HttpResponse<String> discarded =
+        post("/v1/policies/" + POLICY + "/versions/" + clone + "/discard", token, "");
+    assertThat(discarded.statusCode()).isEqualTo(200);
+    assertThat(json(discarded).get("status").asText()).isEqualTo("DISCARDED");
+  }
+
+  @Test
+  @Order(26)
+  @DisplayName("26. an imported policy lands as a DRAFT, marked imported, never approved")
+  void importLandsAsADraft() throws Exception {
+    HttpResponse<String> imported =
+        post(
+            "/v1/policies/import",
+            token,
+            JSON.writeValueAsString(
+                java.util.Map.of(
+                    "policyCode", "IMPORTED_UW", "name", "Imported from UAT", "psf", PSF)));
+    assertThat(imported.statusCode()).as("%s", imported.body()).isEqualTo(201);
+
+    JsonNode version = json(imported);
+    assertThat(version.get("policyCode").asText()).isEqualTo("IMPORTED_UW");
+    assertThat(version.get("version").asInt()).isEqualTo(1);
+    assertThat(version.get("status").asText())
+        .as("an import arriving APPROVED would put a policy live with nobody here having read it")
+        .isEqualTo("DRAFT");
+    assertThat(version.get("compileOk").asBoolean()).isTrue();
+
+    // The history records that this version came from elsewhere, so a reviewer knows they are
+    // reading somebody else's work.
+    JsonNode history = json(get("/v1/policies/IMPORTED_UW/versions", token));
+    assertThat(history).hasSize(1);
+    assertThat(history.get(0).get("imported").asBoolean()).isTrue();
+
+    assertThat(actionsOf(json(get("/v1/audit?action=POLICY_VERSION&limit=200", token))))
+        .contains("POLICY_VERSION.IMPORTED");
+
+    // Source that does not translate creates no policy row: a code reserved for a document
+    // nobody can compile collides with the next import of the same policy.
+    HttpResponse<String> broken =
+        post(
+            "/v1/policies/import",
+            token,
+            JSON.writeValueAsString(
+                java.util.Map.of("policyCode", "NOT_CREATED", "psf", "policy: [unclosed")));
+    assertThat(broken.statusCode()).isEqualTo(409);
+    assertThat(get("/v1/policies/NOT_CREATED/versions", token).body())
+        .doesNotContain("\"version\"");
+  }
+
+  @Test
+  @Order(27)
+  @DisplayName("27. the version history says who edited, who approved, and why it changed")
+  void versionHistory() throws Exception {
+    JsonNode history = json(get("/v1/policies/" + POLICY + "/versions", token));
+    assertThat(history).isNotEmpty();
+
+    JsonNode approved =
+        java.util.stream.StreamSupport.stream(history.spliterator(), false)
+            .filter(entry -> entry.get("version").asInt() == draftVersion)
+            .findFirst()
+            .orElseThrow();
+
+    assertThat(approved.get("status").asText()).isEqualTo("APPROVED");
+    assertThat(approved.get("bundleHash").asText()).startsWith("sha256:");
+    assertThat(approved.get("changeNote").asText()).contains("revised KYC circular");
+    assertThat(approved.get("committeeReference").asText()).isEqualTo("CRMC-2026-41");
+    assertThat(approved.get("submittedAt").asText()).isNotEmpty();
+    assertThat(approved.get("approvedAt").asText()).isNotEmpty();
+
+    // Editors is a LIST, and that is the point: a draft handed between two people has two, and
+    // segregation of duties is enforced against all of them. Showing only the creator would make
+    // a reviewer look independent when they are not.
+    assertThat(approved.get("editors")).isNotEmpty();
+    assertThat(approved.get("editors").toString()).contains("admin");
+    assertThat(approved.get("approvers").toString()).contains("admin");
+  }
+
+  @Test
+  @Order(28)
+  @DisplayName("28. logging out stops the token working")
   void logout() throws Exception {
     String sessionToken =
         json(post("/v1/auth/login", null, body(ADMIN_EMAIL, ADMIN_PASSWORD))).get("token").asText();

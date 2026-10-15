@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -134,22 +135,13 @@ public class PolicyController {
    *
    * @param request the request
    * @param policyCode the policy
-   * @return version, status, bundle hash, approval time and author
+   * @return one entry per version, newest first, with who did what and when (M5-04)
    */
   @GetMapping("/{policyCode}/versions")
-  public List<Map<String, String>> listVersions(
+  public List<PolicyVersionRepository.HistoryEntry> listVersions(
       HttpServletRequest request, @PathVariable String policyCode) {
     Principal caller = Authorisation.require(request, Role.Capability.POLICY_READ);
-    return repository.listVersions(caller.tenantId(), policyCode).stream()
-        .map(
-            row ->
-                Map.of(
-                    "version", row[0],
-                    "status", row[1],
-                    "bundleHash", row[2],
-                    "approvedAt", row[3],
-                    "createdBy", row[4]))
-        .toList();
+    return repository.listVersions(caller.tenantId(), policyCode);
   }
 
   /**
@@ -161,10 +153,51 @@ public class PolicyController {
    */
   @PostMapping("/{policyCode}/versions")
   public ResponseEntity<PolicyVersionService.SavedVersion> createDraft(
-      HttpServletRequest request, @PathVariable String policyCode) {
+      HttpServletRequest request,
+      @PathVariable String policyCode,
+      @RequestParam(required = false) Integer cloneFrom) {
     Principal author = Authorisation.require(request, Role.Capability.POLICY_EDIT);
     return ResponseEntity.status(HttpStatus.CREATED)
-        .body(versions.createDraft(author.tenantId(), policyCode, author.subject()));
+        .body(versions.createDraft(author.tenantId(), policyCode, author.subject(), cloneFrom));
+  }
+
+  /**
+   * What an import carries.
+   *
+   * @param policyCode the code to import as — the importing tenant's choice, because two lenders
+   *     may use different codes for the same policy
+   * @param name a display name, used only when the policy does not exist here yet
+   * @param psf the PSF source
+   */
+  public record ImportRequest(String policyCode, String name, String psf) {}
+
+  /**
+   * Imports a policy from PSF source (§2.6, M3-02).
+   *
+   * <p>It lands as a DRAFT and is marked imported. An import that arrived APPROVED would be a way
+   * to put a policy into production without anybody at the receiving lender reviewing it.
+   *
+   * @param request the request
+   * @param body the code, name and source
+   * @return the draft, with its compile report — which may carry findings, since another
+   *     installation's policy can reference parameters this one has never defined
+   */
+  @PostMapping("/import")
+  public ResponseEntity<PolicyVersionService.SavedVersion> importPolicy(
+      HttpServletRequest request, @RequestBody ImportRequest body) {
+    Principal author = Authorisation.require(request, Role.Capability.POLICY_EDIT);
+    if (body.psf() == null || body.psf().isBlank()) {
+      throw new PolicyVersionService.LifecycleException("psf is required and must not be empty.");
+    }
+    if (body.policyCode() == null || body.policyCode().isBlank()) {
+      throw new PolicyVersionService.LifecycleException(
+          "policyCode is required. PSF carries no tenant and no code of its own — which is what"
+              + " makes a policy portable — so the importing tenant chooses what to call it.");
+    }
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(
+            versions.importVersion(
+                author.tenantId(), body.policyCode(), body.name(), body.psf(), author.subject()));
   }
 
   /**

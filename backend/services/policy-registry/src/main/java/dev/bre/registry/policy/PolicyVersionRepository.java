@@ -218,25 +218,96 @@ public class PolicyVersionRepository {
    * @param policyCode the policy
    * @return version, status and bundle hash per row
    */
-  public List<String[]> listVersions(String tenantId, String policyCode) {
+  public List<HistoryEntry> listVersions(String tenantId, String policyCode) {
     return jdbc.query(
         """
-        SELECT version, status, coalesce(bundle_hash, '') AS bundle_hash,
-               coalesce(to_char(approved_at, 'YYYY-MM-DD"T"HH24:MI:SSZ'), '') AS approved_at,
-               created_by
-          FROM bre_ctl.policy_versions
-         WHERE tenant_id = ? AND policy_code = ? ORDER BY version DESC
+        SELECT v.version, v.status, v.bundle_hash, v.based_on_version, v.imported,
+               v.submission_round, v.change_note, v.committee_reference, v.created_by,
+               to_char(v.created_at,   'YYYY-MM-DD"T"HH24:MI:SSZ') AS created_at,
+               to_char(v.submitted_at, 'YYYY-MM-DD"T"HH24:MI:SSZ') AS submitted_at,
+               to_char(v.approved_at,  'YYYY-MM-DD"T"HH24:MI:SSZ') AS approved_at,
+               (SELECT array_agg(e.editor ORDER BY e.first_edit_at)
+                  FROM bre_ctl.policy_version_editors e
+                 WHERE e.tenant_id = v.tenant_id AND e.policy_code = v.policy_code
+                   AND e.policy_version = v.version) AS editors,
+               (SELECT array_agg(r.reviewer ORDER BY r.created_at)
+                  FROM bre_ctl.policy_version_reviews r
+                 WHERE r.tenant_id = v.tenant_id AND r.policy_code = v.policy_code
+                   AND r.policy_version = v.version AND r.decision = 'APPROVE') AS approvers
+          FROM bre_ctl.policy_versions v
+         WHERE v.tenant_id = ? AND v.policy_code = ? ORDER BY v.version DESC
         """,
         (rs, rowNum) ->
-            new String[] {
-              String.valueOf(rs.getInt("version")),
-              rs.getString("status"),
-              rs.getString("bundle_hash"),
-              rs.getString("approved_at"),
-              rs.getString("created_by")
-            },
+            new HistoryEntry(
+                rs.getInt("version"),
+                rs.getString("status"),
+                Optional.ofNullable(rs.getString("bundle_hash")),
+                Optional.ofNullable((Integer) rs.getObject("based_on_version")),
+                rs.getBoolean("imported"),
+                rs.getInt("submission_round"),
+                Optional.ofNullable(rs.getString("change_note")),
+                Optional.ofNullable(rs.getString("committee_reference")),
+                rs.getString("created_by"),
+                rs.getString("created_at"),
+                Optional.ofNullable(rs.getString("submitted_at")),
+                Optional.ofNullable(rs.getString("approved_at")),
+                array(rs.getArray("editors")),
+                array(rs.getArray("approvers"))),
         tenantId,
         policyCode);
+  }
+
+  /**
+   * One version, as the history reads it (M5-04).
+   *
+   * <p><b>Editors and approvers are both lists, and both are the point.</b> A version's history is
+   * not "who created it" — a draft handed between two people has two editors, and segregation of
+   * duties is enforced against all of them. Showing only the creator would make the reviewer look
+   * independent when they are not.
+   *
+   * @param version the version number
+   * @param status its lifecycle state
+   * @param bundleHash the signed bundle, once approved
+   * @param basedOnVersion the version this one was opened from
+   * @param imported whether it arrived from another installation (§2.6)
+   * @param submissionRound how many times it has been submitted
+   * @param changeNote what the author said changed, and why
+   * @param committeeReference the governance record behind the change
+   * @param createdBy who opened the draft
+   * @param createdAt when
+   * @param submittedAt when it went for review
+   * @param approvedAt when it was approved
+   * @param editors everyone who saved it, in the order they first did
+   * @param approvers everyone who approved it
+   */
+  public record HistoryEntry(
+      int version,
+      String status,
+      Optional<String> bundleHash,
+      Optional<Integer> basedOnVersion,
+      boolean imported,
+      int submissionRound,
+      Optional<String> changeNote,
+      Optional<String> committeeReference,
+      String createdBy,
+      String createdAt,
+      Optional<String> submittedAt,
+      Optional<String> approvedAt,
+      List<String> editors,
+      List<String> approvers) {
+
+    /** Creates an entry, copying both lists. */
+    public HistoryEntry {
+      editors = List.copyOf(editors);
+      approvers = List.copyOf(approvers);
+    }
+  }
+
+  private static List<String> array(java.sql.Array array) throws java.sql.SQLException {
+    if (array == null) {
+      return List.of();
+    }
+    return List.of((String[]) array.getArray());
   }
 
   /**
@@ -316,12 +387,32 @@ public class PolicyVersionRepository {
    */
   public void insertDraft(
       String tenantId, String policyCode, int version, Optional<Integer> basedOn, String actor) {
+    insertDraft(tenantId, policyCode, version, basedOn, actor, false);
+  }
+
+  /**
+   * Inserts an empty DRAFT, recording whether it arrived from elsewhere.
+   *
+   * @param tenantId the tenant
+   * @param policyCode the policy
+   * @param version the version number
+   * @param basedOn the version it was opened from
+   * @param actor who opened it
+   * @param imported true when the source came from another installation (§2.6)
+   */
+  public void insertDraft(
+      String tenantId,
+      String policyCode,
+      int version,
+      Optional<Integer> basedOn,
+      String actor,
+      boolean imported) {
     jdbc.update(
         """
         INSERT INTO bre_ctl.policy_versions (
             tenant_id, policy_code, version, status, ir, fact_schema_code, fact_schema_version,
-            based_on_version, created_by)
-        VALUES (?, ?, ?, 'DRAFT', '{}'::jsonb, ?, ?, ?, ?)
+            based_on_version, imported, created_by)
+        VALUES (?, ?, ?, 'DRAFT', '{}'::jsonb, ?, ?, ?, ?, ?)
         """,
         tenantId,
         policyCode,
@@ -329,6 +420,7 @@ public class PolicyVersionRepository {
         dev.bre.facts.LendingFacts.CODE,
         dev.bre.facts.LendingFacts.VERSION,
         basedOn.orElse(null),
+        imported,
         actor);
   }
 

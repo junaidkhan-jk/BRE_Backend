@@ -1,6 +1,7 @@
 package dev.bre.registry.policy;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.bre.irjson.PsfCodec;
 import dev.bre.registry.audit.AuditLog;
 import dev.bre.registry.auth.Principal;
 import dev.bre.registry.sign.BundleBuilder;
@@ -175,6 +176,31 @@ public class PolicyVersionService {
    */
   @Transactional
   public SavedVersion createDraft(String tenantId, String policyCode, String actor) {
+    return createDraft(tenantId, policyCode, actor, null);
+  }
+
+  /**
+   * Opens a DRAFT, optionally cloning an existing version into it (M5-04).
+   *
+   * <p><b>A clone copies the source AND the test cases.</b> Copying the rules without the
+   * assertions that check them produces a draft that compiles, has no tests, and cannot be
+   * submitted — and whose author has to go and find the previous version's cases by hand. The tests
+   * are the half of a policy that says what it is supposed to do.
+   *
+   * <p>The copy is of the <b>source</b>, not the IR. Translation discards every comment, and the
+   * comment explaining why a threshold is 21 rather than 18 is often the only record of a credit
+   * committee's reasoning.
+   *
+   * @param tenantId the tenant
+   * @param policyCode the policy
+   * @param actor who is opening it
+   * @param cloneFrom the version to copy source and test cases from, or null for an empty draft
+   * @return the draft
+   * @throws LifecycleException if the policy does not exist, or the version to clone does not
+   */
+  @Transactional
+  public SavedVersion createDraft(
+      String tenantId, String policyCode, String actor, Integer cloneFrom) {
     if (repository.findPolicy(tenantId, policyCode).isEmpty()) {
       throw new LifecycleException(
           "no policy "
@@ -186,16 +212,152 @@ public class PolicyVersionService {
     if (openDraft.isPresent()) {
       // Returning it rather than failing: "new draft" and "continue the draft" are the same
       // intent from an author's point of view, and failing would make the client guess.
+      //
+      // A clone request is different, though: the author asked for THIS version's content and
+      // would otherwise be handed an unrelated draft and told it worked.
+      if (cloneFrom != null) {
+        throw new LifecycleException(
+            "version "
+                + openDraft.get()
+                + " of "
+                + policyCode
+                + " is already an open DRAFT. Cloning into it would overwrite work somebody has"
+                + " not submitted. Submit or discard that draft first.");
+      }
       return read(tenantId, policyCode, openDraft.get());
     }
 
     int next = repository.nextVersion(tenantId, policyCode);
-    Optional<Integer> basedOn = repository.latestApprovedVersion(tenantId, policyCode);
+    Optional<Integer> basedOn =
+        cloneFrom != null
+            ? Optional.of(cloneFrom)
+            : repository.latestApprovedVersion(tenantId, policyCode);
     repository.insertDraft(tenantId, policyCode, next, basedOn, actor);
     repository.recordEditor(tenantId, policyCode, next, actor);
     audit.record(
-        tenantId, actor, "POLICY_VERSION.CREATED", "policy_version", key(policyCode, next), "{}");
+        tenantId,
+        actor,
+        "POLICY_VERSION.CREATED",
+        "policy_version",
+        key(policyCode, next),
+        cloneFrom == null ? "{}" : "{\"clonedFrom\":" + cloneFrom + "}");
+
+    if (cloneFrom != null) {
+      String source =
+          repository
+              .sourceOf(tenantId, policyCode, cloneFrom)
+              .orElseThrow(
+                  () ->
+                      new LifecycleException(
+                          "version "
+                              + cloneFrom
+                              + " of "
+                              + policyCode
+                              + " has no saved source, so there is nothing to clone. A version"
+                              + " imported as IR only cannot be cloned as PSF."));
+      List<CompileService.TestCase> cases = repository.testCases(tenantId, policyCode, cloneFrom);
+      for (CompileService.TestCase test : cases) {
+        repository.upsertTestCase(
+            tenantId,
+            policyCode,
+            next,
+            test.name(),
+            test.asOf(),
+            test.facts().toString(),
+            test.expect().toString());
+      }
+      // Saved last, so the compile report the save writes already counts the copied test cases.
+      // The other order produces a fresh draft reporting zero tests, which reads as a clone that
+      // lost them.
+      save(tenantId, policyCode, next, source, actor, null);
+      audit.record(
+          tenantId,
+          actor,
+          "POLICY_VERSION.CLONED",
+          "policy_version",
+          key(policyCode, next),
+          "{\"from\":" + cloneFrom + ",\"testCasesCopied\":" + cases.size() + "}");
+    }
+
     return read(tenantId, policyCode, next);
+  }
+
+  /**
+   * Imports a policy from PSF source, from this or another installation (§2.6, M3-02).
+   *
+   * <p><b>PSF carries no tenant and no bundle hash</b>, which is exactly what makes a policy
+   * portable: the receiving installation compiles it against its OWN parameter sets and reference
+   * lists, so the same document means different thresholds for different lenders — and the
+   * importing tenant's assets are the ones that get signed into its bundle.
+   *
+   * <p><b>It lands as a DRAFT and nothing else.</b> An import that arrived as APPROVED would be a
+   * way to put a policy into production without anybody at the receiving lender having reviewed it,
+   * which is the one thing the lifecycle exists to prevent. The {@code imported} flag is recorded
+   * so a reviewer knows they are reading somebody else's work.
+   *
+   * @param tenantId the importing tenant
+   * @param policyCode the policy code to import as
+   * @param displayName a name, used only when the policy does not exist yet
+   * @param psfYaml the source
+   * @param actor who is importing
+   * @return the draft, with its compile report — which may well carry findings, because another
+   *     installation's policy can reference parameters this one has never defined
+   */
+  @Transactional
+  public SavedVersion importVersion(
+      String tenantId, String policyCode, String displayName, String psfYaml, String actor) {
+    if (repository.findPolicy(tenantId, policyCode).isEmpty()) {
+      // Translated here, before anything is written, for the stage — which the policy row needs
+      // and only the document knows. It also means an import that does not parse creates no
+      // policy row: a code reserved for a document nobody can compile is worse than a refusal,
+      // because the next import of the same policy then collides with it.
+      String stage;
+      try {
+        // `policy.stage`, not `stage` — §2.2 nests the identity fields under `policy`, and reading
+        // the root gave an empty string, which read as "the document declares no stage".
+        stage = PsfCodec.toIrJson(psfYaml, tenantId).path("policy").path("stage").asText("");
+      } catch (RuntimeException notTranslatable) {
+        throw new LifecycleException(
+            "the imported source could not be translated, so there is nothing to import: "
+                + notTranslatable.getMessage());
+      }
+      if (stage.isBlank()) {
+        throw new LifecycleException(
+            "the imported source declares no stage. A policy belongs to a decision point (00"
+                + " §3.1); without one the registry cannot say when it would run.");
+      }
+      repository.insertPolicy(
+          tenantId,
+          policyCode,
+          displayName == null || displayName.isBlank() ? policyCode : displayName,
+          stage,
+          null,
+          actor);
+      audit.record(tenantId, actor, "POLICY.CREATED", "policy", policyCode, "{\"imported\":true}");
+    }
+
+    Optional<Integer> openDraft = repository.findOpenDraftVersion(tenantId, policyCode);
+    if (openDraft.isPresent()) {
+      throw new LifecycleException(
+          "version "
+              + openDraft.get()
+              + " of "
+              + policyCode
+              + " is already an open DRAFT. Importing over it would overwrite work somebody has"
+              + " not submitted.");
+    }
+
+    int next = repository.nextVersion(tenantId, policyCode);
+    repository.insertDraft(tenantId, policyCode, next, Optional.empty(), actor, true);
+    repository.recordEditor(tenantId, policyCode, next, actor);
+    audit.record(
+        tenantId,
+        actor,
+        "POLICY_VERSION.IMPORTED",
+        "policy_version",
+        key(policyCode, next),
+        "{\"sourceBytes\":" + psfYaml.length() + "}");
+    return save(tenantId, policyCode, next, psfYaml, actor, null);
   }
 
   /**
