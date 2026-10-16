@@ -10,6 +10,47 @@ spring:
     default-property-inclusion: non_null
 
   # ---------------------------------------------------------------------------
+  # KAFKA — PLACEHOLDER. Only read when bre.decision-log.mode=KAFKA.
+  # ---------------------------------------------------------------------------
+  # CHANGE ME to your brokers. Prefer SPRING_KAFKA_BOOTSTRAP_SERVERS in the
+  # environment over editing this file.
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      # THESE THREE CARRY THE DURABILITY GUARANTEE. They are not tuning.
+      #
+      # acks=all          the leader waits for every in-sync replica. With acks=1,
+      #                   a decision acknowledged to a caller is LOST when the
+      #                   leader fails before replicating — which is exactly the
+      #                   RPO-0 claim D6 makes.
+      # idempotence       the producer stamps a sequence number, so a retry after
+      #                   a network timeout does not append the decision twice.
+      # retries           with idempotence on, a retry is safe, so retry hard
+      #                   rather than failing a decision on a transient blip.
+      #
+      # The fourth setting is NOT here because it belongs on the TOPIC:
+      # min.insync.replicas=2. Without it, acks=all on a single-replica topic is
+      # acks=1 wearing a disguise. Set it when you create the topic.
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+      retries: 10
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # Read the whole topic when a group is new. A sink that started at the end
+      # would leave every decision made before it first ran absent from the hot
+      # store, and nothing would ever say so.
+      auto-offset-reset: earliest
+      # The sink is idempotent on the decision id, so at-least-once is the right
+      # trade: a duplicate is refused by the primary key, a LOST record is not
+      # recoverable.
+      enable-auto-commit: false
+
+  # ---------------------------------------------------------------------------
   # DATABASE — PLACEHOLDER VALUES. Change these to your own PostgreSQL.
   # ---------------------------------------------------------------------------
   # Only read when bre.decision-log.mode=POSTGRES (see below). With the default
@@ -65,8 +106,22 @@ bre:
     #              and its outbox event commit in ONE transaction before the
     #              response returns. This is what gives RPO 0 for an acknowledged
     #              decision. Requires spring.datasource.* and spring.flyway.enabled=true.
-    # KAFKA      — Kafka-first, for scale. Not implemented yet (M4).
+    # KAFKA      — Kafka-first (D6, M4-01). The response waits on the broker's
+    #              acknowledgement. Needs spring.kafka.bootstrap-servers AND
+    #              spring.datasource.*: the topic is the system of record, but a
+    #              topic answers no questions, so every READ is served from the hot
+    #              store the sink fills. A read can therefore lag a write.
     mode: IN_MEMORY
+
+    kafka:
+      topic: bre.decision.recorded.v1
+      # The consumer group the sink joins. One group across every pod, so each
+      # decision is written to the hot store once.
+      sink-group: bre-decision-sink
+      # How long a decision waits for the broker before the request fails. A 500
+      # for a decision that was made correctly is bad; a 200 for a decision nobody
+      # recorded is worse, and it is found by a regulator rather than a caller.
+      ack-timeout-ms: 5000
 
     # Persist the fact snapshot, which replay needs (D7).
     #

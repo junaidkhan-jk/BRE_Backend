@@ -115,6 +115,26 @@ public class OutboxDecisionLog implements DecisionLog {
   }
 
   /**
+   * Writes the row WITHOUT an outbox event, for the sink to use (M4-02).
+   *
+   * <p>In Kafka-first mode the topic already is the stream, so an outbox row would be a second copy
+   * of an event that has already been published — and a relay would then deliver each decision
+   * twice, once from Kafka and once from the outbox. The rest of the write is identical, which is
+   * the point of sharing it: the sink must produce the same row compact mode produces, or a lender
+   * who switches modes gets a decision log with two shapes in it.
+   *
+   * @param record the decision, as the sink rebuilt it from the event
+   */
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public void appendWithoutOutbox(DecisionRecord record) {
+    UUID decisionId = UUID.fromString(record.response().decisionId());
+    LocalDate decisionDate = decisionDateOf(decisionId, record);
+    insertDecision(record, decisionId, decisionDate);
+    insertIdempotencyKey(record, decisionId, decisionDate);
+    // No facts: the event never carried them. See DecisionEvent.
+  }
+
+  /**
    * The UTC date the row is partitioned by (§5.3): the date of the decision id's UUIDv7 timestamp.
    *
    * <p>Derived from the identifier rather than from {@code recordedAt} so that a lookup by id can

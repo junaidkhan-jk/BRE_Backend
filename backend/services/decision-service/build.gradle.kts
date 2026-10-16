@@ -47,6 +47,10 @@ dependencies {
     // the scripts are perfectly fine.
     implementation("org.springframework.boot:spring-boot-flyway")
     implementation(libs.flyway.core)
+
+    // Kafka-first mode (D6, M4-01/M4-02). Version from the Spring Boot BOM, like every other
+    // Spring artifact here.
+    implementation("org.springframework.kafka:spring-kafka")
     runtimeOnly(libs.flyway.postgresql)
 
     testImplementation(platform(libs.junit.bom))
@@ -65,6 +69,10 @@ dependencies {
     // Executing the sibling bre_ctl DDL immediately found a table with no row-level security.
     testImplementation(platform(libs.embedded.postgres.binaries.bom))
     testImplementation(libs.embedded.postgres)
+    // A REAL Kafka broker, in this JVM. This host has no Docker, so Testcontainers is not an
+    // option locally; spring-kafka-test embeds an actual broker, which is what makes it possible
+    // to assert acks=all and idempotence rather than assert against a mock that agrees with me.
+    testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation(libs.postgresql)
     testImplementation(libs.flyway.postgresql)
     testRuntimeOnly(libs.junit.platform.launcher)
