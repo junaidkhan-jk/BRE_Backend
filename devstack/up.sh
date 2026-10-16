@@ -69,6 +69,12 @@ stop() {
   # PostgreSQL last: the registry holds connections to it, and killing the database first makes
   # the service log a wall of connection errors on its way out.
   stop_pid "$POSTGRES_PID_FILE" "embedded PostgreSQL"
+  # The database runs as a Gradle task, so the recorded pid is the server and the WRAPPER that
+  # launched it survives — holding the port, and named after neither PostgreSQL nor this script.
+  # The startup path already pkills this; stop() did not, so `--stop` left a process behind that
+  # made the NEXT start fail with "finished with non-zero exit value 143", which reads like a
+  # crash rather than a port clash. Half a fix is how the same defect arrives twice.
+  pkill -f "devPostgres" 2>/dev/null || true
   rm -f "$PG_PROPERTIES"
   if [[ -f "$PID_FILE" ]]; then
     pid="$(cat "$PID_FILE")"
