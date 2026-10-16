@@ -58,6 +58,7 @@ public class DecideUseCase {
   private final ObjectMapper objectMapper;
   private final Clock clock;
   private final dev.bre.decision.observe.DecisionMetrics metrics;
+  private final dev.bre.decision.admit.FairShareBulkhead bulkhead;
 
   /**
    * Creates the use case.
@@ -77,12 +78,15 @@ public class DecideUseCase {
       DecisionLog decisionLog,
       ObjectMapper objectMapper,
       Clock clock,
-      dev.bre.decision.observe.DecisionMetrics metrics) {
+      dev.bre.decision.observe.DecisionMetrics metrics,
+      dev.bre.decision.admit.FairShareBulkhead bulkhead) {
     this.policyResolver = policyResolver;
     this.decisionLog = decisionLog;
     this.objectMapper = objectMapper;
     this.clock = clock;
     this.metrics = metrics;
+    this.bulkhead = bulkhead;
+    bulkhead.logSizing();
     log.info("decision log: {}", decisionLog.describe());
   }
 
@@ -124,15 +128,21 @@ public class DecideUseCase {
             Optional.ofNullable(request.bundleHash()).filter(h -> !h.isBlank()),
             receivedAt);
 
+    // Inside the CPU bulkhead (§6.3). Evaluation is the CPU-bound part; everything around it —
+    // the idempotency lookup above and the durable write below — is I/O and runs outside, on the
+    // virtual thread, so a slow database does not consume an evaluation slot.
     FlowEvaluator.DecisionResult result =
-        FlowEvaluator.evaluate(
-            resolved.policy(),
-            EvaluationContext.of(
-                FACT_READER.toRecord(request.facts()),
-                // The parameters and lists the bundle was SIGNED with, not any fetched now (§8.4).
-                resolved.parameters(),
-                resolved.lists(),
-                asOf));
+        bulkhead.call(
+            request.tenantId(),
+            () ->
+                FlowEvaluator.evaluate(
+                    resolved.policy(),
+                    EvaluationContext.of(
+                        FACT_READER.toRecord(request.facts()),
+                        // The parameters and lists the bundle was SIGNED with (§8.4).
+                        resolved.parameters(),
+                        resolved.lists(),
+                        asOf)));
 
     DecisionResponse response =
         new DecisionResponse(

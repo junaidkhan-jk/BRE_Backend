@@ -88,6 +88,33 @@ public class ApiErrorHandler {
   }
 
   /**
+   * The pod is saturated, or the tenant is over its share of it (M4-05, §6.4).
+   *
+   * <p><b>503 with {@code Retry-After}, not 429 and not a queue.</b> 429 would say the caller sent
+   * too much, and in a shared cell the usual cause is somebody else's burst — telling a lender they
+   * are rate-limited when their neighbour is the problem sends them to fix something that is not
+   * broken. 503 says the service cannot take it right now, which is true, and the {@code
+   * Retry-After} says the capacity is coming back.
+   *
+   * <p>Shed rather than queued because a decision delivered after the caller has timed out has
+   * spent a pod's CPU to produce nothing, while making every request behind it later too.
+   *
+   * @param exception the shedding
+   * @return a problem+json 503
+   */
+  @ExceptionHandler(dev.bre.decision.admit.FairShareBulkhead.SheddingException.class)
+  public org.springframework.http.ResponseEntity<ProblemDetail> onShed(
+      dev.bre.decision.admit.FairShareBulkhead.SheddingException exception) {
+    ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE);
+    problem.setTitle("The service is shedding load");
+    problem.setType(java.net.URI.create("https://bre.dev/problems/load-shed"));
+    problem.setDetail(exception.getMessage());
+    return org.springframework.http.ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+        .header("Retry-After", "1")
+        .body(problem);
+  }
+
+  /**
    * A bundle failed verification (§2.6, §8.6).
    *
    * <p>502, not 422: the caller did nothing wrong. Something between the registry and this pod

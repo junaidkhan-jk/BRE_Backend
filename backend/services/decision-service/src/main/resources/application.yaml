@@ -100,6 +100,30 @@ bre:
   # much use in an audit.
   env-code: LOCAL
 
+  # Admission control (M4-05, §6.3, §6.4). The CPU bulkhead and the per-tenant
+  # fair share inside this pod.
+  admission:
+    # 0 sizes from the pod's own cores: 2 x availableProcessors, which respects
+    # the cgroup quota. Set a number only if you have measured a better one —
+    # a configured value is wrong on every machine but the one it was written
+    # for, and in a container it is wrong in the direction that hurts.
+    capacity: 0
+
+    # How much of this pod ONE tenant may hold while others want capacity.
+    # 0.5 suits a pod serving a couple of busy tenants; lower it towards 0.25
+    # in a shared cell with four or more. The reciprocal is roughly how many
+    # tenants can be busy at once without anybody being starved.
+    #
+    # It only bites under contention: a quiet pod still lets one tenant use all
+    # of it, because reserving capacity nobody wants is just a smaller pod.
+    tenant-share: 0.5
+
+    # How long a request waits for a slot before it is shed with 503 and
+    # Retry-After. Short on purpose — a decision delivered after the caller has
+    # timed out has spent CPU to produce nothing, and made everything behind it
+    # later too.
+    wait-ms: 250
+
   # The WORM Parquet archive (§6.1.5, M4-03). OFF by default: the hot store's
   # retention is enough for an installation whose requirement it meets, and the
   # archive is what you turn on when it is not.
