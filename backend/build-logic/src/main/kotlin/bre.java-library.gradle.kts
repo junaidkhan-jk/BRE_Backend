@@ -110,3 +110,72 @@ tasks.named<JacocoReport>("jacocoTestReport") {
         html.required.set(true)
     }
 }
+
+// THE THIRD TIME THIS BIT THIS BUILD IS WHY THIS TASK EXISTS.
+//
+// Spring Boot 4 moved auto-configuration out of the monolithic spring-boot-autoconfigure and into
+// one artifact per technology. Declaring the library alone compiles, starts, and does nothing:
+//
+//   flyway-core without spring-boot-flyway  -> policy-registry started, never migrated, and every
+//                                              query failed with "relation does not exist" while
+//                                              the scripts were perfectly fine.
+//   flyway-core without spring-boot-flyway  -> the SAME defect in decision-service, missed because
+//                                              every bre_dec test configures Flyway by hand and so
+//                                              never needed the auto-configuration.
+//   spring-kafka without spring-boot-kafka  -> no KafkaTemplate bean, so KAFKA mode and the async
+//                                              endpoint both failed at startup.
+//
+// Two of those three were SILENT until the first query. Each was found separately and treated as a
+// one-off; the pattern was only obvious on the third. A pair added here costs one line and removes
+// a whole class of discovery-by-outage.
+//
+// Registered per project rather than in the root build, because Gradle forbids resolving another
+// project's configuration — which is the right rule and was the first thing this task got wrong.
+val springAutoConfigurationPairs = mapOf(
+    "org.flywaydb:flyway-core" to "org.springframework.boot:spring-boot-flyway",
+    "org.springframework.kafka:spring-kafka" to "org.springframework.boot:spring-boot-kafka",
+)
+
+val checkSpringAutoConfigurations = tasks.register("checkSpringAutoConfigurations") {
+    group = "verification"
+    description =
+        "Asserts every Spring technology on this project's runtime classpath also has its " +
+            "auto-configuration artifact. Spring Boot 4 split those out, and the failure is silent."
+
+    val configuration = configurations.findByName("runtimeClasspath")
+    val resolved = configuration?.incoming?.resolutionResult?.rootComponent
+    val projectPath = project.path
+
+    doLast {
+        if (resolved == null) {
+            return@doLast
+        }
+        val coordinates = mutableSetOf<String>()
+        fun walk(component: org.gradle.api.artifacts.result.ResolvedComponentResult, seen: MutableSet<String>) {
+            val id = component.moduleVersion ?: return
+            val key = "${id.group}:${id.name}"
+            if (!seen.add(key)) return
+            coordinates.add(key)
+            component.dependencies
+                .filterIsInstance<org.gradle.api.artifacts.result.ResolvedDependencyResult>()
+                .forEach { walk(it.selected, seen) }
+        }
+        walk(resolved.get(), mutableSetOf())
+
+        val missing = springAutoConfigurationPairs.entries
+            .filter { (library, _) -> coordinates.contains(library) }
+            .filterNot { (_, autoConfig) -> coordinates.contains(autoConfig) }
+            .map { (library, autoConfig) ->
+                "$projectPath: has $library but NOT $autoConfig — the library sits on the " +
+                    "classpath and is never configured"
+            }
+
+        require(missing.isEmpty()) {
+            "A Spring technology is on the classpath without its auto-configuration.\n" +
+                "Spring Boot 4 split these out; without the partner artifact the feature is " +
+                "silently absent.\n" + missing.joinToString("\n") { "  $it" }
+        }
+    }
+}
+
+tasks.named("check") { dependsOn(checkSpringAutoConfigurations) }
