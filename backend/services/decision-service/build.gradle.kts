@@ -51,6 +51,9 @@ dependencies {
     // Kafka-first mode (D6, M4-01/M4-02). Version from the Spring Boot BOM, like every other
     // Spring artifact here.
     implementation("org.springframework.kafka:spring-kafka")
+    // The WORM Parquet archive (M4-03). One artifact, no transitives — see the note on the
+    // version in libs.versions.toml for why this is not parquet-avro.
+    implementation(libs.duckdb)
     runtimeOnly(libs.flyway.postgresql)
 
     testImplementation(platform(libs.junit.bom))

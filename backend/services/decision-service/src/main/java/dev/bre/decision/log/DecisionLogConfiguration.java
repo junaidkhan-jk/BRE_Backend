@@ -152,14 +152,37 @@ public class DecisionLogConfiguration {
   @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
       name = "bre.decision-log.mode",
       havingValue = "KAFKA")
-  public DecisionSink decisionSink(DecisionLog decisionLog, ObjectMapper objectMapper) {
+  public DecisionSink decisionSink(
+      DecisionLog decisionLog,
+      ObjectMapper objectMapper,
+      @Value("${bre.archive.dir:}") String archiveDir,
+      @Value("${bre.archive.roll-after-seconds:300}") long rollAfterSeconds,
+      @Value("${bre.archive.roll-at-rows:20000}") int rollAtRows) {
+
     if (!(decisionLog instanceof KafkaDecisionLog kafkaLog)
         || !(kafkaLog.hotStore() instanceof OutboxDecisionLog store)) {
       throw new IllegalStateException(
           "the sink needs the hot store the Kafka log reads from, and the configured log is "
               + decisionLog.getClass().getSimpleName());
     }
-    return new DecisionSink(store, objectMapper);
+
+    dev.bre.decision.archive.ParquetDecisionArchive archive = null;
+    if (archiveDir != null && !archiveDir.isBlank()) {
+      archive =
+          new dev.bre.decision.archive.ParquetDecisionArchive(
+              new dev.bre.decision.archive.ArchiveStore.Directory(
+                  java.nio.file.Path.of(archiveDir)),
+              java.time.Duration.ofSeconds(rollAfterSeconds),
+              rollAtRows);
+      log.info("archiving decisions as Parquet under {}", archiveDir);
+    } else {
+      // Not a warning. An installation whose retention requirement is met by the hot store alone
+      // is a legitimate configuration, and the archive is the thing you turn on when it is not.
+      log.info(
+          "no bre.archive.dir: decisions are kept in the hot store only, for as long as its"
+              + " retention allows. Set it to keep the §6.1.5 WORM Parquet archive.");
+    }
+    return new DecisionSink(store, objectMapper, archive);
   }
 
   /**

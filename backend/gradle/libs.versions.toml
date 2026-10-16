@@ -49,6 +49,21 @@ nimbus-jose-jwt = "10.10"
 # development is a document that is wrong and does not say so — and an integrator reading it
 # believes it. The 3.x line is the Spring Boot 4 / Jackson 3 one.
 springdoc = "3.1.1"
+
+# The WORM decision archive (M4-03), written as Parquet by DuckDB.
+#
+# NOT parquet-avro, and the reason is worth recording. Parquet 1.18 claims to have dropped Hadoop,
+# and its READER has; its WRITER has not — ParquetWriter.Builder.build() constructs a
+# HadoopParquetConfiguration, then reaches Hadoop's zlib enums, then Hadoop's XML parser. Taking
+# hadoop-common properly costs 103 transitive artifacts: Jetty, Kerberos, Zookeeper, Curator and a
+# long tail. That is a patch obligation and an attack surface, in the service that decides credit,
+# for a file format.
+#
+# DuckDB is ONE artifact with ZERO transitives, writes standard Parquet that Spark, Athena, pandas
+# and Polars all read, and gives SQL over the archive — which is exactly what a portfolio back-test
+# over it needs. The cost is a native library in the service; it is confined to the archive writer,
+# which is off the decision path and belongs to the sink the specification already separates out.
+duckdb = "1.5.6.0"
 postgresql = "42.7.9"
 flyway = "13.10.0"
 # Real PostgreSQL binaries for integration tests. The dev host has no Docker, so Testcontainers
@@ -78,6 +93,7 @@ jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
 archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
 nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
 springdoc-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+duckdb = { module = "org.duckdb:duckdb_jdbc", version.ref = "duckdb" }
 jazzer-junit = { module = "com.code-intelligence:jazzer-junit", version.ref = "jazzer" }
 slf4j-nop = { module = "org.slf4j:slf4j-nop", version = "2.0.17" }
 jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }

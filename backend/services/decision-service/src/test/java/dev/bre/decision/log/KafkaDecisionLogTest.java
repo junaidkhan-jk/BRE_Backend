@@ -164,7 +164,7 @@ class KafkaDecisionLogTest {
   @Test
   @DisplayName("the sink writes the event into the hot store, and reads are served from there")
   void theSinkFillsTheHotStore() throws Exception {
-    DecisionSink sink = new DecisionSink(store, json);
+    DecisionSink sink = new DecisionSink(store, json, null);
     DecisionRecord record = decision("APP-SINK", "REFER");
 
     log.append(record);
@@ -190,7 +190,7 @@ class KafkaDecisionLogTest {
   @Test
   @DisplayName("a redelivered event is written once, because the decision id is the key")
   void aRedeliveryIsIdempotent() throws Exception {
-    DecisionSink sink = new DecisionSink(store, json);
+    DecisionSink sink = new DecisionSink(store, json, null);
     DecisionRecord record = decision("APP-DUP", "APPROVE");
     String payload = json.writeValueAsString(DecisionEvent.from(record));
 
@@ -212,7 +212,7 @@ class KafkaDecisionLogTest {
   @Test
   @DisplayName("an unparseable event is not retried forever: it is a conversion failure")
   void malformedIsNotRetryable() {
-    DecisionSink sink = new DecisionSink(store, json);
+    DecisionSink sink = new DecisionSink(store, json, null);
     // Retrying bytes that cannot parse stalls the partition behind one bad record for ever, so
     // this has to be the kind of failure a container dead-letters rather than redelivers.
     assertThatThrownBy(() -> sink.consume("{this is not json"))

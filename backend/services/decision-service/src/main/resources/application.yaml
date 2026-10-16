@@ -100,6 +100,21 @@ bre:
   # much use in an audit.
   env-code: LOCAL
 
+  # The WORM Parquet archive (§6.1.5, M4-03). OFF by default: the hot store's
+  # retention is enough for an installation whose requirement it meets, and the
+  # archive is what you turn on when it is not.
+  #
+  # CHANGE ME to a path on write-once storage with a retention lock. A plain
+  # directory gives the same refusal-to-overwrite the real store does, and NOT
+  # the retention lock — a process with write access can still delete a file,
+  # which is exactly what WORM prevents.
+  archive:
+    dir: ""
+    # §6.1.5: every five minutes or 256 MB. Expressed in rows here because the
+    # row size is known and a byte estimate would be a worse way of saying it.
+    roll-after-seconds: 300
+    roll-at-rows: 20000
+
   decision-log:
     # IN_MEMORY  — local development. NOT DURABLE: every decision is lost on restart.
     # POSTGRES   — compact mode (D6). Durable: the decision, its idempotency key

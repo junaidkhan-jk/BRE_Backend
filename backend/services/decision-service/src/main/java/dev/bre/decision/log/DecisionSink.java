@@ -19,6 +19,11 @@ import org.springframework.kafka.annotation.KafkaListener;
  * making the sink idempotent by relying on the key it already has, rather than by tracking offsets
  * in a second place that can disagree with Kafka's.
  *
+ * <p><b>The archive is written alongside the hot store, and a failure there is not swallowed.</b>
+ * §6.1.5's archive is the copy that outlives the hot store's ninety days and answers a regulator in
+ * year nine. Writing it on a best-effort basis would produce an archive with holes in it, and a
+ * reader cannot tell a missing decision from one that was never made.
+ *
  * <p><b>What this deliberately does not do is skip a record it cannot write.</b> A failure that is
  * not a duplicate rethrows, so the container's error handler retries and ultimately dead-letters
  * rather than advancing past it. A sink that logged and continued would leave a decision in Kafka
@@ -30,16 +35,22 @@ public class DecisionSink {
 
   private final OutboxDecisionLog store;
   private final ObjectMapper json;
+  private final dev.bre.decision.archive.ParquetDecisionArchive archive;
 
   /**
    * Creates the sink.
    *
    * @param store the hot store, written through compact mode's own insert path minus its outbox
    * @param json the mapper, with the time module the event's Instants need
+   * @param archive the WORM Parquet archive, or null when none is configured
    */
-  public DecisionSink(OutboxDecisionLog store, ObjectMapper json) {
+  public DecisionSink(
+      OutboxDecisionLog store,
+      ObjectMapper json,
+      dev.bre.decision.archive.ParquetDecisionArchive archive) {
     this.store = store;
     this.json = json;
+    this.archive = archive;
   }
 
   /**
@@ -70,6 +81,13 @@ public class DecisionSink {
       // At-least-once doing what it says. Logged at DEBUG: on a rebalance this is every record in
       // flight, and at INFO it would bury the log in the one situation somebody is reading it.
       log.debug("decision {} was already in the hot store", event.decisionId());
+    }
+
+    if (archive != null) {
+      // After the hot store, and deliberately NOT in a try that swallows. A duplicate reaching
+      // the archive is handled at compaction by decisionId, as §6.1.5 says; a decision that never
+      // reaches it is a hole nobody can see.
+      archive.add(event, java.time.Instant.now());
     }
   }
 }
