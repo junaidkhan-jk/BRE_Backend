@@ -49,6 +49,10 @@ import org.springframework.kafka.test.utils.KafkaTestUtils;
 class KafkaDecisionLogTest {
 
   private static final String TOPIC = "bre.decision.recorded.v1";
+
+  /** Partitions on the test topic. Used to create it AND to assign to it, so the two agree. */
+  private static final int PARTITIONS = 2;
+
   private static final String TENANT = "t_kafka";
 
   private static EmbeddedKafkaKraftBroker broker;
@@ -60,7 +64,7 @@ class KafkaDecisionLogTest {
 
   @BeforeAll
   void start() throws Exception {
-    broker = new EmbeddedKafkaKraftBroker(1, 2, TOPIC);
+    broker = new EmbeddedKafkaKraftBroker(1, PARTITIONS, TOPIC);
     broker.afterPropertiesSet();
 
     postgres = EmbeddedPostgres.builder().start();
@@ -116,8 +120,7 @@ class KafkaDecisionLogTest {
     log.append(record);
 
     try (KafkaConsumer<String, String> consumer = consumer("before-return")) {
-      consumer.subscribe(List.of(TOPIC));
-      // append has already RETURNED, and the consumer subscribes only now — so anything it finds
+      // append has already RETURNED, and the consumer is assigned only now — so anything it finds
       // was durable before the call came back. That is the guarantee, asserted without a race.
       List<ConsumerRecord<String, String>> found = recordsFor(consumer, TENANT + ":APP-1");
       assertThat(found).hasSize(1);
@@ -149,7 +152,6 @@ class KafkaDecisionLogTest {
     log.append(record);
 
     try (KafkaConsumer<String, String> consumer = consumer("no-facts")) {
-      consumer.subscribe(List.of(TOPIC));
       List<ConsumerRecord<String, String>> found = recordsFor(consumer, TENANT + ":APP-FACTS");
       assertThat(found).hasSize(1);
 
@@ -174,7 +176,6 @@ class KafkaDecisionLogTest {
     assertThat(log.find(TENANT, record.decisionId())).isEmpty();
 
     try (KafkaConsumer<String, String> consumer = consumer("sink")) {
-      consumer.subscribe(List.of(TOPIC));
       List<ConsumerRecord<String, String>> found = recordsFor(consumer, TENANT + ":APP-SINK");
       assertThat(found).hasSize(1);
 
@@ -246,34 +247,49 @@ class KafkaDecisionLogTest {
   // --- plumbing --------------------------------------------------------------------------------
 
   /**
-   * A consumer in its own group reading the topic from the beginning.
+   * A consumer ASSIGNED to the topic's partitions, with no consumer group at all.
    *
-   * <p><b>Earliest, with a unique group, rather than latest.</b> The first version used {@code
-   * latest} and a short poll to "drain the assignment" — which is a race: the poll does not
-   * guarantee the assignment has completed, so a record produced immediately afterwards can land
-   * before the consumer has a position and is then skipped. Two of the three tests passed on
-   * timing. Reading from the beginning in a fresh group has no race at all; each test filters for
-   * the key it produced.
+   * <p>Three versions of this, and each was a different mistake worth keeping. The first used
+   * {@code latest} with a short poll to "drain the assignment", which is a race — the poll does not
+   * guarantee assignment completed, so a record produced immediately after can be skipped, and two
+   * of three tests passed on timing. The second used {@code subscribe} with a unique group per
+   * test, which is correct and SLOW: joining a group on a cold broker creates the internal offsets
+   * topic and runs the join protocol, which took 128 seconds under full-suite load and failed a
+   * 60-second deadline while the code under test worked perfectly.
+   *
+   * <p>Assignment needs none of it. No coordinator to find, no group to join, no offsets to commit:
+   * the test names the partitions and seeks to the beginning. Group management is Kafka's feature
+   * for sharing work between pods, which is the sink's problem and not this test's.
+   *
+   * <p>The partitions come from the constant the topic was CREATED with rather than from {@code
+   * partitionsFor}, which asks the broker and returns empty on a fresh consumer whose metadata has
+   * not arrived — assigning nothing, which fails as "not subscribed to any topics".
+   *
+   * @param unusedName kept so call sites still read as naming their consumer
+   * @return a consumer positioned at the start of every partition
    */
-  private static KafkaConsumer<String, String> consumer(String group) {
+  private static KafkaConsumer<String, String> consumer(String unusedName) {
     Map<String, Object> settings =
-        KafkaTestUtils.consumerProps(
-            broker.getBrokersAsString(), group + "-" + System.nanoTime(), true);
+        KafkaTestUtils.consumerProps(broker.getBrokersAsString(), "assigned-no-group", true);
     settings.put("key.deserializer", StringDeserializer.class);
     settings.put("value.deserializer", StringDeserializer.class);
-    settings.put("auto.offset.reset", "earliest");
-    return new KafkaConsumer<>(settings);
+    KafkaConsumer<String, String> consumer = new KafkaConsumer<>(settings);
+    List<org.apache.kafka.common.TopicPartition> partitions =
+        java.util.stream.IntStream.range(0, PARTITIONS)
+            .mapToObj(partition -> new org.apache.kafka.common.TopicPartition(TOPIC, partition))
+            .toList();
+    consumer.assign(partitions);
+    consumer.seekToBeginning(partitions);
+    return consumer;
   }
 
   /** Every record on the topic for one key, read from the beginning. */
   private static List<ConsumerRecord<String, String>> recordsFor(
       KafkaConsumer<String, String> consumer, String key) {
     List<ConsumerRecord<String, String>> matching = new java.util.ArrayList<>();
-    // Sixty seconds, not fifteen. Joining a consumer group — find the coordinator, join, sync —
-    // takes as long as the machine is busy, and fifteen was enough when this test ran alone and
-    // not enough when the whole suite ran with it. A deadline only reached on the way to failing
-    // costs nothing in the passing case, which is every case that matters.
-    long deadline = System.currentTimeMillis() + 60_000;
+    // Thirty seconds is ample now there is no group to join: the consumer is assigned directly
+    // and seeks to the beginning, so the only wait is the broker serving a fetch.
+    long deadline = System.currentTimeMillis() + 30_000;
     while (System.currentTimeMillis() < deadline && matching.isEmpty()) {
       for (ConsumerRecord<String, String> candidate : consumer.poll(Duration.ofMillis(500))) {
         if (key.equals(candidate.key())) {
