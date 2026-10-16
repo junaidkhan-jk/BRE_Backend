@@ -1,0 +1,131 @@
+{{- /*
+  The stateful half of a cell: Kafka through Strimzi, the hot store through CloudNativePG (§12.1).
+
+  Both are operators rather than StatefulSets this chart writes itself, and that is the point of
+  naming them in the specification: a hand-rolled Kafka StatefulSet works until the first broker
+  replacement, and a hand-rolled PostgreSQL works until the first failover. Neither moment is one
+  to discover the gap.
+*/ -}}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: bre-kafka
+  namespace: bre-data-{{ .Values.cellId }}
+spec:
+  kafka:
+    replicas: {{ .Values.kafka.replicationFactor }}
+    config:
+      # THE THREE SETTINGS THAT CARRY D6's RPO-0 CLAIM.
+      #
+      # acks=all is set by the producer; it means nothing unless the topic has at least two
+      # in-sync replicas, because acks=all on a single-replica topic is acks=1 wearing a disguise.
+      # These are the broker-side defaults; every topic below sets them explicitly too.
+      default.replication.factor: {{ .Values.kafka.replicationFactor }}
+      min.insync.replicas: {{ .Values.kafka.minInsyncReplicas }}
+      # Unclean election would let a broker that MISSED acknowledged writes become leader, which
+      # silently discards decisions a caller was already told were durable. Off, always.
+      unclean.leader.election.enable: false
+      transaction.state.log.replication.factor: {{ .Values.kafka.replicationFactor }}
+      transaction.state.log.min.isr: {{ .Values.kafka.minInsyncReplicas }}
+    storage:
+      type: jbod
+      volumes:
+        - id: 0
+          type: persistent-claim
+          size: 500Gi
+          class: {{ .Values.postgres.storageClass }}
+          # Retained when the cluster is deleted. A Kafka PVC here holds decisions that have not
+          # yet reached the hot store, and "deleted the cluster by mistake" must not be the same
+          # event as "lost the decisions in flight".
+          deleteClaim: false
+    template:
+      pod:
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: topology.kubernetes.io/zone
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                strimzi.io/name: bre-kafka-kafka
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: bre-decision-recorded-v1
+  namespace: bre-data-{{ .Values.cellId }}
+  labels:
+    strimzi.io/cluster: bre-kafka
+spec:
+  topicName: bre.decision.recorded.v1
+  partitions: {{ .Values.kafka.partitions }}
+  replicas: {{ .Values.kafka.replicationFactor }}
+  config:
+    min.insync.replicas: {{ .Values.kafka.minInsyncReplicas }}
+    # Seven days. §10 says the sink catches up from Kafka after a hot-store outage, and a
+    # retention shorter than the longest outage anybody plans for makes that untrue.
+    retention.ms: 604800000
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: bre-decision-requested-v1
+  namespace: bre-data-{{ .Values.cellId }}
+  labels:
+    strimzi.io/cluster: bre-kafka
+spec:
+  topicName: bre.decision.requested.v1
+  partitions: {{ .Values.kafka.partitions }}
+  replicas: {{ .Values.kafka.replicationFactor }}
+  config:
+    min.insync.replicas: {{ .Values.kafka.minInsyncReplicas }}
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: bre-decision-requested-v1-dlq
+  namespace: bre-data-{{ .Values.cellId }}
+  labels:
+    strimzi.io/cluster: bre-kafka
+spec:
+  topicName: bre.decision.requested.v1.dlq
+  partitions: {{ .Values.kafka.partitions }}
+  replicas: {{ .Values.kafka.replicationFactor }}
+  config:
+    min.insync.replicas: {{ .Values.kafka.minInsyncReplicas }}
+    # THIRTY DAYS, longer than the topic it serves. A dead letter is something a person has to
+    # look at, and people look at them on Monday. A DLQ with the same retention as its source
+    # discards the evidence on the same schedule as the data, which defeats its only purpose.
+    retention.ms: 2592000000
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: bre-hot-store
+  namespace: bre-data-{{ .Values.cellId }}
+spec:
+  instances: {{ .Values.postgres.instances }}
+  postgresql:
+    parameters:
+      # SYNCHRONOUS replication. §10's RPO for the hot store is 0 in-region, and asynchronous
+      # replication cannot give that: a failover loses whatever had not reached the standby, and
+      # what it loses is decisions a caller was told were recorded.
+      synchronous_commit: "on"
+    {{- if .Values.postgres.synchronous }}
+    synchronous:
+      method: any
+      number: 1
+    {{- end }}
+  storage:
+    size: {{ .Values.postgres.storageSize }}
+    storageClass: {{ .Values.postgres.storageClass }}
+  backup:
+    # CHANGE ME. Without a destination this cluster has replicas and no backups — and replication
+    # is not a backup: it faithfully replicates a DELETE too.
+    barmanObjectStore:
+      destinationPath: s3://CHANGE-ME/bre-hot-store
+      wal:
+        compression: gzip
+    retentionPolicy: "30d"

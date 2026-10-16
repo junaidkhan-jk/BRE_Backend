@@ -1,0 +1,79 @@
+# Argo CD: a cell deploys from Git (M4-09's exit criterion).
+#
+# The point of GitOps here is not convenience. A decision cell serves signed policy bundles and
+# every change to how it runs is a change somebody can be asked about years later — so the
+# cluster's state is a file in a repository with a commit author, not a kubectl command somebody
+# ran. "What was serving at 14:30 last Tuesday" is answerable for the POLICY by design; this makes
+# it answerable for the PLATFORM too.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bre-cell-1
+  namespace: argocd
+  finalizers:
+    # Without this, deleting the Application leaves every resource it created orphaned in the
+    # cluster — running, unmanaged, and invisible to the next sync.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: bre
+  source:
+    repoURL: CHANGE-ME-git-remote
+    targetRevision: main
+    path: deploy/helm/bre-cell
+    helm:
+      valueFiles:
+        - values.yaml
+      parameters:
+        - name: cellId
+          value: "1"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: bre-cell-1
+  syncPolicy:
+    automated:
+      # Prune ON: a resource removed from Git is removed from the cluster. Leaving it means the
+      # repository stops describing what is running, which is the one property GitOps is for.
+      prune: true
+      # SelfHeal ON: a manual kubectl edit is reverted on the next sync. That is the intended
+      # outcome — an out-of-band change to a credit platform's runtime is exactly what should not
+      # survive, and reverting it loudly beats discovering it during an incident.
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # ServerSideApply, because the CloudNativePG and Strimzi CRDs are large enough to exceed
+      # the annotation limit that client-side apply stores the last-applied config in.
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+---
+# The data plane is a SEPARATE Application, and the separation is deliberate.
+#
+# Kafka and PostgreSQL are stateful. A sync that rolls the stateless services is routine; one that
+# touches a Kafka cluster or a database is not, and bundling them means every routine change to a
+# deployment carries the possibility of a broker restart. Separate Applications mean the stateful
+# half is synced on purpose.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bre-data-1
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: bre
+  source:
+    repoURL: CHANGE-ME-git-remote
+    targetRevision: main
+    path: deploy/helm/bre-cell
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: bre-data-1
+  syncPolicy:
+    # NOT automated. See above: a stateful sync is a decision, not a side effect of a merge.
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

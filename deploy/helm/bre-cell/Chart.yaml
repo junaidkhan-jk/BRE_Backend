@@ -1,0 +1,6 @@
+apiVersion: v2
+name: bre-cell
+description: One BRE decision cell — decision-service, worker and sink (M4-09, §12)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

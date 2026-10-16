@@ -1,0 +1,88 @@
+# One cell, per §12.2. Every number here is from the specification's own table rather than
+# chosen — where a value is a judgement it says so.
+
+cellId: "1"
+image:
+  repository: CHANGE-ME/bre-decision-service
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+decisionService:
+  # §12.2: HPA min 6, max 24. The minimum is AZ count x 2, so a zone loss leaves a replica per
+  # surviving zone rather than a scramble.
+  minReplicas: 6
+  maxReplicas: 24
+  resources:
+    requests:
+      cpu: "2"
+      memory: 6Gi
+    limits:
+      # Memory limit, and NO CPU limit, which is deliberate and is the one line here most likely
+      # to be "corrected" by somebody tidying.
+      #
+      # A CPU limit throttles at the quota even when the node is idle, and evaluation is a short
+      # CPU burst — so a limit converts a 20 ms decision into a 200 ms one under exactly the load
+      # where latency matters. The CPU bulkhead inside the pod (M4-05) is what bounds concurrency;
+      # the limit would bound it a second time, worse, and invisibly.
+      #
+      # Memory IS limited, because a leak that takes the node down takes every pod on it.
+      memory: 6Gi
+  # §6.4: scale up fast, down slowly. A burst of applications is a business event and the cost of
+  # over-provisioning for five minutes is nothing next to shedding a lender's traffic.
+  scaleUpPercent: 100
+  scaleUpPeriodSeconds: 15
+  scaleDownPercent: 10
+  scaleDownStabilizationSeconds: 300
+  targetCpuPercent: 60
+
+decisionWorker:
+  async:
+    minReplicas: 2
+    maxReplicas: 24
+    resources:
+      requests: { cpu: "2", memory: 4Gi }
+      limits: { memory: 4Gi }
+  bulk:
+    # Scales to ZERO: bulk is P2, the second thing shed, and a cell with no bulk job should not
+    # hold pods for one.
+    minReplicas: 0
+    maxReplicas: 12
+    resources:
+      requests: { cpu: "2", memory: 4Gi }
+      limits: { memory: 4Gi }
+
+decisionSink:
+  minReplicas: 3
+  maxReplicas: 48
+  resources:
+    requests: { cpu: "1", memory: 2Gi }
+    limits: { memory: 2Gi }
+
+kafka:
+  bootstrapServers: bre-kafka-kafka-bootstrap.bre-data-1.svc:9092
+  # min.insync.replicas lives on the TOPIC, in the Strimzi KafkaTopic resource — acks=all on a
+  # topic with one in-sync replica is acks=1 wearing a disguise.
+  replicationFactor: 3
+  minInsyncReplicas: 2
+  partitions: 24
+
+postgres:
+  # CloudNativePG, with a synchronous standby: §10's RPO for the hot store is 0 in-region, which
+  # asynchronous replication cannot give.
+  instances: 3
+  synchronous: true
+  storageSize: 200Gi
+  storageClass: CHANGE-ME-local-nvme
+
+archive:
+  # CHANGE ME to a bucket with an Object Lock and a retention period. A prefix on ordinary storage
+  # gives the refusal-to-overwrite the code enforces and NOT the retention lock, which is the half
+  # a regulator asks about.
+  dir: /var/lib/bre/archive
+
+secrets:
+  # Names of EXISTING secrets. Nothing here creates one, and no value in this chart is a
+  # credential: a chart in Git that contains a password is a password in Git.
+  datasource: bre-decision-datasource
+  kms: bre-kms
+  manifestKey: bre-manifest-public-key

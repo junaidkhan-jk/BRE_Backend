@@ -1,0 +1,152 @@
+{{- /*
+  decision-worker (async and bulk) and decision-sink (§12.2).
+
+  Two deployments of the SAME worker image, and that separation is §6.4's physical bulkhead rather
+  than tidiness: async is priority class P1 and bulk is P2, so bulk is shed before async. Sharing
+  pods would make the shed order unenforceable — a bulk job would consume the capacity async needs
+  and no amount of priority labelling would take it back.
+*/ -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: decision-worker-async
+  namespace: bre-cell-{{ .Values.cellId }}
+  labels:
+    app.kubernetes.io/name: decision-worker
+    bre.dev/priority-class: p1
+spec:
+  replicas: {{ .Values.decisionWorker.async.minReplicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: decision-worker-async
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: decision-worker-async
+    spec:
+      nodeSelector:
+        bre.dev/pool: decision
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: decision-worker-async
+      containers:
+        - name: decision-worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          env:
+            - name: BRE_ASYNC_ENABLED
+              value: "true"
+            - name: BRE_DECISION_LOG_MODE
+              value: KAFKA
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.kafka.bootstrapServers | quote }}
+          resources:
+            requests:
+              cpu: {{ .Values.decisionWorker.async.resources.requests.cpu | quote }}
+              memory: {{ .Values.decisionWorker.async.resources.requests.memory }}
+            limits:
+              memory: {{ .Values.decisionWorker.async.resources.limits.memory }}
+      terminationGracePeriodSeconds: 60
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: decision-worker-async
+  namespace: bre-cell-{{ .Values.cellId }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: decision-worker-async
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: decision-worker-bulk
+  namespace: bre-cell-{{ .Values.cellId }}
+  labels:
+    app.kubernetes.io/name: decision-worker
+    bre.dev/priority-class: p2
+spec:
+  # Scales to ZERO. Bulk is the second thing shed, and a cell with no bulk job should not hold
+  # pods waiting for one. No PodDisruptionBudget for the same reason: there is nothing to protect.
+  replicas: {{ .Values.decisionWorker.bulk.minReplicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: decision-worker-bulk
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: decision-worker-bulk
+    spec:
+      nodeSelector:
+        bre.dev/pool: batch
+      containers:
+        - name: decision-worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          env:
+            - name: BRE_DECISION_LOG_MODE
+              value: KAFKA
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.kafka.bootstrapServers | quote }}
+          resources:
+            requests:
+              cpu: {{ .Values.decisionWorker.bulk.resources.requests.cpu | quote }}
+              memory: {{ .Values.decisionWorker.bulk.resources.requests.memory }}
+            limits:
+              memory: {{ .Values.decisionWorker.bulk.resources.limits.memory }}
+      terminationGracePeriodSeconds: 120
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: decision-sink
+  namespace: bre-cell-{{ .Values.cellId }}
+  labels:
+    app.kubernetes.io/name: decision-sink
+spec:
+  replicas: {{ .Values.decisionSink.minReplicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: decision-sink
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: decision-sink
+    spec:
+      nodeSelector:
+        bre.dev/pool: decision
+      containers:
+        - name: decision-sink
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          env:
+            - name: BRE_DECISION_LOG_MODE
+              value: KAFKA
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.kafka.bootstrapServers | quote }}
+            - name: BRE_ARCHIVE_DIR
+              value: {{ .Values.archive.dir | quote }}
+          resources:
+            requests:
+              cpu: {{ .Values.decisionSink.resources.requests.cpu | quote }}
+              memory: {{ .Values.decisionSink.resources.requests.memory }}
+            limits:
+              memory: {{ .Values.decisionSink.resources.limits.memory }}
+      # Long, deliberately. The sink buffers archive rows and flushes a Parquet file on shutdown;
+      # killing it mid-flush loses the buffer, and an archive with holes is worth less than none
+      # because a reader cannot tell a missing decision from one never made.
+      terminationGracePeriodSeconds: 180
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: decision-sink
+  namespace: bre-cell-{{ .Values.cellId }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: decision-sink

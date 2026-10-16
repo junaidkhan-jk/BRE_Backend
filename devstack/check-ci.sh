@@ -70,4 +70,33 @@ if grep -nE 'uses: [^@]+@v?[0-9]+(\.[0-9]+)*\s*$' "$ROOT"/.github/workflows/*.ym
 fi
 ok "no tag-pinned action"
 
+step "the Helm chart renders and parses"
+# Same reasoning as the workflows above, and the same precedent: ADR-018 records the CI workflows
+# being claimed lint-clean while being invalid YAML that could never have run. A chart nobody has
+# rendered is in exactly that position.
+python3 "$ROOT/devstack/check-helm.py" || fail "the Helm chart does not render"
+
+step "every Argo CD Application parses, prunes, and names a destination"
+python3 - "$ROOT/deploy/argocd" <<'PY' || fail "an Argo CD Application is wrong"
+import sys, pathlib, yaml
+bad = []
+for path in sorted(pathlib.Path(sys.argv[1]).glob("*.yaml")):
+    for doc in yaml.safe_load_all(path.read_text()):
+        if not doc:
+            continue
+        name = doc.get("metadata", {}).get("name", "?")
+        # A missing finalizer orphans every resource the Application created when it is deleted:
+        # running, unmanaged, and invisible to the next sync.
+        if "resources-finalizer.argocd.argoproj.io" not in doc.get("metadata", {}).get(
+            "finalizers", []
+        ):
+            bad.append(f"{name}: no resources finalizer, so deleting it orphans its resources")
+        if not doc.get("spec", {}).get("destination", {}).get("namespace"):
+            bad.append(f"{name}: no destination namespace")
+for line in bad:
+    print("   ", line, file=sys.stderr)
+sys.exit(1 if bad else 0)
+PY
+ok "Applications parse and are safe to delete"
+
 printf '\n  \033[0;32mThe workflows are valid as documents. Orchestration is still unrun — ADR-018.\033[0m\n\n'

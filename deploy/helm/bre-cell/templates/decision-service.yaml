@@ -1,0 +1,161 @@
+{{- /*
+  decision-service: the hot path (§12.2).
+
+  Three settings here are load-bearing and are the ones most likely to be "tidied":
+
+  1. NO CPU LIMIT. A limit throttles at the quota even on an idle node, turning a 20 ms decision
+     into a 200 ms one under exactly the load where latency matters. The in-pod CPU bulkhead
+     (M4-05) already bounds concurrency; a limit would bound it again, worse and invisibly.
+  2. topologySpreadConstraints with maxSkew 1 on BOTH zone and hostname. Zone alone lets three
+     replicas land on one node, and that node is then a single point of failure wearing the
+     costume of three replicas.
+  3. A PodDisruptionBudget of 80%, not a replica count. During a node drain the cluster will take
+     pods away, and a percentage keeps the guarantee true when the HPA has scaled.
+*/ -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: decision-service
+  namespace: bre-cell-{{ .Values.cellId }}
+  labels:
+    app.kubernetes.io/name: decision-service
+    bre.dev/cell: "{{ .Values.cellId }}"
+    bre.dev/priority-class: p0
+spec:
+  replicas: {{ .Values.decisionService.minReplicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: decision-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: decision-service
+        bre.dev/cell: "{{ .Values.cellId }}"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
+    spec:
+      # A dedicated node pool. §12.1 is explicit that decision pods do not share nodes with batch:
+      # a simulation run saturating a node would add latency to live credit decisions on it.
+      nodeSelector:
+        bre.dev/pool: decision
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: decision-service
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: decision-service
+      containers:
+        - name: decision-service
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: BRE_ENV_CODE
+              value: PROD
+            - name: BRE_DECISION_LOG_MODE
+              value: KAFKA
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.kafka.bootstrapServers | quote }}
+            - name: BRE_ARCHIVE_DIR
+              value: {{ .Values.archive.dir | quote }}
+            # From secrets that already exist. Nothing in this chart is a credential: a chart in
+            # Git containing a password is a password in Git.
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.secrets.datasource }}, key: url }
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.secrets.datasource }}, key: username }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.secrets.datasource }}, key: password }
+            - name: BRE_POLICY_MANIFEST_KEY
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.secrets.manifestKey }}, key: public }
+          resources:
+            requests:
+              cpu: {{ .Values.decisionService.resources.requests.cpu | quote }}
+              memory: {{ .Values.decisionService.resources.requests.memory }}
+            limits:
+              # Memory only. See the comment at the top of this file for why there is no CPU limit.
+              memory: {{ .Values.decisionService.resources.limits.memory }}
+          startupProbe:
+            # Generous, because startup verifies and compiles every bundle this pod will serve —
+            # a readiness probe tuned for a steady-state pod would kill it mid-verification and
+            # restart it into the same timeout, for ever.
+            httpGet: { path: /actuator/health, port: http }
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: http }
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            # Deliberately LOOSER than readiness. A pod that is briefly unready should leave the
+            # load balancer, not be killed: restarting it discards its verified bundle cache and
+            # makes the next minute worse.
+            httpGet: { path: /actuator/health, port: http }
+            periodSeconds: 20
+            failureThreshold: 6
+      terminationGracePeriodSeconds: 45
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: decision-service
+  namespace: bre-cell-{{ .Values.cellId }}
+spec:
+  # A percentage, not a count: the HPA moves the replica count and a fixed number would stop
+  # meaning 80% the moment it did.
+  minAvailable: 80%
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: decision-service
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: decision-service
+  namespace: bre-cell-{{ .Values.cellId }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: decision-service
+  minReplicas: {{ .Values.decisionService.minReplicas }}
+  maxReplicas: {{ .Values.decisionService.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.decisionService.targetCpuPercent }}
+  behavior:
+    scaleUp:
+      # No stabilisation window: a burst of applications is a business event, and the cost of
+      # over-provisioning for five minutes is nothing next to shedding a lender's traffic.
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: {{ .Values.decisionService.scaleUpPercent }}
+          periodSeconds: {{ .Values.decisionService.scaleUpPeriodSeconds }}
+    scaleDown:
+      # Slow, and asymmetric on purpose. Scaling down into a lull that turns out to be a pause
+      # between bursts is how an autoscaler causes the outage it was meant to prevent.
+      stabilizationWindowSeconds: {{ .Values.decisionService.scaleDownStabilizationSeconds }}
+      policies:
+        - type: Percent
+          value: {{ .Values.decisionService.scaleDownPercent }}
+          periodSeconds: 60
