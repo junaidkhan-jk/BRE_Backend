@@ -6,7 +6,7 @@
     "version" : "0.1.0"
   },
   "servers" : [ {
-    "url" : "http://127.0.0.1:34523",
+    "url" : "http://127.0.0.1:35373",
     "description" : "Generated server url"
   } ],
   "security" : [ {
@@ -180,6 +180,132 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/SavedVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/platform/tenants/{tenantId}/quota" : {
+      "get" : {
+        "tags" : [ "tenant-admin-controller" ],
+        "operationId" : "quota",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Quota"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "tenant-admin-controller" ],
+        "operationId" : "setQuota",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Quota"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Quota"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/platform/tenants/{tenantId}/environments" : {
+      "get" : {
+        "tags" : [ "tenant-admin-controller" ],
+        "operationId" : "environments",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Environment"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "tenant-admin-controller" ],
+        "operationId" : "upsertEnvironment",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Environment"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Environment"
+                  }
                 }
               }
             }
@@ -783,6 +909,34 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/SavedVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/platform/tenants" : {
+      "post" : {
+        "tags" : [ "tenant-admin-controller" ],
+        "operationId" : "provision",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProvisionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Tenant"
                 }
               }
             }
@@ -1401,10 +1555,36 @@
         }
       }
     },
+    "/v1/platform/tenants/{tenantId}" : {
+      "get" : {
+        "tags" : [ "tenant-admin-controller" ],
+        "operationId" : "read_3",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Tenant"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/deployments/{deploymentId}" : {
       "get" : {
         "tags" : [ "deployment-controller" ],
-        "operationId" : "read_3",
+        "operationId" : "read_4",
         "parameters" : [ {
           "name" : "deploymentId",
           "in" : "path",
@@ -1881,6 +2061,49 @@
           }
         }
       },
+      "Quota" : {
+        "type" : "object",
+        "properties" : {
+          "decisionsPerSecond" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "burstDecisions" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bulkConcurrency" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bundleMemoryMb" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "Environment" : {
+        "type" : "object",
+        "properties" : {
+          "envCode" : {
+            "type" : "string"
+          },
+          "isProduction" : {
+            "type" : "boolean"
+          },
+          "promotionOrder" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minDeploymentApprovers" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "dryRunAllowed" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "AssetVersion" : {
         "type" : "object",
         "properties" : {
@@ -2157,6 +2380,45 @@
             "type" : "string"
           },
           "psf" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ProvisionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "tenantId" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "cellId" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "timeZone" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Tenant" : {
+        "type" : "object",
+        "properties" : {
+          "tenantId" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "cellId" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "timeZone" : {
             "type" : "string"
           }
         }

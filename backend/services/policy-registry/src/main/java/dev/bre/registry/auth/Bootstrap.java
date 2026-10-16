@@ -53,6 +53,7 @@ public class Bootstrap {
   private final String adminEmail;
   private final String adminName;
   private final String adminPassword;
+  private final boolean platformAdmin;
 
   /**
    * Creates the bootstrap.
@@ -65,6 +66,8 @@ public class Bootstrap {
    * @param adminEmail the administrator's email
    * @param adminName the administrator's name
    * @param adminPassword an initial password, or blank to generate one
+   * @param platformAdmin whether this administrator is also the PLATFORM operator — off by default,
+   *     because on shared SaaS the first tenant is a customer rather than the operator
    */
   public Bootstrap(
       JdbcTemplate jdbc,
@@ -74,7 +77,8 @@ public class Bootstrap {
       @Value("${bre.registry.bootstrap-tenant-name:Bootstrap Tenant}") String displayName,
       @Value("${bre.registry.bootstrap-admin-email:}") String adminEmail,
       @Value("${bre.registry.bootstrap-admin-name:Administrator}") String adminName,
-      @Value("${bre.registry.bootstrap-admin-password:}") String adminPassword) {
+      @Value("${bre.registry.bootstrap-admin-password:}") String adminPassword,
+      @Value("${bre.registry.bootstrap-platform-admin:false}") boolean platformAdmin) {
     this.jdbc = jdbc;
     this.users = users;
     this.audit = audit;
@@ -83,6 +87,7 @@ public class Bootstrap {
     this.adminEmail = adminEmail;
     this.adminName = adminName;
     this.adminPassword = adminPassword;
+    this.platformAdmin = platformAdmin;
   }
 
   /**
@@ -145,12 +150,33 @@ public class Bootstrap {
     // are a flat set on purpose (see Role) — and because an administrator who later hands authoring
     // to somebody else should be able to give up POLICY_AUTHOR without giving up administration.
     Set<Role> roles =
-        Set.of(
-            Role.TENANT_ADMIN,
-            Role.POLICY_AUTHOR,
-            Role.POLICY_REVIEWER,
-            Role.DEPLOYMENT_APPROVER,
-            Role.AUDITOR);
+        new java.util.HashSet<>(
+            Set.of(
+                Role.TENANT_ADMIN,
+                Role.POLICY_AUTHOR,
+                Role.POLICY_REVIEWER,
+                Role.DEPLOYMENT_APPROVER,
+                Role.AUDITOR));
+
+    // PLATFORM_ADMIN only when an operator asks for it, and OFF by default.
+    //
+    // Somebody has to hold PLATFORM_MANAGE or no tenant can ever be provisioned — and since
+    // M3-08 closed the escalation path, nobody can grant themselves a role they do not already
+    // hold. The first administrator of a fresh installation is the only candidate, because there
+    // is nobody else yet.
+    //
+    // It is a flag rather than a default because the two deployment shapes want opposite answers.
+    // On a single-tenant install the lender IS the platform and this is right. On shared SaaS the
+    // first tenant is a customer, and making their administrator a platform operator would give
+    // one lender the ability to provision tenants and change every other lender's quota.
+    if (platformAdmin) {
+      roles.add(Role.PLATFORM_ADMIN);
+      log.warn(
+          "the bootstrap administrator has been granted PLATFORM_ADMIN. They can provision"
+              + " tenants, reassign cells and change any tenant's quota. Correct for a"
+              + " single-tenant install; wrong for shared SaaS, where the first tenant is a"
+              + " customer rather than the operator.");
+    }
     roles.forEach(role -> users.grant(tenantId, subject, role, "system"));
 
     audit.recordSystem(

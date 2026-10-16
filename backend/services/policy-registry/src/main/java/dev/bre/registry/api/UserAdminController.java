@@ -177,6 +177,7 @@ public class UserAdminController {
       HttpServletRequest request, @PathVariable String subject, @PathVariable Role role) {
     Principal admin = Authorisation.require(request, Role.Capability.ROLE_MANAGE);
     requireSameTenant(admin, subject);
+    requireNoEscalation(admin, role);
     users.grant(admin.tenantId(), subject, role, admin.subject());
     audit.record(
         admin.tenantId(),
@@ -186,6 +187,37 @@ public class UserAdminController {
         subject,
         "{\"role\":\"" + role + "\"}");
     return ResponseEntity.noContent().build();
+  }
+
+  /**
+   * Refuses to grant a role conferring a capability the granter does not hold.
+   *
+   * <p><b>Privilege escalation, closed.</b> ROLE_MANAGE lets an administrator grant roles, and
+   * TENANT_ADMIN carries ROLE_MANAGE — so without this check a lender's own administrator could
+   * grant themselves PLATFORM_ADMIN and then provision tenants, reassign cells and change any
+   * tenant's quota. The path existed as soon as PLATFORM_ADMIN did; it became reachable the moment
+   * a controller consumed PLATFORM_MANAGE (M3-08), and it was found by asking how a test would
+   * obtain that capability.
+   *
+   * <p>The rule is general rather than a deny-list naming PLATFORM_ADMIN: you may grant a role only
+   * if you already hold everything it confers. A deny-list would need editing every time a role is
+   * added, and the edit that gets forgotten is the one that matters.
+   *
+   * @param admin who is granting
+   * @param role what they are granting
+   */
+  private static void requireNoEscalation(Principal admin, Role role) {
+    java.util.List<Role.Capability> beyond =
+        role.capabilities().stream().filter(capability -> !admin.can(capability)).toList();
+    if (!beyond.isEmpty()) {
+      throw new Authorisation.ForbiddenException(
+          "you cannot grant "
+              + role
+              + ": it confers "
+              + beyond
+              + ", which you do not hold. A role may only be granted by somebody who already has"
+              + " everything it gives, or granting roles would be a way of promoting yourself.");
+    }
   }
 
   /**

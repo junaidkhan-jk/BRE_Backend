@@ -91,6 +91,10 @@ class AuditCoverageTest {
           Map.entry("UserAdminController.resetPassword", "USER.PASSWORD_RESET"),
           // --- tenant
           Map.entry("TenantSettingsController.update", "TENANT.SETTINGS_CHANGED"),
+          // --- the platform operator's side (M3-08)
+          Map.entry("TenantAdminController.provision", "TENANT.PROVISIONED"),
+          Map.entry("TenantAdminController.upsertEnvironment", "ENVIRONMENT.CHANGED"),
+          Map.entry("TenantAdminController.setQuota", "TENANT.QUOTA_CHANGED"),
           // --- language service
           Map.entry(
               "BelController.check",

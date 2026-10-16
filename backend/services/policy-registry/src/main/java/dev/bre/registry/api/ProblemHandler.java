@@ -50,6 +50,25 @@ public class ProblemHandler {
   }
 
   /**
+   * A tenant, environment or quota change that breaks a rule (M3-08).
+   *
+   * <p><b>409.</b> The javadoc on TenantAdminException said "mapped to 409, never 500" and nothing
+   * mapped it — so every refusal with a perfectly good explanation came back as an Internal Server
+   * Error, which tells a caller the service is broken when the service is working exactly as
+   * intended. Found by the tests asserting 409 and getting 500 with the right message inside.
+   *
+   * @param e the exception
+   * @param request the request
+   * @return the problem
+   */
+  @ExceptionHandler(dev.bre.registry.tenantadmin.TenantAdminService.TenantAdminException.class)
+  public ProblemDetail tenantAdmin(
+      dev.bre.registry.tenantadmin.TenantAdminService.TenantAdminException e,
+      HttpServletRequest request) {
+    return problem(HttpStatus.CONFLICT, "tenant-admin", "Not allowed", e, request);
+  }
+
+  /**
    * A shared asset's lifecycle or content rule was broken.
    *
    * <p><b>409</b>, like a policy's lifecycle refusal and for the same reason: the request was
