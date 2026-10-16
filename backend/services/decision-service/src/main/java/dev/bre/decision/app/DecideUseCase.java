@@ -97,6 +97,22 @@ public class DecideUseCase {
    * @return the decision
    */
   public DecisionResponse decide(DecisionRequest request) {
+    return decide(request, null);
+  }
+
+  /**
+   * Evaluates a request, using a decision id that was minted earlier.
+   *
+   * <p><b>For the async path, where the id has to exist before the decision does.</b> {@code POST
+   * /v1/decisions:async} answers 202 with a {@code decisionId} the caller will later GET, so that
+   * id is minted at accept time and travels on the event. Letting the worker mint its own would
+   * hand the caller an identifier for a decision that is never created under it.
+   *
+   * @param request the decision request
+   * @param presetDecisionId the identifier to record it under, or null to mint one
+   * @return the decision
+   */
+  public DecisionResponse decide(DecisionRequest request, String presetDecisionId) {
     // Idempotency (D5). Evaluation is deterministic, so a duplicate is harmless — but returning
     // the original record means a retrying caller sees one decision, not two with different ids.
     Optional<DecisionRecord> existing =
@@ -150,7 +166,7 @@ public class DecideUseCase {
             // store derives decision_date from, so a lookup by id prunes to one day partition
             // (§5.3). Minted from the instant already resolved above rather than reading the
             // clock again, so the id and the record agree about when the decision happened.
-            UuidV7.generate(receivedAt).toString(),
+            presetDecisionId != null ? presetDecisionId : UuidV7.generate(receivedAt).toString(),
             request.tenantId(),
             request.requestId(),
             asOf,

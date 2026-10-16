@@ -55,6 +55,13 @@ dependencies {
     // Kafka-first mode (D6, M4-01/M4-02). Version from the Spring Boot BOM, like every other
     // Spring artifact here.
     implementation("org.springframework.kafka:spring-kafka")
+    // The AUTOCONFIGURATION, which is a separate artifact in Spring Boot 4 — the third time this
+    // split has bitten this build, after Flyway in the registry and then Flyway here. Without it
+    // spring-kafka sits on the classpath and no KafkaTemplate bean is ever created, so KAFKA mode
+    // and the async endpoint both fail with "required a bean of type KafkaTemplate that could not
+    // be found" — and the failure is at STARTUP, which is the one mercy: the Flyway version of
+    // this was silent until the first query.
+    implementation("org.springframework.boot:spring-boot-kafka")
     // The WORM Parquet archive (M4-03). One artifact, no transitives — see the note on the
     // version in libs.versions.toml for why this is not parquet-avro.
     implementation(libs.duckdb)

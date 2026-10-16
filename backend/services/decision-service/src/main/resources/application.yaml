@@ -100,6 +100,29 @@ bre:
   # much use in an audit.
   env-code: LOCAL
 
+  # Async decisions and the decision worker (M4-06, FR-EXEC-009).
+  #
+  # OFF by default. A listener container started against an unconfigured broker
+  # retries a connection for ever and reports it as an application that is up,
+  # which is a worse failure than refusing to start.
+  #
+  # POST /v1/decisions:async works whenever spring.kafka is configured — a
+  # shared-cell tenant needs it and must NOT hold Kafka credentials of their
+  # own, because on a cluster carrying other lenders' decisions their topic
+  # ACLs would be the only thing between them and somebody else's credit data.
+  # Setting `enabled` here turns on the CONSUMER, which is the worker half.
+  async:
+    enabled: false
+    requested-topic: bre.decision.requested.v1
+    completed-topic: bre.decision.completed.v1
+    group: bre-decision-worker
+    # Dead letters go to <requested-topic>.dlq, on the same partition the record
+    # came from, so a poison message's ordering context survives for whoever
+    # investigates it. Three attempts with exponential back-off for TRANSIENT
+    # failures; a payload that cannot parse is dead-lettered on the first,
+    # because retrying it stalls the partition behind a message that can never
+    # succeed.
+
   # Admission control (M4-05, §6.3, §6.4). The CPU bulkhead and the per-tenant
   # fair share inside this pod.
   admission:
