@@ -20,6 +20,10 @@ dependencies {
     implementation(project(":libs:bre-crypto"))
     implementation(platform("org.springframework.boot:spring-boot-dependencies:${libs.versions.spring.boot.get()}"))
     implementation("org.springframework.boot:spring-boot-starter-web")
+    // Metrics and the Prometheus scrape endpoint (M4-08). Micrometer ships with Boot; the
+    // registry is what turns a counter into something a scraper can read.
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("io.micrometer:micrometer-registry-prometheus")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     // Declared explicitly rather than taken from a starter's transitives: the fact snapshot is
     // stored verbatim on the decision record, so the JSON codec is a direct dependency of the

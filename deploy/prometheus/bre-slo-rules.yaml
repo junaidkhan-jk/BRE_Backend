@@ -1,0 +1,169 @@
+# SLOs and burn-rate alerts (M4-08, §11.5).
+#
+# Every threshold here is from the specification's own table, not chosen. Where a number looks
+# arbitrary it is quoted with its reason, because the first thing somebody does with an alert that
+# wakes them is ask whether it should have.
+#
+# MULTI-WINDOW BURN RATES, not a flat threshold. A flat "error rate above 0.1%" either pages on a
+# two-minute blip or waits until half the monthly budget is gone. A burn rate asks a better
+# question: at the rate of the last hour, how long until the whole month's budget is spent? Both
+# the long and the short window must be breached, so a spike that has already stopped does not page
+# anybody.
+#
+# These are recording and alerting rules only. Routing — who is woken, and how — belongs in the
+# alertmanager configuration an operating team owns, not here. An on-call rota changes far more
+# often than a credit engine.
+
+groups:
+  - name: bre-decision-slo
+    interval: 30s
+    rules:
+
+      # ---------------------------------------------------------------- recording rules
+      #
+      # Precomputed so the alert expressions below read as the thing they mean. An alert whose
+      # expression is three nested rate() calls is one nobody can check at 3am.
+
+      - record: bre:decision_requests:rate5m
+        expr: sum by (tenant, environment) (rate(bre_decisions_total[5m]))
+
+      - record: bre:decision_failures:rate5m
+        expr: sum by (tenant, environment) (rate(bre_decision_failures_total[5m]))
+
+      - record: bre:decision_error_ratio:rate5m
+        expr: |
+          bre:decision_failures:rate5m
+            / clamp_min(bre:decision_requests:rate5m + bre:decision_failures:rate5m, 1)
+
+      - record: bre:decision_error_ratio:rate1h
+        expr: |
+          sum by (tenant, environment) (rate(bre_decision_failures_total[1h]))
+            / clamp_min(
+                sum by (tenant, environment) (rate(bre_decisions_total[1h]))
+                  + sum by (tenant, environment) (rate(bre_decision_failures_total[1h])), 1)
+
+      - record: bre:decision_error_ratio:rate6h
+        expr: |
+          sum by (tenant, environment) (rate(bre_decision_failures_total[6h]))
+            / clamp_min(
+                sum by (tenant, environment) (rate(bre_decisions_total[6h]))
+                  + sum by (tenant, environment) (rate(bre_decision_failures_total[6h])), 1)
+
+      - record: bre:decision_error_ratio:rate30m
+        expr: |
+          sum by (tenant, environment) (rate(bre_decision_failures_total[30m]))
+            / clamp_min(
+                sum by (tenant, environment) (rate(bre_decisions_total[30m]))
+                  + sum by (tenant, environment) (rate(bre_decision_failures_total[30m])), 1)
+
+      # ---------------------------------------------------------------- availability
+      #
+      # §11.5: 99.95% of valid requests not answered with 5xx, over 30 days. That is a 0.05% error
+      # budget — 21.9 minutes a month. Page at 14.4x burn over 1h AND 5m; ticket at 6x over 6h and
+      # 30m.
+      #
+      # 14.4x is not a round number by accident: burning the 30-day budget at 14.4 times the
+      # allowed rate exhausts it in about two days, which is the point at which somebody has to be
+      # woken rather than told in the morning.
+
+      - alert: BreDecisionAvailabilityBurnFast
+        expr: |
+          bre:decision_error_ratio:rate1h > (14.4 * 0.0005)
+            and
+          bre:decision_error_ratio:rate5m > (14.4 * 0.0005)
+        for: 2m
+        labels:
+          severity: page
+          slo: decision-availability
+        annotations:
+          summary: "Decision API is burning its availability budget 14.4x ({{ $labels.tenant }})"
+          description: >
+            At this rate the 30-day error budget is gone in about two days. Both the 1h and the 5m
+            window are breached, so this is not a spike that has already passed. Decisions are
+            failing — check the decision log first: a durable-write failure fails the request by
+            design, because a 200 for a decision nobody recorded is worse than a 500.
+
+      - alert: BreDecisionAvailabilityBurnSlow
+        expr: |
+          bre:decision_error_ratio:rate6h > (6 * 0.0005)
+            and
+          bre:decision_error_ratio:rate30m > (6 * 0.0005)
+        for: 15m
+        labels:
+          severity: ticket
+          slo: decision-availability
+        annotations:
+          summary: "Decision API is burning its availability budget 6x ({{ $labels.tenant }})"
+          description: >
+            Slower than the paging threshold and still faster than the month allows. Worth a ticket
+            today rather than a page tonight.
+
+      # ---------------------------------------------------------------- latency
+      #
+      # §11.5 and NFR-PERF-01: 99% of requests within 100 ms server-side, INCLUDING the durable
+      # write. The histogram is recorded around the whole call for that reason — timing only the
+      # evaluation would give a number that is always inside budget and never the one a caller
+      # experiences.
+
+      - alert: BreDecisionLatencyBurn
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (tenant, environment, le) (rate(bre_decision_latency_seconds_bucket[1h]))
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: page
+          slo: decision-latency
+        annotations:
+          summary: "Decision p99 is above 100 ms ({{ $labels.tenant }})"
+          description: >
+            NFR-PERF-01's budget is p99 ≤ 100 ms for a 100-rule policy including the durable write.
+            The usual causes, in the order worth checking: the decision log's write latency, a
+            policy that has grown past 100 rules, and connection-pool saturation.
+
+      # ---------------------------------------------------------------- rule ERROR rate
+      #
+      # §11.4: rule ERROR results over rule evaluations, above 0.05% for ten minutes, pages.
+      #
+      # NOT a correctness alarm, and the annotation says so. A rule that ERRORs does not produce a
+      # wrong answer — D9 makes the engine fail closed and REFER. This is a throughput alarm: every
+      # ERROR is an application a human now has to review by hand.
+
+      - alert: BreRuleErrorRate
+        expr: |
+          sum by (tenant, environment) (rate(bre_rule_errors_total[10m]))
+            / clamp_min(sum by (tenant, environment) (rate(bre_decisions_total[10m])), 1)
+          > 0.0005
+        for: 10m
+        labels:
+          severity: page
+          slo: rule-errors
+        annotations:
+          summary: "Rule ERROR rate above 0.05% ({{ $labels.tenant }})"
+          description: >
+            The engine failed closed, so these are REFERs rather than wrong answers. The cost is
+            manual review: a tenth of a percent of a day's volume is a queue nobody staffed for.
+            Usually an upstream fact-preparation defect — check which variable is arriving absent.
+
+      # ---------------------------------------------------------------- no traffic
+      #
+      # The alarm that is missing from most dashboards. Every rule above divides by a request rate,
+      # so a service answering NOTHING breaches none of them: zero failures out of zero requests is
+      # a perfect error ratio. A gateway misconfiguration looks exactly like a quiet night.
+
+      - alert: BreDecisionNoTraffic
+        expr: |
+          bre:decision_requests:rate5m == 0
+            and
+          bre:decision_requests:rate5m offset 1d > 0.1
+        for: 15m
+        labels:
+          severity: page
+          slo: decision-availability
+        annotations:
+          summary: "No decisions at all ({{ $labels.tenant }}), and there were yesterday"
+          description: >
+            Every other rule here divides by the request rate, so a service answering nothing
+            breaches none of them — zero failures out of zero requests is a perfect ratio. Compared
+            against the same time yesterday so a genuinely quiet night does not page anybody.

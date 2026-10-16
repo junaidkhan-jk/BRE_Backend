@@ -222,3 +222,28 @@ bre:
 logging:
   level:
     dev.bre: INFO
+
+# ---------------------------------------------------------------------------
+# OBSERVABILITY (M4-08, §11.5)
+# ---------------------------------------------------------------------------
+# Only health and prometheus are exposed, and that is deliberate rather than
+# tidy. The actuator's other endpoints include env and configprops, which print
+# configuration — and this service's configuration contains a KMS key and a
+# decision-log password. An exposure list is the one place that is cheap to get
+# wrong and expensive to discover.
+#
+# The scrape endpoint itself is NOT authenticated, like everything else here:
+# this service belongs behind your gateway. See docs/EXTERNAL-CALLS.md.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never    # A health detail names a database host. Nobody scraping needs it.
+  metrics:
+    tags:
+      # Every series carries which service and environment produced it, so one
+      # Prometheus serving several cells can tell them apart.
+      service: decision-service

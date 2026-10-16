@@ -57,6 +57,7 @@ public class DecideUseCase {
   private final DecisionLog decisionLog;
   private final ObjectMapper objectMapper;
   private final Clock clock;
+  private final dev.bre.decision.observe.DecisionMetrics metrics;
 
   /**
    * Creates the use case.
@@ -75,11 +76,13 @@ public class DecideUseCase {
       PolicyResolver policyResolver,
       DecisionLog decisionLog,
       ObjectMapper objectMapper,
-      Clock clock) {
+      Clock clock,
+      dev.bre.decision.observe.DecisionMetrics metrics) {
     this.policyResolver = policyResolver;
     this.decisionLog = decisionLog;
     this.objectMapper = objectMapper;
     this.clock = clock;
+    this.metrics = metrics;
     log.info("decision log: {}", decisionLog.describe());
   }
 
@@ -182,6 +185,17 @@ public class DecideUseCase {
         response.decisionId(),
         response.decision(),
         response.stpEligible());
+
+    // Recorded AFTER the durable write, so the latency histogram measures what the caller
+    // actually waited for — which is what NFR-PERF-01's p99 budget is about. Timing only the
+    // evaluation would produce a number that is always inside budget and never the one a caller
+    // experiences.
+    metrics.decided(
+        request.tenantId(),
+        request.environment(),
+        response.decision(),
+        (int) response.results().stream().filter(outcome -> outcome.error() != null).count(),
+        Duration.between(receivedAt, completedAt));
 
     return response;
   }

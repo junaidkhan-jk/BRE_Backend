@@ -1,0 +1,144 @@
+{
+  "title": "BRE — Decisions",
+  "uid": "bre-decisions",
+  "tags": ["bre", "slo"],
+  "timezone": "utc",
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "tenant",
+        "type": "query",
+        "query": "label_values(bre_decisions_total, tenant)",
+        "includeAll": true,
+        "multi": true
+      },
+      {
+        "name": "environment",
+        "type": "query",
+        "query": "label_values(bre_decisions_total, environment)",
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "Decision mix",
+      "description": "Shares of each outcome. This is §11.4's post-activation guardrail drawn: after a deployment, a share that moves is the first external evidence that a bundle which passed every test is still wrong. Stacked to 100% on purpose — an absolute count falls at night and rises on Monday, and a reader cannot tell that from a policy change.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": { "stacking": { "mode": "percent" }, "fillOpacity": 60 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(bre_decisions_total{tenant=~\"$tenant\",environment=~\"$environment\"}[5m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "title": "Latency p50 / p95 / p99",
+      "description": "Server-side, INCLUDING the durable write — which is what NFR-PERF-01's budget is about, and what a caller actually waits for. The 100 ms line is the budget, not a target: crossing it is an SLO breach, not a warning.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.1 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(bre_decision_latency_seconds_bucket{tenant=~\"$tenant\",environment=~\"$environment\"}[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(bre_decision_latency_seconds_bucket{tenant=~\"$tenant\",environment=~\"$environment\"}[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(bre_decision_latency_seconds_bucket{tenant=~\"$tenant\",environment=~\"$environment\"}[5m])))",
+          "legendFormat": "p99 — NFR-PERF-01 budget is 100 ms"
+        }
+      ]
+    },
+    {
+      "title": "Error-budget burn rate",
+      "description": "How fast the 30-day availability budget is being spent, against the 14.4x page line and the 6x ticket line from §11.5. Reading burn rather than an error percentage answers the question somebody actually has at 3am: at this rate, how long until the budget is gone? 14.4x exhausts a 30-day budget in about two days, which is why it is the paging threshold.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 6 },
+              { "color": "red", "value": 14.4 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "bre:decision_error_ratio:rate1h{tenant=~\"$tenant\",environment=~\"$environment\"} / 0.0005",
+          "legendFormat": "1h burn ({{tenant}})"
+        },
+        {
+          "expr": "bre:decision_error_ratio:rate6h{tenant=~\"$tenant\",environment=~\"$environment\"} / 0.0005",
+          "legendFormat": "6h burn ({{tenant}})"
+        }
+      ]
+    },
+    {
+      "title": "Rule ERROR rate",
+      "description": "§11.4's threshold is 0.05%. NOT a correctness alarm — D9 makes the engine fail closed, so these are REFERs rather than wrong answers. It is a throughput alarm: every ERROR is an application a human now has to review by hand, and a tenth of a percent of a day's volume is a queue nobody staffed for. A rise usually means an upstream fact-preparation defect.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.0005 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(bre_rule_errors_total{tenant=~\"$tenant\",environment=~\"$environment\"}[10m])) / clamp_min(sum(rate(bre_decisions_total{tenant=~\"$tenant\",environment=~\"$environment\"}[10m])), 1)",
+          "legendFormat": "ERROR rate"
+        }
+      ]
+    },
+    {
+      "title": "Decisions per second",
+      "description": "The denominator of every ratio above, shown because of what it means when it is ZERO: a service answering nothing breaches none of the ratio alerts, since zero failures out of zero requests is a perfect error ratio. A gateway misconfiguration looks exactly like a quiet night on every other panel here.",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        {
+          "expr": "sum by (tenant) (rate(bre_decisions_total{tenant=~\"$tenant\",environment=~\"$environment\"}[5m]))",
+          "legendFormat": "{{tenant}}"
+        }
+      ]
+    }
+  ]
+}
