@@ -6,7 +6,7 @@
     "version" : "0.1.0"
   },
   "servers" : [ {
-    "url" : "http://127.0.0.1:43889",
+    "url" : "http://127.0.0.1:34523",
     "description" : "Generated server url"
   } ],
   "security" : [ {

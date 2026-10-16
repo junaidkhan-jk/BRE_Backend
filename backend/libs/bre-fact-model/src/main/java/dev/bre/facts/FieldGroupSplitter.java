@@ -407,11 +407,36 @@ public final class FieldGroupSplitter {
     return isIdentifying(path) && !JOIN_KEYS.contains(path) && !LENDER_RECORDS.contains(path);
   }
 
+  /**
+   * Whether a field inside a data principal's record identifies them.
+   *
+   * <p><b>An UNKNOWN field counts as identifying, and that is the whole point of this method.</b>
+   * The schema sets {@code additionalProperties: true}, so a caller may send a field nobody
+   * declared — and the obvious way to do it is a near miss on a real one. The schema's PAN field is
+   * {@code panToken}; a caller sending {@code pan} passes validation.
+   *
+   * <p>With the previous {@code orElse(false)} that field was NON_IDENTIFYING, so it was sealed
+   * under the TENANT key — outside the erasure mechanism entirely. Destroying the principal's key
+   * then left the PAN perfectly readable, while the party was reported as shredded and the lender
+   * believed the person had been erased. Fail-open, in a system whose entire posture is D9
+   * fail-closed, on the one operation that cannot be repeated once it is believed done.
+   *
+   * <p>Unknown now means identifying. The cost of being wrong in this direction is that a field
+   * which did not need a principal key gets one and becomes unreadable after an erasure that did
+   * not have to touch it. The cost of being wrong in the other direction is telling a data
+   * principal and a regulator that their data is gone when it is not.
+   *
+   * <p>Only inside a principal's record. An unknown field at the top level, or under {@code
+   * application}, has no principal to belong to and is handled by the caller.
+   *
+   * @param path the field path
+   * @return true when it must be sealed under the data principal's key
+   */
   private boolean isIdentifying(String path) {
     return schema
         .field(path)
         .map(field -> field.group() == FactSchema.Group.IDENTIFYING)
-        .orElse(false);
+        .orElse(true);
   }
 
   /** The DPK a party's identifying fields belong under: principalRef, else partyRef (§9.2). */

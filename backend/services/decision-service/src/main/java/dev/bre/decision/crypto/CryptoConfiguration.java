@@ -56,25 +56,61 @@ public class CryptoConfiguration {
   /**
    * The tenant data key provider.
    *
+   * <p><b>On PostgreSQL when there is one, and in memory only when there is not.</b> Until M4-04
+   * this was always in memory, including in a deployed service — so the keys lived in the heap of
+   * the pod that made them, a restart lost every one, and every sealed fact row became permanently
+   * unreadable. Not an outage: a silent, irreversible loss found the first time somebody replayed a
+   * decision.
+   *
    * @param kms the key-management port
-   * @return the provider, over an in-memory wrapped-key store
+   * @param dataSource the decision-log database, when one is configured
+   * @return the provider
    */
   @Bean
   @ConditionalOnMissingBean(TenantDataKeyProvider.class)
-  public TenantDataKeyProvider tenantDataKeyProvider(KmsPort kms) {
-    return new TenantDataKeyProvider(kms, InMemoryKeyStores.tenantKeys());
+  public TenantDataKeyProvider tenantDataKeyProvider(
+      KmsPort kms,
+      org.springframework.beans.factory.ObjectProvider<javax.sql.DataSource> dataSource) {
+    javax.sql.DataSource configured = dataSource.getIfAvailable();
+    if (configured == null) {
+      warnInMemoryKeys("tenant data keys");
+      return new TenantDataKeyProvider(kms, InMemoryKeyStores.tenantKeys());
+    }
+    return new TenantDataKeyProvider(
+        kms, JdbcKeyStores.tenantKeys(new org.springframework.jdbc.core.JdbcTemplate(configured)));
   }
 
   /**
-   * The data principal key service.
+   * The data principal key service, whose keys are the erasure mechanism (§9.5).
    *
    * @param kms the key-management port
-   * @return the service, over an in-memory key shard
+   * @param dataSource the decision-log database, when one is configured
+   * @return the service
    */
   @Bean
   @ConditionalOnMissingBean(PrincipalKeyService.class)
-  public PrincipalKeyService principalKeyService(KmsPort kms) {
-    return new PrincipalKeyService(kms, InMemoryKeyStores.principalKeys());
+  public PrincipalKeyService principalKeyService(
+      KmsPort kms,
+      org.springframework.beans.factory.ObjectProvider<javax.sql.DataSource> dataSource) {
+    javax.sql.DataSource configured = dataSource.getIfAvailable();
+    if (configured == null) {
+      warnInMemoryKeys("data principal keys");
+      return new PrincipalKeyService(kms, InMemoryKeyStores.principalKeys());
+    }
+    return new PrincipalKeyService(
+        kms,
+        JdbcKeyStores.principalKeys(new org.springframework.jdbc.core.JdbcTemplate(configured)));
+  }
+
+  private static void warnInMemoryKeys(String what) {
+    // WARN rather than a quiet INFO. With no database this is the only possible behaviour and is
+    // right for local development — but it is also exactly the state that silently destroys data
+    // if it reaches a deployment, so it says so in the words an operator needs.
+    log.warn(
+        "{} are held IN MEMORY: a restart destroys them, and every fact snapshot sealed under them"
+            + " becomes permanently unreadable. Fine for local development; configure"
+            + " spring.datasource.* before this service seals anything you need to read again.",
+        what);
   }
 
   /**

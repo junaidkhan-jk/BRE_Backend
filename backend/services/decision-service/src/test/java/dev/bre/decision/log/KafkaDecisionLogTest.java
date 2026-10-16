@@ -269,7 +269,11 @@ class KafkaDecisionLogTest {
   private static List<ConsumerRecord<String, String>> recordsFor(
       KafkaConsumer<String, String> consumer, String key) {
     List<ConsumerRecord<String, String>> matching = new java.util.ArrayList<>();
-    long deadline = System.currentTimeMillis() + 15_000;
+    // Sixty seconds, not fifteen. Joining a consumer group — find the coordinator, join, sync —
+    // takes as long as the machine is busy, and fifteen was enough when this test ran alone and
+    // not enough when the whole suite ran with it. A deadline only reached on the way to failing
+    // costs nothing in the passing case, which is every case that matters.
+    long deadline = System.currentTimeMillis() + 60_000;
     while (System.currentTimeMillis() < deadline && matching.isEmpty()) {
       for (ConsumerRecord<String, String> candidate : consumer.poll(Duration.ofMillis(500))) {
         if (key.equals(candidate.key())) {
