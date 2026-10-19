@@ -83,6 +83,7 @@ Per-family detail is in `NOTES-vectors-{missing,tables,decision}.md` beside the 
 |---|---|
 | [`runbooks/`](runbooks/) | One file per thing that goes wrong, written for somebody woken up with fifteen minutes |
 | [`PARALLEL-RUN.md`](PARALLEL-RUN.md) | The pilot parallel run (PRD §12.1 exit criterion 3) — what the lender supplies, how to run `bre parallel-run` weekly, and how a difference gets resolved and signed off |
+| [`COMPLIANCE.md`](COMPLIANCE.md) | The PRD §10 control register — every control, where it is implemented, the test that proves it, and the gaps. What a compliance officer signs (M6-07). Checked in CI by `ComplianceRegisterTest`. |
 | [`THREAT-MODEL.md`](THREAT-MODEL.md) | Trust boundaries, attacks by what an attacker is after, and the gaps stated plainly. A penetration tester's first morning. |
 | [`EXTERNAL-CALLS.md`](EXTERNAL-CALLS.md) | What the devstack substitutes locally and what has to be real in production |
 | [`INTEGRATION.md`](INTEGRATION.md) | How a caller integrates with the Decision API |

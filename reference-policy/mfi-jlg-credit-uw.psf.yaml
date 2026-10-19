@@ -86,6 +86,33 @@ rules:
     onFail: { status: FAIL, reasonCode: POL_HH_INCOME_ABOVE_MFI }
     onMissing: REFER
 
+  # --- the second half of the RBI microfinance cap (PRD 10.2, FR-GOV-005) --------------------
+  #
+  # 10.2 sets TWO regulatory limits and this policy only had one. The income ceiling above is the
+  # first; this is the second — total monthly repayment obligations capped as a SHARE of monthly
+  # household income. The reference policy is the acceptance suite, so leaving it out meant the
+  # suite did not cover one of the two caps the whole MFI vertical is built on, and
+  # household.monthlyRepaymentObligations sat in the fact schema unread by anything.
+  #
+  # Written as a multiplication rather than the obvious division. The natural form is
+  #
+  #     household.monthlyRepaymentObligations / (household.annualIncome / 12) <= pct / 100
+  #
+  # which divides by income — and a household with zero or missing recorded income is not
+  # hypothetical, it is what an unverified or badly mapped case looks like. Multiplying through by
+  # 1200 gives the same inequality with no division at all:
+  #
+  #     obligations * 1200 <= annualIncome * pct
+  #
+  # So a zero income makes the test fail rather than error, which is the correct answer for a
+  # household claiming obligations against no income, and a missing one refers via onMissing.
+  - code: MFI_HH_OBLIGATION_CAP
+    name: Household repayment obligations within the regulatory share of income
+    scope: HOUSEHOLD
+    check: household.monthlyRepaymentObligations * 1200 <= household.annualIncome * param.MFI_HH_OBLIGATION_CAP_PCT
+    onFail: { status: FAIL, reasonCode: AFF_HH_OBLIGATION_CAP }
+    onMissing: REFER
+
   - code: MFI_MEMBER_HAS_HOUSEHOLD
     name: Every member is linked to a household
     scope: MEMBER
@@ -325,6 +352,7 @@ flow:
     - name: AFFORDABILITY
       steps:
         - { ref: MFI_HH_INCOME_CEILING, aggregate: WORST }
+        - { ref: MFI_HH_OBLIGATION_CAP, aggregate: WORST }
         - { ref: MFI_INDEBTEDNESS_HARD_CAP, aggregate: WORST }
         # E7: one member over the soft cap is a deviation; a fifth of the group is a REFER.
         - ref: MFI_INDEBTEDNESS_SOFT_CAP

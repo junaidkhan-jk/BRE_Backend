@@ -111,7 +111,8 @@ ok "compiled: $(jq_ "len(d['findings'])") finding(s), none an error"
 
 step "5. add the three acceptance fixtures as test cases"
 declare -A EXPECT=( [approve-5-member-jlg]=APPROVE [decline-negative-list]=DECLINE
-                    [refer-soft-cap-threshold]=REFER )
+                    [refer-soft-cap-threshold]=REFER
+                    [decline-household-obligation-cap]=DECLINE )
 for fixture in "$ROOT"/reference-policy/fixtures/*.json; do
   name="$(basename "$fixture" .json)"
   want="${EXPECT[$name]:-}"

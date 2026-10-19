@@ -5,17 +5,26 @@
     "second parser to the signing path and buy nothing.",
     "",
     "The numbers follow the RBI Master Direction on microfinance loans (2022) where it sets one \u2014",
-    "the 300,000 household income ceiling and the 50% FOIR cap are regulatory, not ours. The rest",
-    "are a plausible lender's own limits and exist so the reference policy has something to",
+    "the 300,000 household income ceiling and the 50% obligation cap are regulatory, not ours. The",
+    "rest are a plausible lender's own limits and exist so the reference policy has something to",
     "evaluate against; a real deployment's parameter set is the lender's credit policy and comes",
     "from the registry's parameter tables (LLD 5.2), where a change to one is a new policy",
-    "version with a new bundle hash."
+    "version with a new bundle hash.",
+    "",
+    "The two REGULATORY values are MFI_HH_ANNUAL_INCOME_MAX and MFI_HH_OBLIGATION_CAP_PCT. In the",
+    "registry they carry source_ref and next_review_on and a CHECK enforces both (FR-GOV-005); a",
+    "resolved asset file has nowhere to put them, which is why docs/COMPLIANCE.md holds the",
+    "register and names the compliance owner who confirms each value."
   ],
   "parameterSets": {
     "MFI_PARAMS@1": {
       "MFI_HH_ANNUAL_INCOME_MAX": {
         "type": "Decimal",
         "value": "300000.00"
+      },
+      "MFI_HH_OBLIGATION_CAP_PCT": {
+        "type": "Decimal",
+        "value": "50.00"
       },
       "INDEBTEDNESS_HARD_CAP": {
         "type": "Decimal",

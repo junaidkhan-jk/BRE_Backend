@@ -121,6 +121,39 @@ class ReferencePolicyAcceptanceTest {
   }
 
   @Test
+  @DisplayName("one household over the regulatory obligation cap declines the application")
+  void householdObligationCapDeclines() throws IOException {
+    // PRD §10.2 sets TWO regulatory limits and this policy implemented only the income ceiling.
+    // The second — monthly repayment obligations as a share of monthly household income, the 50%
+    // cap — was named in the PRD, acknowledged in the reference policy's own comment, and absent
+    // from the parameter set and the rules alike. The reference policy is the acceptance suite, so
+    // the suite did not cover one of the two caps the MFI vertical is built on, and
+    // household.monthlyRepaymentObligations sat in the fact schema unread by anything.
+    FlowEvaluator.DecisionResult result = decide("decline-household-obligation-cap.json");
+
+    assertThat(result.decision().name()).isEqualTo("DECLINE");
+    assertThat(result.internalReasons()).contains("AFF_HH_OBLIGATION_CAP");
+
+    // ONE household of five breaches it, and that declines the application. A regulatory hard cap
+    // does not average across a group — which is what makes the WORST aggregate the right one and
+    // what this fixture is shaped to prove.
+    FlowEvaluator.StepResult step = result.step("MFI_HH_OBLIGATION_CAP").orElseThrow();
+    assertThat(step.status().name()).isEqualTo("FAIL");
+    assertThat(step.entities()).hasSize(5);
+    assertThat(step.entities().stream().filter(e -> e.status().name().equals("FAIL")).toList())
+        .singleElement()
+        .satisfies(
+            entity -> {
+              assertThat(entity.entityRef()).contains("H-0001");
+              assertThat(entity.reasonCode()).contains("AFF_HH_OBLIGATION_CAP");
+            });
+
+    // The income ceiling still passes, so this is the obligation cap and not the other one firing.
+    assertThat(result.step("MFI_HH_INCOME_CEILING").orElseThrow().status().name())
+        .isEqualTo("PASS");
+  }
+
+  @Test
   @DisplayName("one member on the negative list declines the whole application at the knockout")
   void negativeListKnocksOut() throws IOException {
     FlowEvaluator.DecisionResult result = decide("decline-negative-list.json");
@@ -190,21 +223,26 @@ class ReferencePolicyAcceptanceTest {
 
     CoverageReport coverage = CoverageReport.measure(policy, probe);
 
-    // THIS IS A FINDING, not a target being met. Measured: 28.6% — rule statuses 15/47, table
+    // THIS IS A FINDING, not a target being met. Measured: 30.0% — rule statuses 17/50, table
     // rows 4/16, scorecard bins 3/14. M6-01's exit criterion is >= 90%, so the acceptance suite
-    // is at under a third of it, and asserting the real figure means the gap is visible in CI
-    // rather than discovered when somebody finally measures it.
+    // is at a third of it, and asserting the real figure means the gap is visible in CI rather
+    // than discovered when somebody finally measures it.
     //
     // What is missing, specifically:
-    //   * the DATA_MISSING branch of EVERY rule. Three complete fixtures never omit a fact, so
-    //     "the bureau did not answer" has not been exercised once — and that is the branch that
-    //     fires during an outage, on every application at the same time.
-    //   * GRP_SHG_SIZE and GRP_MIN_AGE have not reached PASS at all. All three fixtures are JLG,
-    //     so the SHG group-size path is entirely untested in a policy that claims to support both.
+    //   * the DATA_MISSING branch of EVERY rule. The fixtures are complete documents and never
+    //     omit a fact, so "the bureau did not answer" has not been exercised once — and that is
+    //     the branch that fires during an outage, on every application at the same time.
+    //   * GRP_SHG_SIZE and GRP_MIN_AGE have not reached PASS at all. Every fixture is JLG, so the
+    //     SHG group-size path is entirely untested in a policy that claims to support both.
     //   * POL_NTC_AMOUNT_CAP:DEVIATION and POL_AGE_AT_MATURITY:DEVIATION — two of the three
     //     deviation paths an approver would actually be asked to authorise.
     //
     // Closing it means roughly one fixture per branch, which is the remaining half of M6-01.
+    //
+    // The figure moved 28.6% -> 30.0% when MFI_HH_OBLIGATION_CAP and its fixture were added for
+    // the compliance register (M6-07): three more rule statuses in the denominator, two of them
+    // covered. A regulatory cap with no fixture that BREACHES it is the same defect as a fuzz
+    // target with no corpus — it compiles, it never fires, and it looks like coverage.
     assertThat(coverage.overallPercent().doubleValue())
         .as(
             "rule statuses %d/%d, table rows %d/%d, scorecard bins %d/%d. Uncovered: %s",
