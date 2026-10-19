@@ -77,6 +77,16 @@ only a documentation correction; the rest were settled with a recorded choice. T
 be deviated from, and both deviations are written down beside the vector that makes them.
 Per-family detail is in `NOTES-vectors-{missing,tables,decision}.md` beside the vectors.
 
+## Operating and rolling out
+
+| Document | Read it for |
+|---|---|
+| [`runbooks/`](runbooks/) | One file per thing that goes wrong, written for somebody woken up with fifteen minutes |
+| [`PARALLEL-RUN.md`](PARALLEL-RUN.md) | The pilot parallel run (PRD §12.1 exit criterion 3) — what the lender supplies, how to run `bre parallel-run` weekly, and how a difference gets resolved and signed off |
+| [`THREAT-MODEL.md`](THREAT-MODEL.md) | Trust boundaries, attacks by what an attacker is after, and the gaps stated plainly. A penetration tester's first morning. |
+| [`EXTERNAL-CALLS.md`](EXTERNAL-CALLS.md) | What the devstack substitutes locally and what has to be real in production |
+| [`INTEGRATION.md`](INTEGRATION.md) | How a caller integrates with the Decision API |
+
 ## Building
 
 See [`../CONTRIBUTING.md`](../CONTRIBUTING.md).

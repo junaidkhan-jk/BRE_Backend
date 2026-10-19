@@ -69,6 +69,9 @@ public final class Main {
     if ("decide".equals(args[0])) {
       return DecideCommand.run(args, out, err);
     }
+    if ("parallel-run".equals(args[0])) {
+      return ParallelRunCommand.run(args, out, err);
+    }
     if ("manifest".equals(args[0])) {
       return ManifestCommands.run(args, out, err);
     }
@@ -222,6 +225,12 @@ public final class Main {
           bre decide <bundle> --facts <f>    Evaluate a signed bundle against a facts document,
                  --pub <k> --kid <id>        offline. Same engine, assets and fact typing the
                  [--as-of <YYYY-MM-DD>]      decision service uses.
+
+          bre parallel-run <bundle>          Decide a file of the lender's own cases and report
+                 --cases <cases.jsonl>       every outcome difference GROUPED BY CAUSE, for the
+                 --pub <k> --kid <id>        pilot parallel run (PRD 12.1 exit criterion 3).
+                 [--out <register.json>]     One JSON object per line, each with its own asOf.
+                                             See docs/PARALLEL-RUN.md.
 
           bre manifest sign <f> --key <k>    Sign an Active Pointer Manifest with a LOCAL key.
                  --kid <id> [-o <f>]         A production manifest is signed by the registry.

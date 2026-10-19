@@ -1,27 +1,15 @@
 package dev.bre.cli;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.bre.bundle.Bundle;
 import dev.bre.bundle.BundleException;
-import dev.bre.bundle.BundleVerifier;
-import dev.bre.bundle.TrustStore;
 import dev.bre.engine.decide.ComponentResult;
 import dev.bre.engine.decide.FlowEvaluator;
-import dev.bre.engine.eval.EvaluationContext;
-import dev.bre.engine.eval.Value;
-import dev.bre.engine.ir.Ir;
-import dev.bre.facts.FactReader;
-import dev.bre.facts.LendingFacts;
-import dev.bre.irjson.AssetCodec;
-import dev.bre.irjson.IrCodec;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.Map;
 
 /**
  * {@code bre decide <bundle.json> --facts <f.json> --as-of <date> --pub <k> --kid <id>} (M6-05).
@@ -43,8 +31,6 @@ import java.util.Map;
  * configuration, which is exactly the property an authoring tool needs.
  */
 final class DecideCommand {
-
-  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   /** The tenant time zone a business date is resolved in (00 §3.7a). */
   private static final ZoneId TENANT_ZONE = ZoneId.of("Asia/Kolkata");
@@ -82,30 +68,17 @@ final class DecideCommand {
     }
 
     try {
-      Bundle bundle = Bundle.parse(Files.readString(Path.of(args[1])));
-      BundleVerifier verifier =
-          new BundleVerifier(
-              TrustStore.builder().ownBundleKey(kid, Keys.publicKey(Path.of(pubPath))).build());
-      verifier.verify(bundle);
-
-      Ir.PolicyIr policy = IrCodec.readPolicy(bundle.ir());
-      dev.bre.engine.eval.ParameterTable parameters = AssetCodec.parameters(bundle.assets());
-      Map<String, Value> lists = AssetCodec.lists(bundle.assets());
-      if (parameters.isEmpty() && lists.isEmpty()) {
+      PolicyRunner runner = PolicyRunner.load(Path.of(args[1]), Path.of(pubPath), kid);
+      if (!runner.hasResolvedAssets()) {
         out.println(
             "note: this bundle carries no resolved assets, so every param. and list. reference is"
                 + " Missing. Re-bundle with --assets if the policy uses them.");
       }
 
-      Map<String, Object> facts =
-          MAPPER.readValue(
-              Files.readString(Path.of(factsPath)), new TypeReference<Map<String, Object>>() {});
-      Value.RecordV factRecord = new FactReader(LendingFacts.schema()).toRecord(facts);
-
       FlowEvaluator.DecisionResult result =
-          FlowEvaluator.evaluate(policy, EvaluationContext.of(factRecord, parameters, lists, asOf));
+          runner.decideJson(Files.readString(Path.of(factsPath)), asOf);
 
-      report(result, bundle, asOf, out);
+      report(result, runner.bundle(), asOf, out);
       return Main.EXIT_OK;
     } catch (BundleException e) {
       err.println("the bundle was refused: " + e.getMessage());
