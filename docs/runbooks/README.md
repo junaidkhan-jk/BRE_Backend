@@ -11,6 +11,7 @@ up, has not read the design documents, and has fifteen minutes.
 | [Keys and signatures](keys-and-signatures.md) | `BAD_SIGNATURE`, a key rotation, a bundle a pod refuses |
 | [The audit chain is broken](audit-chain-broken.md) | `/v1/audit/verify` reports a gap or a broken link |
 | [Database and migrations](database.md) | Flyway failed, row-level security is hiding rows, the restricted role cannot write |
+| [Disaster-recovery drill](dr-drill.md) | The semi-annual DR drill, the quarterly restore test, or a real region loss |
 | [Severity, escalation and the rota](escalation.md) | Deciding how bad this is, who to wake, and when to stop trying |
 
 ## What is NOT here, and why

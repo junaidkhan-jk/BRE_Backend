@@ -59,14 +59,23 @@ public record DecisionRecord(
    *
    * <p>A read deliberately does <b>not</b> return the facts: with {@code
    * bre.decision-log.store-facts} off they were never stored, and when they were, handing them back
-   * on an ordinary lookup would spread personal data further than the lookup needs. The fields a
-   * replay requires are fetched explicitly, by the replay path, when it exists.
+   * on an ordinary lookup would spread personal data further than the lookup needs. They are
+   * fetched separately, by the replay path, through {@link DecisionLog#facts}.
+   *
+   * <p><b>The bundle hash is not optional in practice and is a parameter for that reason.</b> An
+   * earlier version of this method defaulted it to empty, on the stated plan that the replay path
+   * would fetch it itself when that path existed. The path was built and did not — it reads the
+   * record — so every explanation against PostgreSQL failed with "has no bundleHash", for every
+   * decision, from the day the endpoint shipped. Nothing caught it: the in-memory log returns whole
+   * records so the tests passed, and the one devstack check asserted on a substring that the HTTP
+   * 500 error body also contained. Making it a parameter means the next reader cannot forget it.
    *
    * @param decisionId the identifier
    * @param tenantId the tenant
    * @param requestId the caller's idempotency key
    * @param recordedAt when the decision was written
    * @param response the decision
+   * @param bundleHash the bundle that decided it, or empty if the row has none
    * @return the record, with the write-only fields defaulted
    */
   public static DecisionRecord readBack(
@@ -74,7 +83,8 @@ public record DecisionRecord(
       String tenantId,
       String requestId,
       Instant recordedAt,
-      DecisionResponse response) {
+      DecisionResponse response,
+      Optional<String> bundleHash) {
     return new DecisionRecord(
         decisionId,
         tenantId,
@@ -87,7 +97,7 @@ public record DecisionRecord(
         0L,
         Optional.empty(),
         Optional.empty(),
-        Optional.empty(),
+        bundleHash,
         "unknown",
         response,
         "");

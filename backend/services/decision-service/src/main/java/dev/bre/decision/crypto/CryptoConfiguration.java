@@ -1,5 +1,6 @@
 package dev.bre.decision.crypto;
 
+import dev.bre.crypto.DevKeystore;
 import dev.bre.crypto.FactsIntegrity;
 import dev.bre.crypto.InMemoryKeyStores;
 import dev.bre.crypto.KmsPort;
@@ -41,16 +42,46 @@ public class CryptoConfiguration {
   /**
    * The key-management port.
    *
-   * @return an in-memory development KMS, unless the installation supplies its own
+   * <p>Optionally file-backed. {@code bre.crypto.dev-kms-keystore} points the development KMS at a
+   * JCEKS file, and then its KEKs outlive the process. That exists for one purpose: a
+   * disaster-recovery drill cannot test a backup if every restart loses the keys, because the
+   * restored rows would be unreadable whether the backup was good or not. It makes the fake KMS
+   * survive a restart; it does not make it a KMS.
+   *
+   * @param keystore the dev keystore file, or blank for memory-only keys
+   * @param keystorePassword the keystore password
+   * @return a development KMS, unless the installation supplies its own
    */
   @Bean
   @ConditionalOnMissingBean(KmsPort.class)
-  public KmsPort kmsPort() {
+  public KmsPort kmsPort(
+      @Value("${bre.crypto.dev-kms-keystore:}") String keystore,
+      @Value("${bre.crypto.dev-kms-keystore-password:changeit}") String keystorePassword) {
+
+    if (keystore == null || keystore.isBlank()) {
+      log.warn(
+          "USING THE DEVELOPMENT KMS. Key-encryption keys are held in this process's memory, so"
+              + " they protect nothing and are lost on restart. Supply a KmsPort bean backed by a"
+              + " real KMS or HSM before this service holds real applicants (§9.2, §9.6).");
+      return new LocalDevKms();
+    }
+
+    java.nio.file.Path file = java.nio.file.Path.of(keystore);
+    char[] password = keystorePassword.toCharArray();
+    // The holder exists because the callback has to reach the instance that owns it, and the
+    // instance needs the callback at construction. One array cell is less machinery than a field
+    // and a setter, and the alternative — persisting from outside on a timer — would lose the key
+    // generated in the last tick, which is the one a drill is about to depend on.
+    LocalDevKms[] self = new LocalDevKms[1];
+    self[0] = new LocalDevKms(() -> DevKeystore.write(file, password, self[0].persistable()));
+    self[0].load(DevKeystore.read(file, password));
     log.warn(
-        "USING THE DEVELOPMENT KMS. Key-encryption keys are held in this process's memory, so they"
-            + " protect nothing and are lost on restart. Supply a KmsPort bean backed by a real KMS"
-            + " or HSM before this service holds real applicants (§9.2, §9.6).");
-    return new LocalDevKms();
+        "USING THE DEVELOPMENT KMS with keys in {}. They survive a restart, which is what a restore"
+            + " drill needs and is NOT key management: the file is readable by this process and its"
+            + " password is wherever you put it. Never point this at an installation holding real"
+            + " applicants (§9.2).",
+        file.toAbsolutePath());
+    return self[0];
   }
 
   /**

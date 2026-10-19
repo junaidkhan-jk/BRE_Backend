@@ -260,11 +260,32 @@ ok "the deployed policy decides exactly as its test cases assert"
 # ---------------------------------------------------------------- 14. explain
 if [[ -n "$LAST_DECISION" ]]; then
   step "14. read a decision's masked explanation"
-  explain="$(curl -sS "$DECISIONS/v1/decisions/$LAST_DECISION/explanation" \
-    -H "X-Tenant-Id: $TENANT" || true)"
-  printf '%s' "$explain" | grep -q 'decision' \
-    && ok "explanation returned, masked (§9.4) — there is no unmask path, deliberately" \
-    || ok "no explanation stored: the decision log is IN_MEMORY unless --registry set POSTGRES"
+  # The STATUS, and a field only a real explanation has. The first version of this grepped the body
+  # for the word "decision" — which the Spring error page also contains, in its own "path" field:
+  #
+  #   {"status":500,...,"path":"/v1/decisions/01a1.../explanation"}
+  #
+  # So it reported "explanation returned, masked" on an HTTP 500, every run, and hid a defect that
+  # made the endpoint fail for EVERY decision in POSTGRES mode. A check that passes on the error
+  # page of the thing it checks is worse than no check.
+  code="$(curl -sS -o /tmp/bre-e2e-explain.json -w '%{http_code}' \
+    "$DECISIONS/v1/decisions/$LAST_DECISION/explanation" -H "X-Tenant-Id: $TENANT" || true)"
+  case "$code" in
+    200)
+      python3 -c "
+import json,sys
+d=json.load(open('/tmp/bre-e2e-explain.json'))
+sys.exit(0 if 'matched' in d and d.get('bundleHash') else 1)" \
+        && ok "explanation returned against the pinned bundle, masked (§9.4) — there is no unmask path, deliberately" \
+        || fail "HTTP 200 but not an explanation: $(head -c 200 /tmp/bre-e2e-explain.json)"
+      ;;
+    409)
+      ok "no fact snapshot stored, so no explanation (store-facts is off by default) — 409, correctly"
+      ;;
+    *)
+      fail "explanation returned HTTP $code: $(head -c 200 /tmp/bre-e2e-explain.json)"
+      ;;
+  esac
 fi
 
 # ---------------------------------------------------------------- 15. audit

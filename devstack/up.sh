@@ -92,26 +92,9 @@ stop() {
 [[ "${1:-}" == "--stop" ]] && { stop; exit 0; }
 
 # The build targets Java 25 (ADR-012), so the CLI and the service JAR cannot run on the system
-# JDK if that is older. Gradle provisions its own toolchain; find one rather than telling the
-# developer to go and install something.
-find_jdk25() {
-  if [[ -n "${JAVA_HOME:-}" ]] && [[ "$("$JAVA_HOME/bin/java" -version 2>&1)" == *'"25'* ]]; then
-    printf '%s' "$JAVA_HOME"; return 0
-  fi
-  if [[ "$(java -version 2>&1)" == *'"25'* ]]; then
-    printf '%s' ""; return 0   # already on PATH
-  fi
-  for candidate in "$HOME"/.jdks/jdk-25* "$HOME"/.gradle/jdks/*25* /usr/lib/jvm/*25*; do
-    [[ -x "$candidate/bin/java" ]] && { printf '%s' "$candidate"; return 0; }
-  done
-  return 1
-}
-
-JDK="$(find_jdk25)" || fail "no Java 25 found. The build targets 25 (ADR-012); run
-  ./gradlew build  in backend/ once — Gradle provisions a toolchain under ~/.jdks — or set
-  JAVA_HOME to a JDK 25."
-[[ -n "$JDK" ]] && export JAVA_HOME="$JDK"
-JAVA="${JAVA_HOME:+$JAVA_HOME/bin/}java"
+# JDK if that is older. Shared with the other devstack scripts that launch a JAR.
+source "$ROOT/devstack/jdk25.sh"
+require_jdk25
 
 # Stop whatever is already running before starting another. Without this, a second run leaves the
 # first process holding the port, the new one fails to bind, and the script reports "the service

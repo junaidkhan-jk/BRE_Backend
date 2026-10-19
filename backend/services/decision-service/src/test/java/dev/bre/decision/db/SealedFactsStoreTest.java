@@ -163,6 +163,37 @@ class SealedFactsStoreTest {
   }
 
   @Test
+  @DisplayName("a read gives back the bundle hash, so the decision can be replayed")
+  void readBackCarriesTheBundleHash() {
+    DecisionRecord record = record("REQ-SEAL-5");
+    log.append(record);
+
+    // The regression this exists for. The read query selected everything a response needs and NOT
+    // bundle_hash, and readBack defaulted it to empty — so every explanation against PostgreSQL
+    // threw "has no bundleHash" for every decision, from the day the endpoint shipped. The
+    // in-memory log returns whole records, so nothing in the suite noticed.
+    assertThat(log.find(TENANT, record.decisionId()).orElseThrow().bundleHash())
+        .as("a replay pins to the bundle on the RECORD; without it there is nothing to pin to")
+        .contains("sha256:" + "0".repeat(64));
+
+    assertThat(log.findByRequestId(TENANT, "REQ-SEAL-5").orElseThrow().bundleHash())
+        .as("the idempotent path reads the same row and must answer the same")
+        .contains("sha256:" + "0".repeat(64));
+  }
+
+  @Test
+  @DisplayName("a decision taken with no bundle reads back as having none, not as 'UNKNOWN'")
+  void theUnknownSentinelDoesNotLeakOut() {
+    DecisionRecord record = recordWithoutBundle("REQ-SEAL-6");
+    log.append(record);
+
+    // bundle_hash is NOT NULL, so the write substitutes a sentinel. Handing that back as if it were
+    // a content address would send a replay looking for a bundle called UNKNOWN and fail inside the
+    // cache, instead of saying plainly that this decision cannot be pinned.
+    assertThat(log.find(TENANT, record.decisionId()).orElseThrow().bundleHash()).isEmpty();
+  }
+
+  @Test
   @DisplayName("the facts row is keyed to one tenant (D1)")
   void anotherTenantSeesNothing() {
     DecisionRecord record = record("REQ-SEAL-4");
@@ -172,7 +203,15 @@ class SealedFactsStoreTest {
 
   // ---------------------------------------------------------------------------------------------
 
+  private static DecisionRecord recordWithoutBundle(String requestId) {
+    return withBundle(requestId, Optional.empty());
+  }
+
   private static DecisionRecord record(String requestId) {
+    return withBundle(requestId, Optional.of("sha256:" + "0".repeat(64)));
+  }
+
+  private static DecisionRecord withBundle(String requestId, Optional<String> bundleHash) {
     Instant at = Instant.parse("2026-10-09T12:30:00Z");
     String decisionId = UuidV7.generate(at).toString();
     DecisionResponse response =
@@ -190,7 +229,7 @@ class SealedFactsStoreTest {
         0L,
         Optional.of("MFI_JLG_CREDIT_UW"),
         Optional.of(1),
-        Optional.of("sha256:" + "0".repeat(64)),
+        bundleHash,
         "lending-facts@1.0.0",
         response,
         FACTS);

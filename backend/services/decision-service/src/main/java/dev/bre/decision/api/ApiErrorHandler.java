@@ -135,6 +135,57 @@ public class ApiErrorHandler {
   }
 
   /**
+   * Fact data could not be decrypted (§9.2).
+   *
+   * <p><b>Found by the disaster-recovery drill, which is the only thing that reaches this
+   * state.</b> A database restored without its key material leaves every sealed snapshot
+   * unopenable, and before this handler the explanation endpoint answered with a bare HTTP 500 —
+   * the same answer it gives for a null pointer. An operator following a restore runbook at 3am
+   * cannot tell those apart, and the difference is the whole incident: one is "the keys did not
+   * come back", which no retry fixes and which has a procedure, and the other is a defect.
+   *
+   * <p>The status splits on the reason, because the two cases need opposite responses:
+   *
+   * <ul>
+   *   <li><b>503</b> for {@code UNAVAILABLE} — the KMS is unreachable. The keys exist, this is
+   *       transient, and retrying is the right thing to do (§10.1 gives cached TDKs about an hour).
+   *   <li><b>409</b> for everything else — {@code UNKNOWN_KEY}, {@code SHREDDED}, {@code
+   *       NOT_AUTHENTIC}, {@code MALFORMED_ENVELOPE}. The key is gone or does not match, no retry
+   *       will change that, and a {@code Retry-After} would send a caller round a loop forever.
+   * </ul>
+   *
+   * <p>{@code reason} is on the body so a runbook can branch on it. The detail names keys and
+   * purposes and never fact values (§9.6) — {@link dev.bre.crypto.CryptoException} is constructed
+   * that way throughout.
+   *
+   * @param exception the failure
+   * @return the problem body
+   */
+  @ExceptionHandler(dev.bre.crypto.CryptoException.class)
+  public org.springframework.http.ResponseEntity<ProblemDetail> onCryptoFailure(
+      dev.bre.crypto.CryptoException exception) {
+
+    boolean transientFailure =
+        exception.reason() == dev.bre.crypto.CryptoException.Reason.UNAVAILABLE;
+    HttpStatus status = transientFailure ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.CONFLICT;
+
+    ProblemDetail problem = ProblemDetail.forStatus(status);
+    problem.setTitle(
+        transientFailure
+            ? "Key management is unavailable"
+            : "This data cannot be decrypted with the keys this installation holds");
+    problem.setType(java.net.URI.create("https://bre.dev/problems/cannot-decrypt"));
+    problem.setDetail(exception.getMessage());
+    problem.setProperty("reason", exception.reason().name());
+
+    var response = org.springframework.http.ResponseEntity.status(status);
+    if (transientFailure) {
+      response.header("Retry-After", "5");
+    }
+    return response.body(problem);
+  }
+
+  /**
    * A request the service understood but cannot accept, such as an unknown {@code onMissing}.
    *
    * @param exception the rejection

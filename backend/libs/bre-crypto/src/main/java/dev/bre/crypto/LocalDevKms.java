@@ -37,11 +37,31 @@ public final class LocalDevKms implements KmsPort {
 
   private final Map<String, byte[]> keks = new ConcurrentHashMap<>();
   private final Map<String, Integer> versions = new ConcurrentHashMap<>();
+  private final Runnable onNewKek;
+
+  /** Creates a KMS whose keys are lost on restart. */
+  public LocalDevKms() {
+    this(() -> {});
+  }
+
+  /**
+   * Creates a KMS that notifies on every new KEK, so a caller can persist them.
+   *
+   * <p>Notified <em>after</em> the key is in the map and outside the map's own computation, because
+   * a callback that reads {@link #persistable} from inside {@code computeIfAbsent} would be a
+   * recursive update on a {@code ConcurrentHashMap}.
+   *
+   * @param onNewKek run after a KEK this instance did not have before is generated
+   */
+  public LocalDevKms(Runnable onNewKek) {
+    this.onNewKek = onNewKek;
+  }
 
   @Override
   public String currentKek(String tenantId) {
     int version = versions.computeIfAbsent(tenantId, t -> 1);
     String kid = "kek/" + tenantId + "/" + version;
+    boolean generated = keks.get(kid) == null;
     keks.computeIfAbsent(
         kid,
         k -> {
@@ -49,6 +69,9 @@ public final class LocalDevKms implements KmsPort {
           RANDOM.nextBytes(kek);
           return kek;
         });
+    if (generated) {
+      onNewKek.run();
+    }
     return kid;
   }
 

@@ -119,7 +119,25 @@ public final class FieldGroupSplitter {
    * relies on it for every {@code entityRef}.
    */
   private static final java.util.Set<String> JOIN_KEYS =
-      java.util.Set.of("application.applicationRef", "parties[].partyRef");
+      java.util.Set.of(
+          "application.applicationRef",
+          "parties[].partyRef",
+          // The MEMBERSHIP lists, and leaving them out was a defect with a large blast radius.
+          //
+          // Each element is a partyRef — the same value the line above keeps, for the same reason:
+          // it is already TDK-sealed as an entityRef elsewhere in the record, so dropping it
+          // protects nothing and destroys the join. Tagging one partyRef as a join key and a LIST
+          // of the same partyRefs as a personal attribute cannot both be right.
+          //
+          // What it actually cost: group lending decides on the GROUP. With these dropped, a
+          // replayed five-member JLG had an empty membership, GRP_JLG_SIZE failed closed, and the
+          // replay returned DECLINE against a recorded APPROVE — so `matched` was false and the
+          // explanation endpoint could not explain a single decision whose facts had been stored.
+          // An explanation that contradicts the decision is worse than no explanation: §9.4 exists
+          // because a borrower and a regulator are entitled to know why, and this answered "we
+          // would decline you today" about an approval.
+          "group.memberPartyRefs[]",
+          "households[].memberPartyRefs[]");
 
   /**
    * Identifying paths that belong to the LENDER rather than to a data principal.

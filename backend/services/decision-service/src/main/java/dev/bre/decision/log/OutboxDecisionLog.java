@@ -343,7 +343,7 @@ public class OutboxDecisionLog implements DecisionLog {
         .query(
             """
             SELECT tenant_id, decision_id, request_id, completed_at, decision, stp_eligible,
-                   as_of_date, results_json
+                   as_of_date, results_json, bundle_hash
               FROM bre_dec.decisions
              WHERE tenant_id = ? AND decision_id = ?
             """,
@@ -360,7 +360,7 @@ public class OutboxDecisionLog implements DecisionLog {
         .query(
             """
             SELECT d.tenant_id, d.decision_id, d.request_id, d.completed_at, d.decision,
-                   d.stp_eligible, d.as_of_date, d.results_json
+                   d.stp_eligible, d.as_of_date, d.results_json, d.bundle_hash
               FROM bre_dec.idempotency_keys k
               JOIN bre_dec.decisions d
                 ON d.tenant_id = k.tenant_id
@@ -392,7 +392,13 @@ public class OutboxDecisionLog implements DecisionLog {
           rows.getString("tenant_id"),
           rows.getString("request_id"),
           rows.getTimestamp("completed_at").toInstant(),
-          response);
+          response,
+          // UNKNOWN back to empty. The column is NOT NULL and the write substitutes that sentinel
+          // when a decision was taken with no bundle resolved, so handing it on as if it were a
+          // content address would send the replay to look up a bundle called "UNKNOWN" and fail
+          // inside the cache instead of saying plainly that this decision cannot be pinned.
+          Optional.ofNullable(rows.getString("bundle_hash"))
+              .filter(hash -> !UNKNOWN_POLICY.equals(hash)));
     };
   }
 
