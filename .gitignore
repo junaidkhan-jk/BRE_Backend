@@ -31,6 +31,10 @@ local.properties
 # output, regenerated freely, and written DURING a run, so staging it races the fuzzer.
 # A crash is different and IS committed: it lives under src/test/resources/.../<TestClass>/<method>/
 # and becomes a permanent regression case.
+#
+# It must stay ignored for a second reason found in M6-02: a run leaves entries behind, and the
+# next ORDINARY build walks them as seeds — so a corpus file removed between the walk and the read
+# fails the whole test task with NoSuchFileException, in a module nobody was fuzzing.
 .cifuzz-corpus/
 
 # devstack working directory: local keys, bundles and logs. Never committed.

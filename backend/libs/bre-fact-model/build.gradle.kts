@@ -3,6 +3,8 @@
 plugins { id("bre.java-library") }
 
 dependencies {
+    // Coverage-guided fuzzing of the untrusted input this module parses (M6-02).
+    testImplementation(libs.jazzer.junit)
     api(project(":libs:bre-engine-core"))
     // api, not implementation: FactsValidator.validate takes a JsonNode, so the type is part of
     // this library's surface and every caller needs it on its own compile classpath.

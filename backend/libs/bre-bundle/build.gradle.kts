@@ -3,6 +3,8 @@
 plugins { id("bre.java-library") }
 
 dependencies {
+    // Coverage-guided fuzzing of the untrusted input this module parses (M6-02).
+    testImplementation(libs.jazzer.junit)
     api(project(":libs:bre-engine-core"))
     api(project(":libs:bre-ir-json"))
     implementation(libs.jackson.databind)
