@@ -6,17 +6,29 @@
 # corporate policy; requiring it would make "one command" mean "one command, after an afternoon
 # with IT".
 #
-#   ./devstack/up.sh            build, seed, start, and prove it decides
-#   ./devstack/up.sh --registry  also start PostgreSQL and the policy registry, with an admin
-#                                account you can sign in to the studio with
-#   ./devstack/up.sh --deliver   as --registry, plus a DURABLE decision log and delivery: a
-#                                stand-in downstream system is started and the relay pushes every
-#                                decision to it. Then ./devstack/deliver-demo.sh shows push and
-#                                fetch working, including what happens when the downstream breaks.
-#   ./devstack/up.sh --sandbox   as --registry, plus a `sandbox` tenant with one account per role
-#                                (author, reviewer, approver, viewer, auditor) so maker-checker can
-#                                be walked without creating accounts by hand. Password is printed
-#                                to the registry log. Never enable this in production.
+#   ./devstack/up.sh            THE WHOLE BACKEND. One command, nothing to choose:
+#                               PostgreSQL, the policy registry, an admin account, a durable
+#                               decision log with delivery, the sandbox accounts, and the full
+#                               walk — author, approve, deploy, decide, audit.
+#
+#                               The Rule Studio is NOT started: it is a separate repository
+#                               (BRE_UI) with its own dependencies, and a backend script that
+#                               runs npm is a backend script that fails for npm's reasons.
+#
+#   ./devstack/up.sh --decisions-only
+#                               The decision service alone, in-memory, no database and no
+#                               registry. Proves the engine needs nothing; cannot serve the
+#                               studio. This was the old default.
+#   ./devstack/up.sh --registry Registry and PostgreSQL, without delivery or the sandbox
+#                               accounts.
+#   ./devstack/up.sh --deliver  Registry plus a DURABLE decision log and delivery: a stand-in
+#                               downstream is started and the relay pushes every decision to it.
+#                               Then ./devstack/deliver-demo.sh shows push and fetch working,
+#                               including what happens when the downstream breaks.
+#   ./devstack/up.sh --sandbox  Registry plus a `sandbox` tenant with one account per role
+#                               (author, reviewer, approver, viewer, auditor) so maker-checker
+#                               can be walked without creating accounts by hand. The password is
+#                               printed to the registry log. Never enable this in production.
 #   ./devstack/up.sh --stop     stop everything
 #   ./devstack/up.sh --seed     seed only: keys, bundle, manifest. No service.
 #
@@ -100,21 +112,37 @@ require_jdk25
 # first process holding the port, the new one fails to bind, and the script reports "the service
 # did not start" — which sent me looking for a startup bug that did not exist. The pid file only
 # knows about the most recent run, so match on the jar as well.
-WITH_REGISTRY=false
-WITH_SANDBOX=false
-WITH_DELIVERY=false
+# EVERYTHING, BY DEFAULT. This used to default to the decision service alone, and that was the
+# wrong default: somebody who wants to see the product runs `./up.sh`, gets a service that decides
+# correctly, and has no way to know the registry — and therefore the Rule Studio, the governance
+# API and every screen — needed a flag they were never told about. Two people in a row ran the bare
+# command looking for the studio.
+#
+# A default should be the thing most people want, not the smallest thing that works. So the bare
+# command now brings up the whole backend: PostgreSQL, the registry, a durable decision log,
+# delivery, and the sandbox accounts. The lean mode is still here behind --decisions-only, for when
+# the point is to prove the engine needs nothing.
+WITH_REGISTRY=true
+WITH_SANDBOX=true
+WITH_DELIVERY=true
 RECEIVER_PORT="${BRE_RECEIVER_PORT:-9099}"
 for arg in "$@"; do
   case "$arg" in
-    --registry) WITH_REGISTRY=true ;;
+    # The old default, kept because it demonstrates something real: the decision service needs no
+    # database, no registry and no network to decide. Nothing else runs in this mode.
+    --decisions-only)
+      WITH_REGISTRY=false; WITH_SANDBOX=false; WITH_DELIVERY=false ;;
+    # The explicit subsets still work, and each now means "this and no more" so a reader who asks
+    # for one gets what they asked for rather than everything.
+    --registry) WITH_REGISTRY=true; WITH_SANDBOX=false; WITH_DELIVERY=false ;;
     # Durable decision log plus delivery: the decision service runs in POSTGRES mode (which is
     # what creates outbox rows at all), a stand-in downstream system is started, and the relay is
     # pointed at it. Then both ways out of the outbox can be shown working.
-    --deliver)  WITH_REGISTRY=true; WITH_DELIVERY=true ;;
+    --deliver)  WITH_REGISTRY=true; WITH_DELIVERY=true; WITH_SANDBOX=false ;;
     # Seeds the `sandbox` tenant with one account per role, so maker-checker can be walked without
     # creating accounts by hand. Separate from --registry because it is a different decision: the
     # registry is infrastructure, five accounts sharing a password is a test fixture.
-    --sandbox)  WITH_REGISTRY=true; WITH_SANDBOX=true ;;
+    --sandbox)  WITH_REGISTRY=true; WITH_SANDBOX=true; WITH_DELIVERY=false ;;
   esac
 done
 
@@ -476,24 +504,16 @@ cat <<INFO
   for the household over the regulatory obligation cap, and REFER for the soft-cap threshold.
   Anything else is a regression.
 
-  THERE IS NO POLICY REGISTRY AND NO STUDIO IN THIS MODE, and if you came here to open the
-  Rule Studio that is the thing to know. This started the decision service alone: it serves
-  decisions against the bundle above and nothing else. The studio signs in against the registry,
-  so with no registry running it can only report that it cannot reach the server.
+  THERE IS NO POLICY REGISTRY IN THIS MODE, which is what --decisions-only means. The decision
+  service is running alone: it serves decisions against the bundle above and nothing else. No
+  governance API, no audit trail, and nothing for the Rule Studio to sign in against — the studio
+  can only report that it cannot reach the server.
 
-    $0 --registry
-        PostgreSQL, the policy registry on 8081, an admin account, and the full walk — author,
-        approve, deploy, decide, audit. Then, for the studio:
-            cd ../BRE_UI && VITE_USE_FIXTURES=false npm run dev
-        and sign in as admin@lender.local / devstack-admin-password
+  That is the point of this mode rather than a limitation of it: the engine needs no database, no
+  registry and no network to decide. For everything else, drop the flag — the bare command brings
+  up the whole backend:
 
-    $0 --deliver
-        As --registry, plus a DURABLE decision log. Needed for the explanation viewer, replay
-        and the back-test, which all read the hot store.
-
-    $0 --sandbox
-        As --registry, plus one account per role, so maker-checker can be walked without
-        creating accounts by hand.
+      $0
 
   The decision log is IN_MEMORY — not durable, every decision is lost on restart. For the
   durable path (D6: the decision, its idempotency key and its outbox event in ONE transaction)

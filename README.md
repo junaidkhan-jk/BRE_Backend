@@ -21,7 +21,7 @@ Three commands, from nothing to a decision. **No Docker, no database to install,
 ```bash
 git clone https://github.com/junaidkhan-jk/BRE_Backend.git
 cd BRE_Backend
-./devstack/up.sh --registry
+./devstack/up.sh
 ```
 
 The first run downloads a Java 25 toolchain and a real PostgreSQL server binary, so expect a few
@@ -167,19 +167,29 @@ The UI is in **[BRE_UI](https://github.com/junaidkhan-jk/BRE_UI)**. In short: **
 ### The devstack (recommended)
 
 ```bash
-./devstack/up.sh              # decision service only, in-memory log
-./devstack/up.sh --registry   # + PostgreSQL + the policy registry + an admin account
-./devstack/up.sh --deliver    # as --registry, plus a DURABLE decision log and outbox delivery
-./devstack/up.sh --sandbox    # as --registry, plus one account per role, for maker-checker
-./devstack/up.sh --seed       # keys, bundle and manifest only — no service
+./devstack/up.sh              # THE WHOLE BACKEND — this is the one you want
 ./devstack/up.sh --stop       # stop everything
 ```
 
-| Flag | Use it when |
+**The bare command brings up everything** and there is nothing to choose: PostgreSQL, the policy
+registry, an admin account, a durable decision log, outbox delivery, the sandbox accounts, and the
+full walk — author, approve, deploy, decide, audit. The Rule Studio is not started, because it is a
+separate repository with its own dependencies; see §7.
+
+The narrower modes are still there when you want one specific thing and nothing else:
+
+| Flag | What it gives you |
 |---|---|
-| `--registry` | you want the studio, the governance API, maker-checker |
-| `--deliver` | you need the **hot store** — replay, explanations, the back-test, the outbox |
-| `--sandbox` | you are walking the approval path and need five roles |
+| `--decisions-only` | the decision service **alone** — no database, no registry. Proves the engine needs nothing to decide, and **cannot serve the studio**. This used to be the default |
+| `--registry` | registry and PostgreSQL, without delivery or the sandbox accounts |
+| `--deliver` | registry plus the **hot store** — replay, explanations, the back-test, the outbox |
+| `--sandbox` | registry plus one account per role, for walking maker-checker |
+| `--seed` | keys, bundle and manifest only; no service |
+
+> The bare command used to start the decision service alone, and that was the wrong default: two
+> people in a row ran it looking for the Rule Studio, got a service that decides perfectly, and had
+> no way to know the registry needed a flag nobody had told them about. A default should be what
+> most people want, not the smallest thing that works.
 
 Ports (override with environment variables):
 
@@ -192,7 +202,7 @@ BRE_RECEIVER_PORT=8082   # stand-in downstream, --deliver only
 Set them if something already holds 8080:
 
 ```bash
-BRE_PORT=18080 BRE_REGISTRY_PORT=18081 ./devstack/up.sh --registry
+BRE_PORT=18080 BRE_REGISTRY_PORT=18081 ./devstack/up.sh
 ```
 
 Default admin: **`admin@lender.local` / `devstack-admin-password`** (override with
@@ -290,7 +300,7 @@ on a lender's control plane would destroy the audit trail.
 **2. Accounts — the bootstrap.** `--registry` creates tenant `t_devstack` and an admin.
 `--sandbox` adds one account per role. Both are configuration, not scripts.
 
-**3. Policy and reference data — `devstack/e2e.sh`,** which `up.sh --registry` runs for you. It
+**3. Policy and reference data — `devstack/e2e.sh`,** which `up.sh` runs for you. It
 installs the parameter sets and reference lists from
 [`reference-policy/assets.json`](reference-policy/assets.json), creates the policy, saves
 [`reference-policy/mfi-jlg-credit-uw.psf.yaml`](reference-policy/mfi-jlg-credit-uw.psf.yaml),
