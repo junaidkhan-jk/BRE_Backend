@@ -88,7 +88,9 @@ public final class ReplayService {
   public Replay replay(DecisionRecord record, Value.RecordV facts, boolean masked) {
     // The bundle is pinned by the RECORD, not by the policy's current champion. Explaining a
     // decision against whatever is live today would explain a decision nobody ever made.
-    String bundleHash =
+    return replayAgainst(
+        record,
+        facts,
         record
             .bundleHash()
             .orElseThrow(
@@ -97,7 +99,33 @@ public final class ReplayService {
                         "decision "
                             + record.decisionId()
                             + " has no bundleHash, so there is"
-                            + " nothing to pin a replay to"));
+                            + " nothing to pin a replay to")),
+        masked);
+  }
+
+  /**
+   * Re-runs a decision against a bundle the caller names, and compares with what was recorded.
+   *
+   * <p><b>This is the back-test, and it is the same code as the explanation on purpose.</b> An
+   * explanation replays against the bundle that decided; a back-test replays against a bundle that
+   * has not decided anything yet. Everything else — the stored facts, the recorded {@code asOf},
+   * the per-step comparison — is identical, and that identity is the point: a back-test whose
+   * engine path differed from the explanation path would predict an impact the deployment then did
+   * not produce, which is worse than no back-test because somebody would have signed off on it.
+   *
+   * <p>The {@code mismatches} a back-test produces are not defects. They are the
+   * <em>transitions</em> — the applications whose outcome the candidate policy would change — and
+   * that list is the deliverable. The caller is responsible for not reading them as errors.
+   *
+   * @param record the decision as recorded
+   * @param facts the facts as submitted
+   * @param bundleHash the bundle to evaluate against — the recorded one for an explanation, a
+   *     candidate for a back-test
+   * @param masked whether fact values are masked in the trace (§9.4)
+   * @return what the comparison established
+   */
+  public Replay replayAgainst(
+      DecisionRecord record, Value.RecordV facts, String bundleHash, boolean masked) {
     // The bundle's OWN parameters and lists, not any configured now. They were resolved into this
     // hash when it was signed (§8.4), so pinning the hash pins the parameter values too — which is
     // what makes a replay years later reproduce the decision rather than re-take it.
@@ -190,6 +218,29 @@ public final class ReplayService {
                   replay.steps(),
                   replay.bundleHash());
             });
+  }
+
+  /**
+   * Replays a stored decision against a candidate bundle — the back-test's unit of work.
+   *
+   * @param record the decision to re-decide
+   * @param bundleHash the candidate bundle
+   * @return the replay, or empty when the facts were never stored
+   */
+  public Optional<Replay> backTestFromStore(DecisionRecord record, String bundleHash) {
+    return decisionLog
+        .facts(record.tenantId(), record.decisionId())
+        .map(
+            stored ->
+                replayAgainst(
+                    record,
+                    new FactReader(LendingFacts.schema()).toRecord(toMap(stored.facts())),
+                    bundleHash,
+                    // Always masked. A back-test is run by a risk analyst over thousands of real
+                    // applications at once, which is the largest concentration of personal data
+                    // this system produces in one response — and §9.4's unmask path does not exist
+                    // (M3-09). Masked is the only defensible default here even once it does.
+                    true));
   }
 
   /**

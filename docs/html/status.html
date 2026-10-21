@@ -91,13 +91,13 @@
 
   <span class="kicker">BRE 2.0 · against the Build Plan's own task IDs</span>
   <h1>Build Status</h1>
-  <p class="sub">Every task in M0–M6, and the state it is actually in. Counts are derived from the rows below, not maintained by hand.</p>
+  <p class="sub">Every task in M0–M6, and the state it is actually in. Counts are computed from the rows below, and <code>StatusPageTest</code> fails the build when a total and its rows disagree — the claim that they are derived used to be made here while they were typed by hand, which is how this page came to be wrong by fourteen tasks.</p>
   <div class="rule"></div><div class="rule"></div>
 
   <div class="totals">
-    <div class="tot g"><b>50</b><span>done</span></div>
-    <div class="tot a"><b>2</b><span>partial — both waiting on M4, not on effort</span></div>
-    <div class="tot s"><b>16</b><span>not started</span></div>
+    <div class="tot g"><b>63</b><span>done</span></div>
+    <div class="tot a"><b>5</b><span>needs people &mdash; a tester, a lender, a compliance officer, analysts, a second region</span></div>
+    <div class="tot s"><b>0</b><span>not started</span></div>
     <div class="tot"><b>68</b><span>tasks across all seven milestones</span></div>
   </div>
 
@@ -107,23 +107,34 @@
        (7 + 16 + 8 + 10 + 10 + 10 + 7), and at that point the true state was 8 done, 14 partial and
        46 not started. The counts above and in every milestone header are now computed from the
        rows, so a row and its tally cannot disagree again.</p>
-    <p style="margin-top:10px"><b>2026-10-15.</b> Ten of the twelve partial tasks are finished:
-       M0-06, M3-09, M3-10, M5-01, M5-02, M5-03, M5-06, M5-07, M6-04 and M6-05. The two that
-       remain are waiting on M4 rather than on effort — the portfolio back-test needs the archive
-       to replay against, and free-text decision search needs the hot store. Finishing them
-       surfaced four defects in work already marked done: <code>npm run lint</code> had never run
-       at all, <code>npm test</code> could not execute the specs it was globbing,
-       <code>npm run dev</code> rendered a blank page, and bundle <b>export</b> — a lender's whole
-       signed credit policy leaving the installation — was unaudited. Each was found by building
-       the thing that would have used it.</p>
+    <p style="margin-top:10px"><b>2026-10-21.</b> Everything code can deliver is delivered: 63 of
+       68 done, nothing not-started. The five remaining need <b>people</b> rather than effort, and
+       are labelled so rather than left looking pending &mdash; an external penetration tester, a
+       pilot lender for four weeks, a compliance officer, three credit-policy analysts, and a
+       second region. Each of the five has its code half built and its human half named on the
+       row.</p>
+    <p style="margin-top:10px"><b>The pattern worth recording.</b> Every one of those five code
+       halves found a defect in work already marked done, and none was found by writing a feature
+       &mdash; all five by building the thing that <em>checks</em> a feature. The explanation
+       endpoint had never worked against PostgreSQL: it threw &ldquo;has no bundleHash&rdquo; for
+       every decision, and the devstack check that should have caught it grepped the response for
+       the word &ldquo;decision&rdquo;, which the HTTP&nbsp;500 error page also contains. Group-loan
+       replay returned DECLINE against a recorded APPROVE, because the membership lists were
+       dropped as unassignable &mdash; an explanation that contradicts the decision is worse than
+       none. §10.2&rsquo;s second regulatory cap was implemented nowhere, in the policy that
+       <b>is</b> the acceptance suite. And the devstack served a two-day-old policy while the
+       registry reported the new one ACTIVE, because manifest versions restart at 1 on a fresh
+       database and §8.1 correctly refuses a version that is not newer.</p>
   </div>
 
-  <h2 class="sec">How to read &ldquo;partial&rdquo;</h2>
-  <p class="lead">Partial is the row that misleads if skimmed, so every one of them names what is
-     missing. A task is partial when part of it works and the rest was deliberately deferred — not
-     when it is nearly done. <b>M1-05</b> is the clearest example: the fuel meter and the closed
-     function registry are finished, but evaluation walks the syntax tree rather than the compiled
-     closure tree the design calls for. Right answers, not the designed speed.</p>
+  <h2 class="sec">How to read &ldquo;needs people&rdquo;</h2>
+  <p class="lead">It is not a softer word for unfinished. Each of the five is a task whose
+     deliverable is a <b>judgement or an engagement</b> — a tester&rsquo;s findings, a
+     committee&rsquo;s resolution of a difference, a compliance signature, an analyst&rsquo;s
+     attempt at a task, a failover across two regions — and none of those can be produced by
+     writing more code. What code could do was build the half that makes the human half worth
+     doing, and every row says which half is which. <b>None of the five is marked done</b>, and
+     none should be until the person has been in the room.</p>
 
   <section class="ms">
     <div class="ms__head">
@@ -229,7 +240,7 @@
     <div class="ms__head">
       <div><span class="kicker">M3 — Control plane</span>
       <p class="ms__blurb">Authoring, review, deployment, identity. Accepts an identity provider's tokens now, and still decides roles itself.</p></div>
-      <div class="ms__counts"><span class="pill g">9 done</span><span class="pill s">1 pending</span></div>
+      <div class="ms__counts"><span class="pill g">10 done</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M3-01</td><td class="ti">Full bre_ctl schema with row-level security and a hash-chained audit log
@@ -264,7 +275,8 @@
         <p>Three checks, none optional: the hash is <b>recomputed</b>, because an address is a fact about content and not a claim about it; the ORIGIN signature must verify against a key this installation has <b>named</b> as a trusted exporter, which defaults to nobody, because an installation that has named nobody must import from nobody; and it is countersigned IMPORT with our own key so a pod accepts it under its own trust store — the countersigner recomputes the hash <em>again</em> first, so this registry can never sign content it did not itself hash. An IMPORT countersignature is <b>refused</b> as a basis for import: it speaks for whoever imported the bundle, not for whoever approved the policy, so accepting one would mean trusting a party you never named through one you did.</p>
         <p>Export returns the bytes exactly as signed — re-serialising changes them and therefore the hash — and the 404 for an unknown hash is decided from the <em>database</em> under row-level security rather than from the directory, which is shared by every tenant on the node.</p></div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
-      <tr class="pend"><td class="id">M3-08</td><td class="ti">tenant-admin-service</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M3-08</td><td class="ti">tenant-admin-service
+        <div class="no">Tenants, environments and quotas, provisioned in one transaction. Found and closed a privilege escalation on the way: TENANT_ADMIN carries ROLE_MANAGE, and nothing stopped an administrator granting themselves PLATFORM_ADMIN.</div></td><td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M3-09</td><td class="ti">OIDC and OAuth2 client credentials
         <div class="no">An identity provider's JWT is accepted alongside the local account table. The design decision: <b>the IdP authenticates, this installation authorises</b>. Roles and tenancy come from <code>role_assignments</code> keyed on the IdP's subject, never from a claim — otherwise whoever administers the directory could grant DEPLOY_APPROVE on a lender's credit policy, invisibly to the audit trail. A valid token for an unprovisioned subject is a 401. Six tests against a real JWKS endpoint; five of them are refusals, including a forged signature carrying the right <code>kid</code>.</div></td>
         <td class="st"><span class="pill d">done</span></td></tr>
@@ -278,20 +290,19 @@
     <div class="ms__head">
       <div><span class="kicker">M4 — Data plane and scale</span>
       <p class="ms__blurb">Kafka, cells, encryption, observability. Needs a cluster.</p></div>
-      <div class="ms__counts"><span class="pill s">10 pending</span></div>
+      <div class="ms__counts"><span class="pill g">10 done</span></div>
     </div>
     <table><tbody>
-      <tr class="pend"><td class="id">M4-01</td><td class="ti">KafkaDecisionLog — acks=all, idempotent producer</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M4-02</td><td class="ti">decision-sink — Kafka to hot store, partition maintenance</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M4-03</td><td class="ti">Parquet archive on write-once object storage</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M4-04</td><td class="ti">Envelope encryption, per-principal keys, crypto-shredding
-        <div class="no">The reason facts are not stored.</div></td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M4-05</td><td class="ti">Valkey idempotency and rate limits, adaptive concurrency</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M4-06</td><td class="ti">decision-worker — async ingress and bulk jobs</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M4-07</td><td class="ti">Replay verification, drift and error-rate monitors</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M4-08</td><td class="ti">OpenTelemetry, dashboards, SLOs</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M4-09</td><td class="ti">Helm, Argo CD, Strimzi, CloudNativePG</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M4-10</td><td class="ti">Cell load and chaos tests</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M4-01</td><td class="ti">KafkaDecisionLog — acks=all, idempotent producer</td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M4-02</td><td class="ti">decision-sink — Kafka to hot store, partition maintenance</td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M4-03</td><td class="ti">Parquet archive on write-once object storage</td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M4-04</td><td class="ti">Envelope encryption, per-principal keys, crypto-shredding</td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M4-05</td><td class="ti">Valkey idempotency and rate limits, adaptive concurrency</td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M4-06</td><td class="ti">decision-worker — async ingress and bulk jobs</td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M4-07</td><td class="ti">Replay verification, drift and error-rate monitors</td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M4-08</td><td class="ti">OpenTelemetry, dashboards, SLOs</td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M4-09</td><td class="ti">Helm, Argo CD, Strimzi, CloudNativePG</td><td class="st"><span class="pill g">done</span></td></tr>
+      <tr><td class="id">M4-10</td><td class="ti">Cell load and chaos tests</td><td class="st"><span class="pill g">done</span></td></tr>
     </tbody></table>
   </section>
 
@@ -299,7 +310,7 @@
     <div class="ms__head">
       <div><span class="kicker">M5 — Rule Studio</span>
       <p class="ms__blurb">The front end. Thirteen screens against a real registry, audited for accessibility in both themes.</p></div>
-      <div class="ms__counts"><span class="pill g">7 done</span><span class="pill a">2 partial</span><span class="pill s">1 pending</span></div>
+      <div class="ms__counts"><span class="pill g">9 done</span><span class="pill a">1 needs people</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M5-01</td><td class="ti">App shell — React, TypeScript, Vite, routing, role-aware navigation
@@ -315,8 +326,8 @@
         <div class="no">The <b>compare screen is built</b>: pick two versions of a policy in either order, including a draft, and read what changed in the compiled policy before reading what changed in the text. &ldquo;No semantic changes&rdquo; is stated explicitly rather than left as an empty area — an empty panel and a panel that failed to load look identical, and the difference matters when the question is whether it is safe to approve. <b>History and clone are built.</b> The history sits on the same screen as the diff, because &ldquo;what changed&rdquo; and &ldquo;who changed it, when, and under what mandate&rdquo; are asked in the same breath: each version carries its change note, its committee reference, and both its editors and its approvers <em>as lists</em> — a draft handed between two people has two editors, segregation of duties is enforced against all of them, and showing only the creator would make a reviewer look independent when they were not. A clone copies the <b>source and the test cases</b>: rules without the assertions that check them produce a draft that compiles, has no tests, and cannot be submitted — and the source rather than the IR, because translation discards the comment explaining why a threshold is 21 rather than 18.</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M5-05</td><td class="ti">Test runner with coverage, simulation console
-        <div class="no">The <b>run screen works</b>: pick a policy and version, paste facts, set the business date, and read which step drove the decision, which entity deviated, on what measure, and what approvals it would need. It replaced a mock that showed a hard-coded outcome mix after a 600&nbsp;ms timer — honest scaffolding with no backend, and the worst thing to leave in place once there is one. <b>The coverage panel is built</b> beside it: the version's figure against the tenant's threshold, the three kinds separately as well as pooled — a policy can sit at 85% overall while every row of one decision table is untested — and the uncovered rule branches, rows and bins listed by name, so the submit gate's refusal is explained before it happens rather than after. <b>Not built:</b> the portfolio back-test — running a policy over thousands of stored decisions is a job rather than a request, and needs M4's archive to replay against.</div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">The back-test is built, so this is complete. It replays decisions already made against a <b>candidate</b> bundle and reports the transitions <b>grouped by cause</b> — a threshold move flips every application near it, so a list with one row per application is not read, and the change then gets approved against a document nobody examined. Same code path as the explanation on purpose: a back-test with its own evaluation path would predict an impact the deployment failed to produce. Zero transitions out of zero replays reports <code>meaningful: false</code>, never &ldquo;no impact&rdquo;.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M5-06</td><td class="ti">Review inbox, deployment console, rollback
         <div class="no">The deployment schedule, across every environment — <code>effective_from</code> was never even returned by the API, so no screen could say when a SCHEDULED deployment was due. Grouped by day rather than drawn as a month grid, because the thing worth seeing is a collision. <b>Bulk approve is not built, and that is not an omission</b>: approving twenty submissions in one click is the opposite of a review. What it was wanted for — knowing which of twenty you may act on, since an editor cannot approve their own — is marked on the queue instead.</div></td>
         <td class="st"><span class="pill d">done</span></td></tr>
@@ -324,12 +335,13 @@
         <div class="no">An asset now names the policy versions that pin it, and which of them are serving. The forward direction already existed; the inverse is the one an editor needs. Opening a draft is safe by construction — FR-MODEL-003 pins exact versions — but the screen could not show the <i>consequence</i>, that raising a cap reaches no borrower until each dependent policy gets a new version and its own approvals.</div></td>
         <td class="st"><span class="pill d">done</span></td></tr>
       <tr><td class="id">M5-08</td><td class="ti">Decision lookup, explanation viewer, audit trail
-        <div class="no">The <b>audit trail screen is built</b>, with the chain verification at the top rather than buried in a tools menu: an audit log's value is entirely in whether it can be shown to be untampered, so that banner is a live recomputation and not a reassurance. Each entry's detail is rendered as the data the service recorded, including a field this screen has never heard of. An end-to-end test asserts there is <b>no write control anywhere on it</b>. <b>Not built:</b> decision lookup and the explanation viewer — both read the decision service's hot store, which is M4.</div></td>
-        <td class="st"><span class="pill a">partial</span></td></tr>
+        <div class="no">Decision lookup and the explanation viewer are built, <b>through the registry rather than from the browser</b>. The Decision API trusts <code>X-Tenant-Id</code> and has no authentication, so a browser calling it directly could read any tenant by editing one header; the registry supplies that header from the session, gated on <code>DECISION_READ_MASKED</code>. A stand-in for the BFF of TRD §13.1&ndash;13.3, whose module is still empty — the deviation and its one cost, this screen needing the data plane reachable, are recorded on <code>DecisionReader</code>. In live mode the monitoring tiles are <b>not rendered</b>: nothing backs them, and a fixture&rsquo;s &ldquo;decisions today&rdquo; shown against a real installation is how a demo gets mistaken for a working system.</div></td>
+        <td class="st"><span class="pill g">done</span></td></tr>
       <tr><td class="id">M5-09</td><td class="ti">Playwright end-to-end tests and an axe accessibility audit
         <div class="no">Runs against the <b>production bundle</b> via <code>vite preview</code>, not the dev server — the one UI defect this project shipped was a bundling defect, and a suite exercising only the dev server would have stayed green through it. It found two bugs on first run: the production page was blank (a module script, then a classic one that ran before <code>#root</code> existed), and <b>67 colour-contrast violations that had been invisible because the page was blank</b>. The axe audit fails the build on any WCAG 2.1 A or AA violation; an audit that only reports is an audit nobody reads.</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
-      <tr class="pend"><td class="id">M5-10</td><td class="ti">Usability sessions with credit-policy analysts</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M5-10</td><td class="ti">Usability sessions with credit-policy analysts
+        <div class="no">Protocol built; <b>needs three credit-policy analysts</b>. The audit is the finding: RK1 names six mitigations and <b>three do not exist</b> — no policy-sentence view, no starter packs, and the decision-table grid is read-only, so authoring a table is BEL plus YAML. The sessions therefore ask which of the missing three would have changed an outcome, which has a build decision attached, rather than &ldquo;is it usable&rdquo;. The dry run found the devstack serving a two-day-old policy.</div></td><td class="st"><span class="pill a">needs people</span></td></tr>
     </tbody></table>
   </section>
 
@@ -337,22 +349,26 @@
     <div class="ms__head">
       <div><span class="kicker">M6 — Reference policy and pilot</span>
       <p class="ms__blurb">Acceptance. What remains needs a penetration test, a DR drill and a pilot lender — people, not code.</p></div>
-      <div class="ms__counts"><span class="pill g">3 done</span><span class="pill s">4 pending</span></div>
+      <div class="ms__counts"><span class="pill g">3 done</span><span class="pill a">4 needs people</span></div>
     </div>
     <table><tbody>
       <tr><td class="id">M6-01</td><td class="ti">The complete MFI JLG/SHG reference policy in PSF
         <div class="no">Eleven rules, three decision tables, a scorecard, a five-stage flow with a knockout and a THRESHOLD aggregate — assembled from the Rule Authoring Guide's MFI examples, with resolved parameters, three reference lists and a delegation-of-powers matrix. It lints, bundles, verifies and <b>decides</b>: three fixtures asserted in CI give APPROVE, DECLINE and REFER, and devstack posts the same three over HTTP. It found <b>ten defects</b> — two in the static checker, two gaps in the guide's own examples, and four that only appeared once it was run against facts, three of those in the engine. See <code>reference-policy/FINDINGS.md</code>. Customer-facing reasons still need the reason catalogue.</div></td>
         <td class="st"><span class="pill g">done</span></td></tr>
-      <tr class="pend"><td class="id">M6-02</td><td class="ti">Threat model, external penetration test, 24 h Jazzer campaign</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M6-03</td><td class="ti">Disaster-recovery drill — region failover and backup restore</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M6-02</td><td class="ti">Threat model, external penetration test, 24 h Jazzer campaign
+        <div class="no">Threat model and the 24-hour Jazzer campaign are built; <b>needs an external penetration tester</b>. Seeding was the discovery: unseeded, the bundle-parser target reported <code>cov: 18</code> after two million executions — it was testing Jackson&rsquo;s error path and nothing else. With a corpus, 51. Three versions of the campaign script produced evidence of a run that had not happened.</div></td><td class="st"><span class="pill a">needs people</span></td></tr>
+      <tr><td class="id">M6-03</td><td class="ti">Disaster-recovery drill — region failover and backup restore
+        <div class="no">Backup restore including decryption runs and is evidenced; <b>region failover needs a second region</b>. The drill found three defects: the explanation endpoint had never worked against PostgreSQL, group-loan replay returned DECLINE against a recorded APPROVE, and a lost KEK answered a bare 500.</div></td><td class="st"><span class="pill a">needs people</span></td></tr>
       <tr><td class="id">M6-04</td><td class="ti">Runbooks and the on-call rota
         <div class="no">Severity classes, which signals page and at what burn rate, and five mechanical escalation triggers — all traced to §11.5 and the NFRs. The SEV-1/SEV-2 ordering is the part worth reading: no decisions is an outage everybody notices in minutes; <i>wrong</i> decisions are worse and nobody notices for weeks. <b>Still not invented</b>: the names, the shift hours and the response targets, which are marked TO AGREE — a plausible-looking rota is worse than none, because somebody relies on it at 3am.</div></td>
         <td class="st"><span class="pill d">done</span></td></tr>
       <tr><td class="id">M6-05</td><td class="ti">Integration guide and sandbox tenant
         <div class="no">A generated OpenAPI document for the control plane's 43 endpoints, a Swagger UI, and an integration guide. Generated rather than hand-written, and <b>written into <code>docs/api/</code> by a test</b> — a portal served only from a running service is a contract nobody can diff. Off by default: it is the API's shape and never data, but it is also a complete inventory of the control plane. The guide leads with the four things that actually surprise integrators, starting with <code>asOf</code> deciding the answer.</div></td>
         <td class="st"><span class="pill d">done</span></td></tr>
-      <tr class="pend"><td class="id">M6-06</td><td class="ti">Pilot parallel run — four or more weeks of shadow decisions</td><td class="st"><span class="pill s">pending</span></td></tr>
-      <tr class="pend"><td class="id">M6-07</td><td class="ti">Compliance sign-off</td><td class="st"><span class="pill s">pending</span></td></tr>
+      <tr><td class="id">M6-06</td><td class="ti">Pilot parallel run — four or more weeks of shadow decisions
+        <div class="no">Parallel-run harness built; <b>needs a pilot lender and four weeks</b>. Differences are grouped by cause, and a data gap is classified apart from a policy difference — §4.8 is fail-closed, so a column missing from the extract refers, and reads exactly like a credit disagreement.</div></td><td class="st"><span class="pill a">needs people</span></td></tr>
+      <tr><td class="id">M6-07</td><td class="ti">Compliance sign-off
+        <div class="no">Control register built and checked in CI; <b>needs a compliance officer and the two regulatory values confirmed</b>. It found §10.2&rsquo;s second regulatory cap — obligations as a share of household income — implemented nowhere, in the policy that <b>is</b> the acceptance suite. Now implemented, with a fixture that breaches it.</div></td><td class="st"><span class="pill a">needs people</span></td></tr>
     </tbody></table>
   </section>
 

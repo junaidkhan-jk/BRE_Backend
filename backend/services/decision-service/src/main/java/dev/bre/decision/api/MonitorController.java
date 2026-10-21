@@ -26,16 +26,22 @@ public class MonitorController {
 
   private final OutcomeMonitors monitors;
   private final ReplayVerificationJob verification;
+  private final dev.bre.decision.backtest.BackTestJob backTest;
 
   /**
    * Creates the controller.
    *
    * @param monitors the outcome guardrails
    * @param verification the replay-verification job
+   * @param backTest the portfolio back-test
    */
-  public MonitorController(OutcomeMonitors monitors, ReplayVerificationJob verification) {
+  public MonitorController(
+      OutcomeMonitors monitors,
+      ReplayVerificationJob verification,
+      dev.bre.decision.backtest.BackTestJob backTest) {
     this.monitors = monitors;
     this.verification = verification;
+    this.backTest = backTest;
   }
 
   /**
@@ -75,5 +81,43 @@ public class MonitorController {
         // caller reading only "mismatched: 0" would believe it was one.
         "meaningful", result.meaningful(),
         "findings", result.findings());
+  }
+
+  /**
+   * Back-tests a candidate bundle over decisions already made (M5-05, PRD U11).
+   *
+   * <p>A POST for the same reason verification is: re-deciding thousands of applications is minutes
+   * of CPU, not something a dashboard should trigger by refreshing.
+   *
+   * <p>The candidate must already be in this pod's verified cache, which means the registry has
+   * published it as servable. That is not a limitation to work around — it is the guarantee that a
+   * back-test cannot be run against a bundle nobody has signed, and therefore that its result
+   * describes something that could actually be deployed.
+   *
+   * @param tenantId the tenant
+   * @param candidateBundleHash the bundle to evaluate against
+   * @param sample how many decisions to draw
+   * @return the transitions, grouped by cause and commonest first
+   */
+  @PostMapping("/back-test")
+  public Map<String, Object> backTest(
+      @RequestHeader("X-Tenant-Id") String tenantId,
+      @RequestParam String candidateBundleHash,
+      @RequestParam(defaultValue = "1000") int sample) {
+
+    var result = backTest.run(tenantId, candidateBundleHash, sample);
+    return Map.of(
+        "candidateBundleHash", result.candidateBundleHash(),
+        "sampled", result.sampled(),
+        "backTested", result.backTested(),
+        "unchanged", result.unchanged(),
+        "changed", result.changed(),
+        "changedPercent", result.changedPercent(),
+        "notReplayable", result.notReplayable(),
+        "shredded", result.shredded(),
+        // Explicit, because an empty transition list reads as "this change affects nobody" — which
+        // is what an approver hopes for and is NOT what zero-out-of-zero means.
+        "meaningful", result.meaningful(),
+        "transitions", result.transitions());
   }
 }

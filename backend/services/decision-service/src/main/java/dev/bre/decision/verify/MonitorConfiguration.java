@@ -43,6 +43,26 @@ public class MonitorConfiguration {
     return new ReplayVerificationJob(new JdbcTemplate(required(dataSource)), decisionLog, replay);
   }
 
+  /**
+   * The portfolio back-test (M5-05).
+   *
+   * <p>Beside the monitors rather than in its own configuration, because it needs exactly what they
+   * need — the hot store to sample and the replay service to re-decide — and a second configuration
+   * class whose only job is to repeat the same {@code required(dataSource)} check would be two
+   * places to forget it.
+   *
+   * @param dataSource the hot store
+   * @param decisionLog the decision log
+   * @param replay the replay service
+   * @return the job
+   */
+  @Bean
+  public dev.bre.decision.backtest.BackTestJob backTestJob(
+      ObjectProvider<DataSource> dataSource, DecisionLog decisionLog, ReplayService replay) {
+    return new dev.bre.decision.backtest.BackTestJob(
+        new JdbcTemplate(required(dataSource)), decisionLog, replay);
+  }
+
   private static DataSource required(ObjectProvider<DataSource> dataSource) {
     DataSource configured = dataSource.getIfAvailable();
     if (configured == null) {

@@ -6,7 +6,7 @@
     "version" : "0.1.0"
   },
   "servers" : [ {
-    "url" : "http://127.0.0.1:35125",
+    "url" : "http://127.0.0.1:35177",
     "description" : "Generated server url"
   } ],
   "security" : [ {
@@ -1622,6 +1622,58 @@
                   "items" : {
                     "$ref" : "#/components/schemas/Deployment"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/decisions/{decisionId}" : {
+      "get" : {
+        "tags" : [ "decision-lookup-controller" ],
+        "operationId" : "decision",
+        "parameters" : [ {
+          "name" : "decisionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/decisions/{decisionId}/explanation" : {
+      "get" : {
+        "tags" : [ "decision-lookup-controller" ],
+        "operationId" : "explanation",
+        "parameters" : [ {
+          "name" : "decisionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string"
                 }
               }
             }

@@ -288,6 +288,11 @@ if $WITH_REGISTRY; then
     --bre.registry.bootstrap-admin-password="$ADMIN_PASSWORD" \
     --bre.registry.sandbox-enabled="$WITH_SANDBOX" \
     --bre.registry.sandbox-password=sandbox-password-1 \
+    `# Decision lookup and the explanation viewer (M5-08). The studio reads decisions THROUGH the` \
+    `# registry rather than from the decision service, because the Decision API trusts X-Tenant-Id` \
+    `# and has no authentication — a browser calling it directly could read any tenant by editing` \
+    `# one header. The registry supplies that header from the session instead.` \
+    --bre.registry.decision-service-url="http://127.0.0.1:$PORT" \
     `# The OpenAPI document and the Swagger UI, reachable without a session. On here and off by` \
     `# default in application.yaml: locally it is the integration portal M6-05 asks for, and in a` \
     `# deployment it is a complete inventory of the control plane handed to anybody who can reach` \
