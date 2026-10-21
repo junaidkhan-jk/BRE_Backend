@@ -308,7 +308,7 @@ cat <<DONE
     bundle     $BUNDLE
     served by  $DECISIONS
     studio     cd ../BRE_UI && VITE_USE_FIXTURES=false \\
-               VITE_REGISTRY_URL=$REGISTRY npm run dev
+               BRE_REGISTRY_URL=$REGISTRY npm run dev
     sign in    $EMAIL / $PASSWORD
 
   Substituted locally: PostgreSQL is embedded, the KMS is a local AES key, the

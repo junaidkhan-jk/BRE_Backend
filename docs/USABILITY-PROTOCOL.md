@@ -63,7 +63,7 @@ establish a rate, and the report must not state one.
 ```bash
 ./devstack/up.sh --sandbox        # registry, PostgreSQL, one account per role
 cd ../BRE_UI && VITE_USE_FIXTURES=false \
-    VITE_REGISTRY_URL=http://127.0.0.1:8081 npm run dev
+    BRE_REGISTRY_URL=http://127.0.0.1:8081 npm run dev
 ```
 
 `--sandbox` seeds the `sandbox` tenant with one account per role — author, reviewer, approver,

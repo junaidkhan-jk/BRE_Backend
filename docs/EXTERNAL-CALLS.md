@@ -327,7 +327,7 @@ The Rule Studio against the live registry:
 
 ```bash
 cd ../BRE_UI        # the BRE_UI repository, cloned alongside this one
-VITE_USE_FIXTURES=false VITE_REGISTRY_URL=http://127.0.0.1:8081 npm run dev
+VITE_USE_FIXTURES=false BRE_REGISTRY_URL=http://127.0.0.1:8081 npm run dev
 ```
 
 Without `VITE_USE_FIXTURES=false` the studio serves hard-coded sample data and says so in a banner

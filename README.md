@@ -263,8 +263,13 @@ backend:
 ```bash
 cd ../BRE_UI
 npm ci
-VITE_USE_FIXTURES=false VITE_REGISTRY_URL=http://127.0.0.1:8081 npm run dev
+VITE_USE_FIXTURES=false BRE_REGISTRY_URL=http://127.0.0.1:8081 npm run dev
 ```
+
+> **`BRE_REGISTRY_URL`, not `VITE_REGISTRY_URL`.** The dev server proxies `/v1` to the backend so
+> the studio runs same-origin and this service needs no CORS configuration. `VITE_REGISTRY_URL` is
+> a browser variable that would make the browser call this port cross-origin, which it blocks — the
+> screen then says "Could not reach the server".
 
 Then open the printed URL and sign in with the admin account above.
 
