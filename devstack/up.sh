@@ -26,7 +26,7 @@
 #   3. bundles and signs the reference policy WITH its resolved assets
 #   4. writes and signs an Active Pointer Manifest pointing at that bundle
 #   5. starts decision-service with only the PUBLIC halves configured
-#   6. posts the three reference fixtures, so "it started" and "it decides correctly" are
+#   6. posts every reference fixture, so "it started" and "it decides correctly" are
 #      not confused with each other
 set -euo pipefail
 
@@ -420,10 +420,16 @@ if $WITH_REGISTRY; then
   exec "$ROOT/devstack/e2e.sh"
 fi
 
-# "It started" and "it decides correctly" are different claims. Post all three reference
-# fixtures and print what came back: a devstack that comes up serving a policy that refers
-# everything is worse than one that does not come up, because it looks fine.
-log "posting the three reference fixtures"
+# "It started" and "it decides correctly" are different claims. Post every reference fixture and
+# print what came back: a devstack that comes up serving a policy that refers everything is worse
+# than one that does not come up, because it looks fine.
+#
+# COUNTED, not asserted. This said "the three reference fixtures" and then listed four, because a
+# fixture was added for the regulatory obligation cap and the sentence was not. A hard-coded count
+# beside a loop over a directory is wrong the first time somebody adds a file, and a startup banner
+# that miscounts its own output is the kind of small lie that makes a reader stop trusting the rest.
+FIXTURE_COUNT=$(ls -1 "$ROOT"/reference-policy/fixtures/*.json 2>/dev/null | wc -l)
+log "posting the $FIXTURE_COUNT reference fixtures"
 echo
 printf '  %-34s %-10s %s\n' FIXTURE DECISION 'REASONS'
 n=0
@@ -464,10 +470,11 @@ cat <<INFO
     policy     MFI_JLG_CREDIT_UW
     bundle     $HASH
     log        $VAR/decision-service.log
-    stop       ./devstack/up.sh --stop
+    stop       $0 --stop
 
-  Expected above: APPROVE for the clean group, DECLINE for the negative-list knockout,
-  REFER for the soft-cap threshold. Anything else is a regression.
+  Expected above: APPROVE for the clean group, DECLINE for the negative-list knockout, DECLINE
+  for the household over the regulatory obligation cap, and REFER for the soft-cap threshold.
+  Anything else is a regression.
 
   The decision log is IN_MEMORY — not durable, every decision is lost on restart. For the
   durable path (D6: the decision, its idempotency key and its outbox event in ONE transaction)
