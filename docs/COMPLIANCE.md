@@ -5,8 +5,9 @@ parameters and the PRD §10 controls."* Signed by a compliance officer, which me
 to be checkable by one rather than taken on trust.
 
 So every row names **where the control is implemented** and **the test that proves it**, and
-`ComplianceRegisterTest` asserts in CI that every path and every test class named below actually
-exists. A register whose references have rotted is worse than none: it reads like evidence and
+`ComplianceRegisterTest` asserts in CI that every path named below actually exists — it does the
+same for the other documents whose claims are anchored to code (`docs/USABILITY-PROTOCOL.md`,
+`docs/PARALLEL-RUN.md`, `docs/THREAT-MODEL.md`, `docs/runbooks/dr-drill.md`). A register whose references have rotted is worse than none: it reads like evidence and
 asserts things that are no longer true. The test is the only thing that stops that happening
 silently.
 

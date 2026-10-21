@@ -36,7 +36,25 @@ class ComplianceRegisterTest {
    * backticks — a column name, a parameter, a SQL fragment — is not mistaken for a path.
    */
   private static final Pattern REPO_PATH =
-      Pattern.compile("`((?:backend|docs|devstack|reference-policy)/[A-Za-z0-9_./@-]+)`");
+      Pattern.compile(
+          "`((?:backend|docs|devstack|reference-policy|ui|BRE_PRD)/[A-Za-z0-9_./@-]+)`");
+
+  /**
+   * The documents whose claims are anchored to code, and therefore rot.
+   *
+   * <p>One list rather than one test per document, because the failure mode is identical in each:
+   * the document names a file as evidence, somebody renames the file, and the document keeps
+   * asserting. The compliance register is the one with a signature attached; the others are read by
+   * a penetration tester, a pilot team and a session facilitator, and each of them is read ONCE, in
+   * a situation where going and checking is not practical.
+   */
+  private static final List<String> EVIDENCE_DOCUMENTS =
+      List.of(
+          "docs/COMPLIANCE.md",
+          "docs/USABILITY-PROTOCOL.md",
+          "docs/PARALLEL-RUN.md",
+          "docs/THREAT-MODEL.md",
+          "docs/runbooks/dr-drill.md");
 
   private static Path repoRoot() {
     String root = System.getProperty("bre.repo.root");
@@ -56,34 +74,68 @@ class ComplianceRegisterTest {
   }
 
   @Test
-  @DisplayName("every file the register cites exists")
+  @DisplayName("every file the evidence documents cite exists")
   void everyCitedPathExists() throws IOException {
     Path root = repoRoot();
     List<String> missing = new ArrayList<>();
-
-    Matcher matcher = REPO_PATH.matcher(Files.readString(register()));
     int cited = 0;
-    while (matcher.find()) {
-      cited++;
-      String cite = matcher.group(1);
-      // A trailing slash cites a package or directory, which is legitimate in a row that points at
-      // a group of classes rather than one.
-      Path target = root.resolve(cite.endsWith("/") ? cite.substring(0, cite.length() - 1) : cite);
-      if (!Files.exists(target)) {
-        missing.add(cite);
+
+    for (String document : EVIDENCE_DOCUMENTS) {
+      Path file = root.resolve(document);
+      assertThat(file).as("%s is in the checked set but is not there", document).exists();
+
+      Matcher matcher = REPO_PATH.matcher(Files.readString(file));
+      while (matcher.find()) {
+        cited++;
+        String cite = matcher.group(1);
+        // A trailing slash cites a package or directory, which is legitimate where a row points at
+        // a group of classes rather than one.
+        Path target =
+            root.resolve(cite.endsWith("/") ? cite.substring(0, cite.length() - 1) : cite);
+        if (!Files.exists(target)) {
+          missing.add(document + " -> " + cite);
+        }
       }
     }
 
     assertThat(cited)
-        .as("the register cites no paths at all, so this test is checking nothing")
-        .isGreaterThan(20);
+        .as("no paths were cited at all, so this test is checking nothing")
+        .isGreaterThan(30);
     assertThat(missing)
         .as(
-            "the compliance register names %d path(s) that do not exist. Each one is a row claiming"
-                + " a regulatory control is implemented or proven somewhere it is not. Fix the"
-                + " register, not this test.",
+            "%d cited path(s) do not exist. Each one is a document asserting that a control, a"
+                + " mitigation or a procedure lives somewhere it does not. Fix the document, not"
+                + " this test.",
             missing.size())
         .isEmpty();
+  }
+
+  @Test
+  @DisplayName("the usability protocol's RK1 audit still matches what is built")
+  void theRk1AuditIsStillTrue() throws IOException {
+    Path root = repoRoot();
+    String protocol = Files.readString(root.resolve("docs/USABILITY-PROTOCOL.md"));
+
+    // The protocol's central claim is that three of RK1's six mitigations do not exist, and the
+    // sessions are designed around that. If one gets built and the protocol is not updated, the
+    // facilitator runs tasks aimed at deciding whether to build something that already exists —
+    // and the session is spent on a question with no decision attached.
+    assertThat(protocol).contains("Three of them do not exist");
+
+    assertThat(root.resolve("ui/studio-web/src/components/BelEditor.tsx"))
+        .as("the autocomplete-first editor is the one mitigation the protocol marks as built")
+        .exists();
+
+    // The read-only grid is the crux of the protocol's Task 4 recommendation, and the cheapest way
+    // for that recommendation to go stale is for the screen to become editable.
+    String structure =
+        Files.readString(root.resolve("ui/studio-web/src/screens/PolicyStructure.tsx"));
+    assertThat(structure)
+        .as(
+            "PolicyStructure is read-only, and the protocol tells a facilitator to resist building"
+                + " an editable grid until the evidence is specific. If it is now editable, update"
+                + " the protocol's RK1 table and Task 4 in the same commit.")
+        .contains("Read, not write");
   }
 
   @Test

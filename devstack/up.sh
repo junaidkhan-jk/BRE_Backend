@@ -206,8 +206,25 @@ if [[ "${1:-}" == "--seed" ]]; then
 fi
 
 if $WITH_REGISTRY; then
+  # The registry's manifests and bundles go with the database, and they have to go TOGETHER.
+  #
+  # The embedded PostgreSQL is a fresh temporary cluster on every run, so bre_ctl starts empty and
+  # the registry re-issues manifest versions from 1. The FILESYSTEM is not fresh — and a pod that
+  # starts before the deploy reads whatever manifest the last run left, which is also version 1.
+  # §8.1 versions are monotonic, so the pod correctly refuses the new version 1 as not newer, and
+  # then serves the PREVIOUS RUN'S POLICY while the registry reports the new one ACTIVE.
+  #
+  # That is not theoretical. It happened, and it approved an application the current policy
+  # declines: a rule added to the reference policy was simply absent from the bundle being served,
+  # and the only reason anybody noticed is that e2e.sh step 13 decides the fixtures and compares.
+  # Deleting the database's state without deleting the state that references it is the bug.
   log "starting embedded PostgreSQL (downloads a real server binary on first run)"
   rm -f "$PG_PROPERTIES"
+  # Only the manifests. Bundles are content-addressed, so a stale one cannot be served by
+  # accident — the manifest is the only thing that says which hash is the champion, and the
+  # manifest is therefore the only thing that can be stale. Deleting $VAR/bundles here would also
+  # delete the bundle the seeding step signed thirty seconds earlier, which is a different bug.
+  rm -rf "$VAR/manifests"
   (cd "$ROOT/backend" && nohup ./gradlew -q :services:policy-registry:devPostgres \
       --args="$PG_PROPERTIES" > "$VAR/postgres.log" 2>&1 & echo $! > "$POSTGRES_PID_FILE")
   for _ in $(seq 1 180); do

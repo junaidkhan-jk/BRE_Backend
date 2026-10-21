@@ -9,6 +9,8 @@ import java.nio.file.Path;
 import java.security.PublicKey;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The Active Pointer Manifest from a file, re-read when it changes (LLD §8.2, §8.5).
@@ -30,6 +32,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * not fall back to anything.
  */
 public final class FilePointerSource implements PointerSource {
+
+  private static final Logger log = LoggerFactory.getLogger(FilePointerSource.class);
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -79,9 +83,46 @@ public final class FilePointerSource implements PointerSource {
 
     PointerManifest inForce = current.get();
     if (inForce != null && candidate.manifestVersion() <= inForce.manifestVersion()) {
+      // LOUDLY. Refusing is correct — §8.1 versions are monotonic and an older manifest is either
+      // a rollback replay or a tampered file — but refusing SILENTLY leaves a pod serving a policy
+      // nobody deployed while the registry reports the new one ACTIVE, and nothing anywhere says
+      // so. That exact state happened in the devstack: the registry's database is recreated on
+      // every run so manifest versions restart at 1, a pod holding version 1 from the previous run
+      // refused an unrelated version 1, and it answered four applications from the PREVIOUS run's
+      // policy. One of them approved an application the current policy declines.
+      //
+      // At WARN, and only when the refusal would CHANGE what is served. The watcher polls every
+      // two seconds, so the overwhelmingly common case is the same manifest re-read — warning on
+      // that would bury the real one at 1,800 lines an hour. Comparing the CHAMPIONS rather than
+      // the documents is also the more useful comparison: a manifest that differs only in its
+      // issuedAt serves exactly the same policy, and the question an operator has is "am I serving
+      // something different from what was deployed".
+      if (!champions(candidate).equals(champions(inForce))) {
+        log.warn(
+            "REFUSED an Active Pointer Manifest: version {} is not newer than the version {} in"
+                + " force, and it names DIFFERENT champion bundles ({} vs {}). This pod keeps"
+                + " serving the older one. §8.1 versions are monotonic, so either a manifest was"
+                + " replayed or the registry's state was reset and is re-issuing versions it has"
+                + " already used.",
+            candidate.manifestVersion(),
+            inForce.manifestVersion(),
+            champions(candidate),
+            champions(inForce));
+      }
       return false;
     }
     current.set(candidate);
     return true;
+  }
+
+  /** What a manifest would have this pod serve: one champion bundle per tenant/env/policy. */
+  private static java.util.Map<String, String> champions(PointerManifest manifest) {
+    java.util.Map<String, String> byKey = new java.util.TreeMap<>();
+    for (PointerManifest.Entry entry : manifest.entries()) {
+      byKey.put(
+          entry.tenantId() + "/" + entry.environment() + "/" + entry.policyCode(),
+          entry.champion() == null ? "-" : entry.champion().bundleHash());
+    }
+    return byKey;
   }
 }
