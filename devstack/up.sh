@@ -476,6 +476,25 @@ cat <<INFO
   for the household over the regulatory obligation cap, and REFER for the soft-cap threshold.
   Anything else is a regression.
 
+  THERE IS NO POLICY REGISTRY AND NO STUDIO IN THIS MODE, and if you came here to open the
+  Rule Studio that is the thing to know. This started the decision service alone: it serves
+  decisions against the bundle above and nothing else. The studio signs in against the registry,
+  so with no registry running it can only report that it cannot reach the server.
+
+    $0 --registry
+        PostgreSQL, the policy registry on 8081, an admin account, and the full walk — author,
+        approve, deploy, decide, audit. Then, for the studio:
+            cd ../BRE_UI && VITE_USE_FIXTURES=false npm run dev
+        and sign in as admin@lender.local / devstack-admin-password
+
+    $0 --deliver
+        As --registry, plus a DURABLE decision log. Needed for the explanation viewer, replay
+        and the back-test, which all read the hot store.
+
+    $0 --sandbox
+        As --registry, plus one account per role, so maker-checker can be walked without
+        creating accounts by hand.
+
   The decision log is IN_MEMORY — not durable, every decision is lost on restart. For the
   durable path (D6: the decision, its idempotency key and its outbox event in ONE transaction)
   run the bre_dec migrations against your own PostgreSQL and set
