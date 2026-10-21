@@ -307,7 +307,7 @@ cat <<DONE
     authored   $POLICY v$VERSION, from reference-policy/mfi-jlg-credit-uw.psf.yaml
     bundle     $BUNDLE
     served by  $DECISIONS
-    studio     cd ui/studio-web && VITE_USE_FIXTURES=false \\
+    studio     cd ../BRE_UI && VITE_USE_FIXTURES=false \\
                VITE_REGISTRY_URL=$REGISTRY npm run dev
     sign in    $EMAIL / $PASSWORD
 

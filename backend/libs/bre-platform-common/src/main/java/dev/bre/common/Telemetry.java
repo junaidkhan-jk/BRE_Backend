@@ -175,7 +175,14 @@ public final class Telemetry {
             permitted.put(key, value);
           }
         });
-    return Map.copyOf(permitted);
+    // unmodifiableMap, NOT Map.copyOf, and the javadoc above is why. Map.copyOf returns an
+    // immutable map whose iteration order is UNSPECIFIED and randomised per JVM by a salt — so it
+    // threw away the LinkedHashMap's insertion order while this method promised to keep it. The
+    // test that asserts the order passed for weeks by luck and then failed on an unrelated build,
+    // which is the worst way for a flake to behave: a re-run makes it green and the re-run gets
+    // read as proof there was nothing wrong. unmodifiableMap keeps the order and is still immutable
+    // to the caller.
+    return java.util.Collections.unmodifiableMap(permitted);
   }
 
   /**

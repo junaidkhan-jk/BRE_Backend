@@ -12,6 +12,11 @@ produce evidence about that one percentage.
 
 ---
 
+> **The studio is a separate repository.** Paths below written `BRE_UI: src/…` are in
+> [BRE_UI](https://github.com/junaidkhan-jk/BRE_UI), not here, so the CI check that verifies this
+> document's citations cannot confirm them — it checks only the paths in this repository. Verify the
+> three RK1 rows against the UI repository by hand before a session.
+
 ## Read this before scheduling anything
 
 RK1's own entry in the risk register names six mitigations. **Three of them do not exist.** A
@@ -21,8 +26,8 @@ sessions — it is an argument for asking a different question, and the protocol
 
 | RK1 mitigation | Built? | Where |
 |---|---|---|
-| An **autocomplete-first editor** | **YES** | `ui/studio-web/src/components/BelEditor.tsx` — Monaco with a real completion provider, hover types, and live diagnostics from the actual type checker rather than a regex |
-| **Decision tables for most logic** | **PARTIAL — and this is the crux** | `ui/studio-web/src/screens/PolicyStructure.tsx` renders the grid with gap/overlap witnesses and row hit counts, **read-only and deliberately so**. Authoring a table means editing PSF text — and a table's `when` cells are BEL unary tests (§3.3), so the analyst is writing BEL *plus* YAML indentation. The mitigation as written ("tables instead of BEL") is not what the product currently offers |
+| An **autocomplete-first editor** | **YES** | `BRE_UI: src/components/BelEditor.tsx` — Monaco with a real completion provider, hover types, and live diagnostics from the actual type checker rather than a regex |
+| **Decision tables for most logic** | **PARTIAL — and this is the crux** | `BRE_UI: src/screens/PolicyStructure.tsx` renders the grid with gap/overlap witnesses and row hit counts, **read-only and deliberately so**. Authoring a table means editing PSF text — and a table's `when` cells are BEL unary tests (§3.3), so the analyst is writing BEL *plus* YAML indentation. The mitigation as written ("tables instead of BEL") is not what the product currently offers |
 | The **Authoring Guide with a cookbook** | **YES** | `BRE_PRD/draft2/04_Rule_Authoring_Guide.md` — §4 is 21 worked examples. It is a specification document, not in-product help; whether an analyst finds and uses it is one of the things to observe |
 | **Policy-sentence view** | **NO** | not built. The phrase appears only in source comments |
 | **Starter packs** | **NO** | not built |
@@ -57,7 +62,7 @@ establish a rate, and the report must not state one.
 
 ```bash
 ./devstack/up.sh --sandbox        # registry, PostgreSQL, one account per role
-cd ui/studio-web && VITE_USE_FIXTURES=false \
+cd ../BRE_UI && VITE_USE_FIXTURES=false \
     VITE_REGISTRY_URL=http://127.0.0.1:8081 npm run dev
 ```
 

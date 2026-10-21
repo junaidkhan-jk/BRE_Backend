@@ -9,7 +9,7 @@ build-logic/build/
 *.iml
 .vscode/
 
-# Node (apps/studio-web)
+# Node. The studio itself lives in the BRE_UI repository; this covers any local tooling.
 node_modules/
 dist/
 

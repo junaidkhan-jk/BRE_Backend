@@ -32,12 +32,18 @@ import org.junit.jupiter.api.Test;
 class ComplianceRegisterTest {
 
   /**
-   * A repository path inside backticks. Anchored on the two roots the register cites, so prose in
-   * backticks — a column name, a parameter, a SQL fragment — is not mistaken for a path.
+   * A repository path inside backticks. Anchored on the roots this repository actually has, so
+   * prose in backticks — a column name, a parameter, a SQL fragment — is not mistaken for a path.
+   *
+   * <p><b>{@code ui/} is deliberately not in the list.</b> The studio moved to its own repository
+   * (BRE_UI), so a citation of a UI file cannot be checked from here — and asserting it would fail
+   * the build for everybody who cloned only the backend, which is most people. Those citations are
+   * written {@code BRE_UI: src/…} in the documents so a reader can see they point elsewhere, and
+   * the usability protocol says in its own text that they are unverified by CI. A check that cannot
+   * run honestly is better removed than left to be worked around.
    */
   private static final Pattern REPO_PATH =
-      Pattern.compile(
-          "`((?:backend|docs|devstack|reference-policy|ui|BRE_PRD)/[A-Za-z0-9_./@-]+)`");
+      Pattern.compile("`((?:backend|docs|devstack|reference-policy|BRE_PRD)/[A-Za-z0-9_./@-]+)`");
 
   /**
    * The documents whose claims are anchored to code, and therefore rot.
@@ -122,20 +128,25 @@ class ComplianceRegisterTest {
     // and the session is spent on a question with no decision attached.
     assertThat(protocol).contains("Three of them do not exist");
 
-    assertThat(root.resolve("ui/studio-web/src/components/BelEditor.tsx"))
-        .as("the autocomplete-first editor is the one mitigation the protocol marks as built")
-        .exists();
-
-    // The read-only grid is the crux of the protocol's Task 4 recommendation, and the cheapest way
-    // for that recommendation to go stale is for the screen to become editable.
-    String structure =
-        Files.readString(root.resolve("ui/studio-web/src/screens/PolicyStructure.tsx"));
-    assertThat(structure)
-        .as(
-            "PolicyStructure is read-only, and the protocol tells a facilitator to resist building"
-                + " an editable grid until the evidence is specific. If it is now editable, update"
-                + " the protocol's RK1 table and Task 4 in the same commit.")
-        .contains("Read, not write");
+    // The file-existence checks these replaced pointed into ui/studio-web, which is now the BRE_UI
+    // repository. What survives the split is the claim itself: the protocol must keep saying which
+    // mitigations are missing and that the grid is read-only, because a facilitator who runs Task 4
+    // against a studio that has since gained an editable grid spends the session deciding whether
+    // to build something that already exists. Verifying the UI side is a manual step, and the
+    // protocol now says so in its own text rather than pretending CI covers it.
+    assertThat(protocol)
+        .as("the protocol must keep naming the three mitigations that do not exist")
+        // Ignoring case: both phrases appear capitalised in the RK1 table's rows and lower-case
+        // in the prose, and a case-sensitive assertion here fails on a document that says exactly
+        // what it should.
+        .containsIgnoringCase("policy-sentence view")
+        .containsIgnoringCase("starter pack");
+    assertThat(protocol)
+        .as("Task 4's recommendation rests on the grid being read-only; if that changed, say so")
+        .containsIgnoringCase("read-only");
+    assertThat(protocol)
+        .as("a reader must be able to see which citations CI cannot check")
+        .contains("BRE_UI");
   }
 
   @Test

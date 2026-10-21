@@ -93,58 +93,11 @@ jobs:
 
   # M5-09. Runs against the PRODUCTION bundle, not the dev server: the one UI defect this project
   # shipped was a bundling defect, and a suite that only exercised the dev server would have been
-  # green throughout.
-  studio:
-    name: Rule Studio end-to-end and accessibility
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: ui/studio-web
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: ui/studio-web/package-lock.json
-
-      - name: Install
-        run: npm ci
-
-      # Before the browser is installed, so a type error or a lint failure reports in seconds
-      # rather than after a two-minute download.
-      - name: Types
-        run: npx tsc -b --noEmit
-
-      # This step is why eslint.config.js exists. `npm run lint` was in package.json from the first
-      # commit with no config behind it, so it failed every time it ran and the Definition of
-      # Done's lint step checked nothing.
-      - name: Lint
-        run: npm run lint
-
-      - name: Unit tests
-        run: npm test
-
-      - name: Install the browser
-        run: npx playwright install --with-deps chromium
-
-      # Includes the axe audit, which fails on any WCAG 2.1 A or AA violation. An audit that only
-      # reports is an audit nobody reads.
-      - name: End-to-end and accessibility
-        run: npx playwright test
-
-      - name: Upload the report on failure
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: playwright-report
-          path: ui/studio-web/playwright-report/
-          retention-days: 7
-
+  # The Rule Studio's own gate lives in the UI repository (BRE_UI/.github/workflows/ci.yml), which
+  # is where its package-lock.json is. It ran here while the two were one repository; a job that
+  # checks out this repo and cd's into a directory that is no longer in it would fail on every PR,
+  # and a red gate nobody can fix is a gate people learn to ignore.
   # What this gate does NOT yet cover, written to the run summary.
   #
   # This was four separate jobs that each echoed a sentence and exited 0. That

@@ -326,7 +326,7 @@ day they disagree.
 The Rule Studio against the live registry:
 
 ```bash
-cd ui/studio-web
+cd ../BRE_UI        # the BRE_UI repository, cloned alongside this one
 VITE_USE_FIXTURES=false VITE_REGISTRY_URL=http://127.0.0.1:8081 npm run dev
 ```
 
